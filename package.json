@@ -1,10 +1,12 @@
 {
   "name": "inspt-prog3-driveandlearn-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend REST API para la escuela de manejo DriveAndLearn",
   "main": "dist/index.js",
+  "type": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
+    "test:run": "vitest --run",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/index.js"
@@ -16,17 +18,30 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "bugs": {
     "url": "https://github.com/SM03594/INSPT-Prog3-DriveAndLearn-backend/issues"
   },
   "homepage": "https://github.com/SM03594/INSPT-Prog3-DriveAndLearn-backend#readme",
   "dependencies": {
-    "express": "^5.2.1"
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.9.4"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.3.0",
-    "typescript": "^7.0.2"
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/ui": "^4.1.11",
+    "supertest": "^7.2.2",
+    "tsx": "^4.23.12",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
   }
 }
