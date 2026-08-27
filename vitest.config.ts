@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
 
     // Patrones de archivos de test
-    include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.spec.ts'],
     exclude: ['node_modules', 'dist'],
 
     // Timeout amplio para tests que tocan la base de datos
