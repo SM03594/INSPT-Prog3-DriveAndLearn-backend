@@ -3,9 +3,11 @@
     // Versión de JS a emitir (moderna, compatible con Node 18+)
     "target": "ES2022",
 
-    // CommonJS: máxima compatibilidad, sin necesidad de extensiones .js
-    // "nodenext" + package.json "type": "commonjs" emite CommonJS
-    // y NO dispara la deprecación de node10
+    // ESM nativo de Node: "nodenext" + package.json "type": "module"
+    // emite ECMAScript Modules (import/export reales).
+    // Consecuencia: los imports RELATIVOS deben llevar extensión
+    // explícita ".js" (aunque el archivo fuente sea .ts), tal como
+    // exige Node al resolver módulos ESM.
     "module": "nodenext",
     "moduleResolution": "nodenext",
 
