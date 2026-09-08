@@ -19,30 +19,37 @@ un modelo concreto del proyecto.
 | **TypeScript** | JavaScript con **tipos** que se chequean antes de ejecutar. | Nos permite tener un **tipo** `Producto` que describe la forma del documento, para que el editor autocomplete y el compilador avise si usás mal un campo. |
 
 Idea central: **el esquema de Mongoose es el "molde" en tiempo de ejecución, y el
-tipo de TypeScript es el mismo molde pero en tiempo de compilación.** En estos
-archivos escribimos el esquema una vez y *derivamos* el tipo de TS a partir de él,
-para no repetir la definición en dos lados.
+tipo de TypeScript es el mismo molde pero en tiempo de compilación.** Lo *ideal*
+sería escribir el esquema una sola vez y que TS *derive* el tipo a partir de él
+(con `InferSchemaType`). En este proyecto, por un problema de versiones
+(ver [§5](#5-el-tipo-de-los-datos-una-interfaz-a-mano)), escribimos **las dos
+cosas**: el esquema y **una interfaz a mano** con los mismos campos, y hay que
+mantenerlas sincronizadas.
 
 ---
 
 ## 2. El `import` de mongoose
 
 ```ts
-import { Schema, model, InferSchemaType, HydratedDocument } from 'mongoose';
+import { Schema, model, HydratedDocument } from 'mongoose';
 ```
 
-Esto trae cuatro cosas del paquete `mongoose`:
+Esto trae tres cosas del paquete `mongoose`:
 
 - **`Schema`** — clase para *construir* un esquema (valor, existe en runtime).
 - **`model`** — función para *crear el modelo* a partir de un esquema (valor).
-- **`InferSchemaType`** — *tipo* utilitario de TypeScript (no existe en runtime).
 - **`HydratedDocument`** — *tipo* utilitario de TypeScript (no existe en runtime).
 
+> En muchos tutoriales vas a ver un cuarto import, **`InferSchemaType`**, que
+> deriva el tipo del esquema automáticamente. En este proyecto **no lo usamos**
+> (ver [§5](#5-el-tipo-de-los-datos-una-interfaz-a-mano)): con la combinación de
+> versiones actual devuelve `unknown` en todos los campos.
+
 > **Valor vs tipo.** `Schema` y `model` son código que se ejecuta.
-> `InferSchemaType` y `HydratedDocument` son solo información para el compilador:
-> desaparecen cuando TypeScript se transpila a JavaScript. Por eso los primeros
-> dos "hacen algo" y los otros dos solo aparecen en anotaciones de tipo
-> (`type X = ...`, `: X`).
+> `HydratedDocument` (e `InferSchemaType`) son solo información para el
+> compilador: desaparecen cuando TypeScript se transpila a JavaScript. Por eso
+> `Schema`/`model` "hacen algo" y `HydratedDocument` solo aparece en anotaciones
+> de tipo (`type X = ...`, `: X`).
 
 ### Detalle de ESM: la extensión `.js` en los imports
 
@@ -147,14 +154,15 @@ const productoSchema = new Schema({
 
 - **`as const`** le dice a TypeScript: "esta tupla es de solo lectura y sus
   valores son literales exactos". Sin `as const`, el tipo sería `string[]`; con
-  `as const`, es `readonly ['bebida', 'comida', 'limpieza']`. Eso permite que más
-  adelante el tipo derivado del campo sea `'bebida' | 'comida' | 'limpieza'` en
-  vez de un `string` cualquiera.
+  `as const`, es `readonly ['bebida', 'comida', 'limpieza']`.
 - **`[...CATEGORIAS]`** hace una copia mutable del array, porque `enum.values`
   espera un array normal (no uno `readonly`).
 - **`{VALUE}`** en el mensaje lo reemplaza Mongoose por el valor que falló.
 - La forma corta `enum: [...CATEGORIAS]` también funciona si no te importa
   personalizar el mensaje.
+- En la **interfaz a mano** podés reusar esa lista para no repetir los literales:
+  `categoria: (typeof CATEGORIAS)[number]` (equivale a
+  `'bebida' | 'comida' | 'limpieza'`).
 
 ### 3.4 Opciones del esquema (segundo argumento)
 
@@ -205,7 +213,7 @@ new Schema(
 ## 4. `model('Producto', productoSchema)` — crear el modelo
 
 ```ts
-export const ProductoModel = model<Producto>('Producto', productoSchema);
+export const ProductoModel = model<ProductoInterface>('Producto', productoSchema);
 ```
 
 El **modelo** es el objeto con el que realmente interactuás con la base:
@@ -224,62 +232,84 @@ Sobre los argumentos y el genérico:
   `'Producto'` → colección `productos`, `'Auto'` → `autos`, `'Alumno'` →
   `alumnos`. (Si el plural automático no te sirve, se puede forzar el nombre de
   la colección con una opción del esquema, pero en este proyecto no hace falta.)
-- **`<Producto>`** — el tipo del documento (ver sección siguiente). Hace que
-  `ProductoModel.create(...)`, los resultados de `.find()`, etc. estén tipados.
+- **`<ProductoInterface>`** — la interfaz con la forma de los datos (ver sección
+  siguiente). Hace que `ProductoModel.create(...)`, los resultados de `.find()`,
+  etc. estén tipados.
 - `model()` **crea o recupera** el modelo: si ya se registró uno con ese nombre,
   te devuelve el existente. Por eso no pasa nada si el archivo se importa varias
   veces.
 
 Convención del proyecto: exportamos el modelo como `XxxModel` (`AutoModel`,
-`AlumnoModel`) y el **tipo** como `Xxx` (`Auto`, `Alumno`).
+`AlumnoModel`), la interfaz de datos como `XxxInterface` (`AutoInterface`,
+`AlumnoInterface`) y el tipo del documento hidratado como `XxxDoc` (`AutoDoc`,
+`AlumnoDoc`).
 
 ---
 
-## 5. `InferSchemaType` — derivar el tipo de TypeScript del esquema
+## 5. El tipo de los datos: una interfaz a mano
+
+```ts
+export interface ProductoInterface {
+  nombre: string;
+  precio: number;
+  categoria: string;
+  enStock: boolean;
+}
+```
+
+Esta interfaz describe la **forma de los datos** de un producto: qué campos tiene
+y de qué tipo. Es un **objeto plano** (los datos), no un documento de Mongoose con
+métodos. La usamos en dos lugares del modelo:
+
+- como genérico de `model<ProductoInterface>(...)`, para que `create`, `find`,
+  etc. estén tipados;
+- como base de `ProductoDoc` (sección siguiente).
+
+### Cómo traducir el esquema a la interfaz, campo por campo
+
+| En el esquema | En la interfaz |
+|---|---|
+| `required: true` (o con `default`) | `campo: T` |
+| sin `required` ni `default` | `campo?: T` |
+| `enum` (`['a', 'b']`) | `campo: 'a' \| 'b'`, o `string` si no te importa afinar |
+| `type: [String]` | `campo: string[]` |
+| `type: Schema.Types.ObjectId` | `campo: Types.ObjectId` (o `string`) |
+
+Los campos que agrega Mongoose (`createdAt` / `updatedAt` por `timestamps`) **no**
+van en esta interfaz salvo que los necesites tipados; si es así, agregalos a mano
+(`createdAt: Date; updatedAt: Date;`). El `_id` sí aparece igual en `ProductoDoc`
+porque lo pone `HydratedDocument`.
+
+### ¿Por qué a mano? `InferSchemaType`
+
+Mongoose trae un utilitario, `InferSchemaType`, que **lee el esquema y arma el
+tipo solo**:
 
 ```ts
 export type Producto = InferSchemaType<typeof productoSchema>;
+// -> { nombre: string; precio?: number | null; enStock: boolean; createdAt: Date; ... }
 ```
 
-`InferSchemaType` **lee el esquema y arma el tipo del documento
-automáticamente**. Desglose:
+La ventaja es enorme: si agregás un campo al esquema, el tipo se actualiza solo y
+no hay forma de que una interfaz aparte quede desincronizada.
 
-- **`typeof productoSchema`** — en TypeScript, `typeof` sobre una variable te da
-  *su tipo*. Necesitamos el tipo del schema (no el valor) para pasárselo al
-  utilitario.
-- **`InferSchemaType<...>`** — recorre los campos y produce algo equivalente a:
+**En este proyecto no lo usamos** porque con la combinación actual
+(`mongoose@9` + `typescript@6`) `InferSchemaType` devuelve `unknown` en todos los
+campos, y eso rompe cualquier código que dependa del tipo (por ejemplo
+`alumno.clasesPorReservar += 1` deja de compilar). Hasta que se resuelva —bajando
+TypeScript a la 5.x, o con una versión futura de Mongoose— escribimos la interfaz
+a mano.
 
-  ```ts
-  type Producto = {
-    nombre: string;
-    precio?: number | null;
-    categoria: 'bebida' | 'comida' | 'limpieza';
-    enStock: boolean;
-    createdAt: Date;   // por timestamps: true
-    updatedAt: Date;
-  };
-  ```
-
-**La gran ventaja:** si mañana agregás un campo al esquema, el tipo `Producto` se
-actualiza solo. No hay una interfaz escrita a mano que se pueda desincronizar del
-esquema real.
-
-Detalles de cómo infiere:
-
-- `required: true` → propiedad no opcional.
-- sin `required` → suele quedar opcional y `| null`.
-- `default` → la propiedad deja de ser opcional (siempre va a tener valor).
-- `enum` con `as const` → unión de literales en vez de `string`.
-
-Este tipo describe un **objeto plano** (los datos), no un documento de Mongoose
-con métodos.
+**El costo:** la interfaz y el `new Schema({...})` son dos definiciones separadas
+de la misma forma. Si tocás una, **acordate de tocar la otra**. Un comentario en
+cada modelo (`Auto.ts`, `Alumno.ts`) lo recuerda.
 
 ---
 
 ## 6. `HydratedDocument` — el tipo del documento "vivo"
 
 ```ts
-export type ProductoDoc = HydratedDocument<Producto>;
+export type ProductoDoc = HydratedDocument<ProductoInterface>;
 ```
 
 Cuando Mongoose te devuelve un documento (de `.create()`, `.findById()`, etc.),
@@ -295,16 +325,17 @@ prod._id;                 // ObjectId
 prod.isModified('precio');
 ```
 
-- **`HydratedDocument<Producto>`** = "los campos de `Producto`" **+** "las cosas
-  que Mongoose le agrega a cada documento" (`_id`, `save`, `toJSON`, `id`, ...).
-- Usás **`Producto`** (plano) cuando trabajás con datos "muertos": el body de un
-  request, un `.lean()`, un objeto que vas a serializar.
+- **`HydratedDocument<ProductoInterface>`** = "los campos de `ProductoInterface`"
+  **+** "las cosas que Mongoose le agrega a cada documento" (`_id`, `save`,
+  `toJSON`, `id`, ...).
+- Usás **`ProductoInterface`** (plano) cuando trabajás con datos "muertos": el
+  body de un request, un `.lean()`, un objeto que vas a serializar.
 - Usás **`ProductoDoc`** cuando necesitás un documento con el que vas a
   `.save()`, modificar campos, etc.
 
 | Necesito... | Tipo |
 |---|---|
-| describir la forma de los datos (input, respuesta, `.lean()`) | `Producto` |
+| describir la forma de los datos (input, respuesta, `.lean()`) | `ProductoInterface` |
 | una variable que sale de `findById` y le voy a hacer `.save()` | `ProductoDoc` |
 
 ---
@@ -312,7 +343,7 @@ prod.isModified('precio');
 ## 7. Cómo encaja todo (archivo completo comentado)
 
 ```ts
-import { Schema, model, InferSchemaType, HydratedDocument } from 'mongoose';
+import { Schema, model, HydratedDocument } from 'mongoose';
 
 // 1. Lista de valores permitidos, declarada una sola vez.
 export const CATEGORIAS = ['bebida', 'comida', 'limpieza'] as const;
@@ -321,7 +352,7 @@ export const CATEGORIAS = ['bebida', 'comida', 'limpieza'] as const;
 const productoSchema = new Schema(
   {
     nombre: { type: String, required: [true, 'El nombre es obligatorio'], trim: true },
-    precio: { type: Number, min: [0, 'El precio no puede ser negativo'] },
+    precio: { type: Number, min: [0, 'El precio no puede ser negativo'], default: 0 },
     categoria: {
       type: String,
       required: true,
@@ -340,27 +371,31 @@ const productoSchema = new Schema(
   },
 );
 
-// 3. El tipo de los datos, DERIVADO del esquema (no escrito a mano).
-export type Producto = InferSchemaType<typeof productoSchema>;
+// 3. La forma de los datos, escrita A MANO. Lo ideal sería
+//    InferSchemaType<typeof productoSchema>, pero hoy devuelve
+//    "unknown" (mongoose 9 + TS 6). Mantener sincronizada con (2).
+export interface ProductoInterface {
+  nombre: string;
+  precio: number;
+  categoria: string;
+  activo: boolean;
+}
 
-// 4. El tipo del documento "vivo" de Mongoose (con .save(), .toJSON(), ...).
-export type ProductoDoc = HydratedDocument<Producto>;
+// 4. El tipo del documento "vivo" de Mongoose (con .save(), .toJSON(), _id, ...).
+export type ProductoDoc = HydratedDocument<ProductoInterface>;
 
 // 5. El modelo: el objeto con el que se consulta la colección "productos".
-export const ProductoModel = model<Producto>('Producto', productoSchema);
+export const ProductoModel = model<ProductoInterface>('Producto', productoSchema);
 ```
 
-Flujo mental:
+Flujo mental — la misma forma se escribe **dos veces**, en paralelo:
 
 ```
-esquema (runtime)  ──InferSchemaType──▶  Producto (tipo, datos planos)
-     │                                        │
-     │                                   HydratedDocument
-     ▼                                        ▼
-model('Producto', esquema)  ─────────────▶  ProductoDoc (tipo, documento vivo)
-     │
-     ▼
-colección "productos" en MongoDB
+                    ┌─ new Schema({ ... })          ──▶  validación en runtime + colección "productos"
+  forma del     ────┤
+  producto          └─ interface ProductoInterface  ──HydratedDocument──▶  ProductoDoc (documento vivo)
+                          │
+                          └──▶  model<ProductoInterface>('Producto', productoSchema)
 ```
 
 ---
@@ -377,8 +412,9 @@ colección "productos" en MongoDB
 | **Setter** | Opción que *transforma* el valor antes de guardar (`trim`, `lowercase`). |
 | **Validador** | Opción que *acepta o rechaza* el valor (`required`, `enum`, `min`). |
 | **Índice único (`unique`)** | Regla a nivel MongoDB: no se repiten valores en ese campo. Violación → error `11000`. |
-| **`InferSchemaType`** | Utilitario de TS que arma el tipo de los datos a partir del esquema. |
-| **`HydratedDocument<T>`** | Utilitario de TS: los campos de `T` + lo que Mongoose agrega a cada documento. |
+| **Interfaz de datos (`XxxInterface`)** | La forma de los campos de una entidad, escrita a mano. Base de `XxxDoc` y genérico de `model<XxxInterface>()`. |
+| **`InferSchemaType`** | Utilitario de TS que arma el tipo a partir del esquema. En este proyecto **no se usa**: devuelve `unknown` con mongoose 9 + TS 6, por eso la interfaz va a mano. |
+| **`HydratedDocument<T>`** | Utilitario de TS: los campos de `T` + lo que Mongoose agrega a cada documento (`_id`, `.save()`, `.toJSON()`, ...). |
 | **`as const`** | Le pide a TS tratar un literal como de solo lectura y con valores exactos. |
 | **`typeof x` (en TS)** | El *tipo* de la variable `x`. |
 | **type assertion (`as T`)** | "Tratá esta expresión como de tipo `T`". No cambia nada en runtime. |
