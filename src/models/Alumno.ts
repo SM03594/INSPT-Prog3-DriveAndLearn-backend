@@ -2,7 +2,7 @@
 //  Alumno.ts — Modelo Mongoose de la colección "alumnos"
 // ============================================================
 
-import { Schema, model, InferSchemaType, HydratedDocument } from 'mongoose';
+import { Schema, model, HydratedDocument } from 'mongoose';
 
 // ============================================================
 //  Definición del esquema
@@ -53,8 +53,13 @@ const alumnoSchema = new Schema(
 );
 
 
-export type Alumno = InferSchemaType<typeof alumnoSchema>;
+export interface AlumnoInterface {
+  email: string;
+  password: string; // en la base: hash de bcrypt
+  nomApe: string;
+  clasesPorReservar: number;
+}
 
-export type AlumnoDoc = HydratedDocument<Alumno>;
+export type AlumnoDoc = HydratedDocument<AlumnoInterface>;
 
-export const AlumnoModel = model<Alumno>('Alumno', alumnoSchema);
+export const AlumnoModel = model<AlumnoInterface>('Alumno', alumnoSchema);
