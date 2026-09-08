@@ -48,6 +48,8 @@ const autoSchema = new Schema(
     // timestamps: agrega automáticamente createdAt y updatedAt.
     timestamps: true,
 
+    collection: 'autos',
+
     toJSON: {
       transform: (_doc, ret) => {
         //res.json(auto): sacamos el __v (contador interno de versión de Mongoose) para no ensuciar la respuesta de la API.

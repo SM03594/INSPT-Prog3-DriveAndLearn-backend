@@ -1,13 +1,11 @@
 // ============================================================
-//  Alumno.ts — Modelo Mongoose de la colección "alumnos"
+//  Administrador.ts — Modelo Mongoose de la colección "administradores"
 // ============================================================
 
 import { Schema, model, HydratedDocument } from 'mongoose';
 
-// ============================================================
-//  Definición del esquema
-// ============================================================
-const alumnoSchema = new Schema(
+
+const administradorSchema = new Schema(
   {
     email: {
       type: String,
@@ -21,7 +19,7 @@ const alumnoSchema = new Schema(
       type: String,
       required: [true, 'La contraseña es obligatoria'],
       // Guardamos el hash de bcrypt, nunca la contraseña en texto plano.
-      // El hasheo se hace en el service antes de crear el alumno.
+      // El hasheo se hace en el service antes de crear el administrador.
     },
 
     nomApe: {
@@ -29,22 +27,15 @@ const alumnoSchema = new Schema(
       required: [true, 'El nombre y apellido es obligatorio'],
       trim: true,
     },
-
-    clasesPorReservar: {
-      type: Number,
-      required: [true, 'La cantidad de clases por reservar es obligatoria'],
-      min: [0, 'clasesPorReservar no puede ser negativo'],
-      default: 0,
-    },
   },
   {
     timestamps: true,
 
-    collection: 'alumnos',
+    collection: 'administradores',
 
     toJSON: {
       transform: (_doc, ret) => {
-        // res.json(alumno): sacamos el __v (contador interno de versión de
+        // res.json(admin): sacamos el __v (contador interno de versión de
         // Mongoose) y el password (aunque sea un hash, no debe salir de la API).
         delete (ret as Record<string, unknown>).__v;
         delete (ret as Record<string, unknown>).password;
@@ -55,13 +46,17 @@ const alumnoSchema = new Schema(
 );
 
 
-export interface AlumnoInterface {
+export interface AdministradorInterface {
   email: string;
   password: string; // en la base: hash de bcrypt
   nomApe: string;
-  clasesPorReservar: number;
 }
 
-export type AlumnoDoc = HydratedDocument<AlumnoInterface>;
 
-export const AlumnoModel = model<AlumnoInterface>('Alumno', alumnoSchema);
+export type AdministradorDoc = HydratedDocument<AdministradorInterface>;
+
+
+export const AdministradorModel = model<AdministradorInterface>(
+  'Administrador',
+  administradorSchema,
+);
