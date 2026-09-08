@@ -2,7 +2,7 @@
 //  Auto.ts — Modelo Mongoose de la colección "autos"
 // ============================================================
 
-import { Schema, model, InferSchemaType, HydratedDocument } from 'mongoose';
+import { Schema, model, HydratedDocument } from 'mongoose';
 
 // --- Valores permitidos para "cambios" ---
 export const CAMBIOS = ['automatico', 'manual'] as const;
@@ -58,17 +58,19 @@ const autoSchema = new Schema(
   },
 );
 
-// ============================================================
-//  Tipos derivados del esquema (para TypeScript)
-// ============================================================
-// InferSchemaType lee el esquema y arma el tipo del documento
-// automáticamente. Si mañana agregás un campo al esquema, el
-// tipo se actualiza solo.
-export type Auto = InferSchemaType<typeof autoSchema>;
+
+export interface AutoInterface {
+  marca: string;
+  modelo: string;
+  patente: string;
+  cambios: string;
+  activo: boolean;
+}
 
 // HydratedDocument = un documento "vivo" de Mongoose (con
-// métodos como .save(), .toJSON(), etc.), no un objeto plano.
-export type AutoDoc = HydratedDocument<Auto>;
+// métodos como .save(), .toJSON(), y campos como _id), no un
+// objeto plano.
+export type AutoDoc = HydratedDocument<AutoInterface>;
 
 // ============================================================
 //  El modelo
@@ -76,4 +78,4 @@ export type AutoDoc = HydratedDocument<Auto>;
 // model('Auto', schema) crea (o recupera) el modelo. Mongoose
 // pluraliza y pasa a minúsculas el nombre para la colección:
 // "Auto" -> colección "autos" (que es justo lo que queremos).
-export const AutoModel = model<Auto>('Auto', autoSchema);
+export const AutoModel = model<AutoInterface>('Auto', autoSchema);

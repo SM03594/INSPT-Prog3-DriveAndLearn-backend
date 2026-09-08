@@ -2,18 +2,11 @@
 //  auto.service.ts — Capa de servicio de Autos
 // ============================================================
 
-import { AutoModel, type AutoDoc } from '../models/Auto.js';
-
-// Campos que aceptamos al crear o actualizar un auto. El
-// controller ya se encarga de que al service NUNCA le lleguen
-// otros campos (por ejemplo un _id inventado por el cliente).
-export interface DatosAuto {
-  marca: string;
-  modelo: string;
-  patente: string;
-  cambios: string;
-  activo: boolean;
-}
+import {
+  AutoModel,
+  type AutoDoc,
+  type AutoInterface,
+} from '../models/Auto.js';
 
 
 export async function listar(): Promise<AutoDoc[]> {
@@ -26,7 +19,7 @@ export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
 }
 
 
-export async function crear(datos: DatosAuto): Promise<AutoDoc> {
+export async function crear(datos: AutoInterface): Promise<AutoDoc> {
   return AutoModel.create(datos);
 }
 
@@ -34,11 +27,11 @@ export async function crear(datos: DatosAuto): Promise<AutoDoc> {
 //  actualizar — modifica un auto existente
 // ============================================================
 // "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<DatosAuto>. Devuelve el auto YA actualizado,
+// por eso es Partial<AutoInterface>. Devuelve el auto YA actualizado,
 // o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<DatosAuto>,
+  cambios: Partial<AutoInterface>,
 ): Promise<AutoDoc | null> {
   return AutoModel.findByIdAndUpdate(id, cambios, {
     new: true, // devolver el documento actualizado, no el previo
