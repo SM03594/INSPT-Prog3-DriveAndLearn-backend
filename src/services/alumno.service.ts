@@ -7,7 +7,7 @@ import bcrypt from 'bcrypt';
 import {
   AlumnoModel,
   type AlumnoDoc,
-  type AlumnoInterface,
+  type Alumno,
 } from '../models/Alumno.js';
 
 
@@ -37,7 +37,7 @@ export async function obtenerPorId(id: string): Promise<AlumnoDoc | null> {
 // queda el texto plano. Si "password" no vino, NO llamamos a
 // bcrypt: dejamos que sea el validador "required" del esquema
 // el que rechace la creación con un ValidationError.
-export async function crear(datos: AlumnoInterface): Promise<AlumnoDoc> {
+export async function crear(datos: Alumno): Promise<AlumnoDoc> {
   const datosAGuardar =
     typeof datos.password === 'string'
       ? { ...datos, password: await bcrypt.hash(datos.password, BCRYPT_ROUNDS) }
@@ -54,7 +54,7 @@ export async function crear(datos: AlumnoInterface): Promise<AlumnoDoc> {
 // actualizado, o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<AlumnoInterface>,
+  cambios: Partial<Alumno>,
 ): Promise<AlumnoDoc | null> {
   return AlumnoModel.findByIdAndUpdate(id, cambios, {
     new: true, // devolver el documento actualizado, no el previo

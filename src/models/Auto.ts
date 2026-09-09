@@ -61,7 +61,7 @@ const autoSchema = new Schema(
 );
 
 
-export interface AutoInterface {
+export interface Auto {
   marca: string;
   modelo: string;
   patente: string;
@@ -72,7 +72,7 @@ export interface AutoInterface {
 // HydratedDocument = un documento "vivo" de Mongoose (con
 // métodos como .save(), .toJSON(), y campos como _id), no un
 // objeto plano.
-export type AutoDoc = HydratedDocument<AutoInterface>;
+export type AutoDoc = HydratedDocument<Auto>;
 
 // ============================================================
 //  El modelo
@@ -80,4 +80,4 @@ export type AutoDoc = HydratedDocument<AutoInterface>;
 // model('Auto', schema) crea (o recupera) el modelo. Mongoose
 // pluraliza y pasa a minúsculas el nombre para la colección:
 // "Auto" -> colección "autos" (que es justo lo que queremos).
-export const AutoModel = model<AutoInterface>('Auto', autoSchema);
+export const AutoModel = model<Auto>('Auto', autoSchema);

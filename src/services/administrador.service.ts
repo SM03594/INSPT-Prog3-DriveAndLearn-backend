@@ -10,11 +10,11 @@ import bcrypt from 'bcrypt';
 import {
   AdministradorModel,
   type AdministradorDoc,
-  type AdministradorInterface,
+  type Administrador,
 } from '../models/Administrador.js';
 
 // La forma del administrador (los campos que aceptamos al
-// crear/actualizar) vive en el model, como AdministradorInterface.
+// crear/actualizar) vive en el model, como Administrador.
 
 // Cantidad de rondas de sal que usa bcrypt para hashear.
 const BCRYPT_ROUNDS = 10;
@@ -43,7 +43,7 @@ export async function obtenerPorId(
 // bcrypt: dejamos que sea el validador "required" del esquema
 // el que rechace la creación con un ValidationError.
 export async function crear(
-  datos: AdministradorInterface,
+  datos: Administrador,
 ): Promise<AdministradorDoc> {
   const datosAGuardar =
     typeof datos.password === 'string'
@@ -57,11 +57,11 @@ export async function crear(
 //  actualizar — modifica un administrador existente
 // ============================================================
 // "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<AdministradorInterface>. Devuelve el
+// por eso es Partial<Administrador>. Devuelve el
 // administrador YA actualizado, o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<AdministradorInterface>,
+  cambios: Partial<Administrador>,
 ): Promise<AdministradorDoc | null> {
   return AdministradorModel.findByIdAndUpdate(id, cambios, {
     new: true, // devolver el documento actualizado, no el previo

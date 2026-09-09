@@ -213,7 +213,7 @@ new Schema(
 ## 4. `model('Producto', productoSchema)` — crear el modelo
 
 ```ts
-export const ProductoModel = model<ProductoInterface>('Producto', productoSchema);
+export const ProductoModel = model<Producto>('Producto', productoSchema);
 ```
 
 El **modelo** es el objeto con el que realmente interactuás con la base:
@@ -232,7 +232,7 @@ Sobre los argumentos y el genérico:
   `'Producto'` → colección `productos`, `'Auto'` → `autos`, `'Alumno'` →
   `alumnos`. (Si el plural automático no te sirve, se puede forzar el nombre de
   la colección con una opción del esquema, pero en este proyecto no hace falta.)
-- **`<ProductoInterface>`** — la interfaz con la forma de los datos (ver sección
+- **`<Producto>`** — la interfaz con la forma de los datos (ver sección
   siguiente). Hace que `ProductoModel.create(...)`, los resultados de `.find()`,
   etc. estén tipados.
 - `model()` **crea o recupera** el modelo: si ya se registró uno con ese nombre,
@@ -240,16 +240,16 @@ Sobre los argumentos y el genérico:
   veces.
 
 Convención del proyecto: exportamos el modelo como `XxxModel` (`AutoModel`,
-`AlumnoModel`), la interfaz de datos como `XxxInterface` (`AutoInterface`,
-`AlumnoInterface`) y el tipo del documento hidratado como `XxxDoc` (`AutoDoc`,
-`AlumnoDoc`).
+`AlumnoModel`), la interfaz de datos con **el nombre de la entidad** (`Auto`,
+`Alumno`, `Administrador`) y el tipo del documento hidratado como `XxxDoc`
+(`AutoDoc`, `AlumnoDoc`).
 
 ---
 
 ## 5. El tipo de los datos: una interfaz a mano
 
 ```ts
-export interface ProductoInterface {
+export interface Producto {
   nombre: string;
   precio: number;
   categoria: string;
@@ -261,7 +261,7 @@ Esta interfaz describe la **forma de los datos** de un producto: qué campos tie
 y de qué tipo. Es un **objeto plano** (los datos), no un documento de Mongoose con
 métodos. La usamos en dos lugares del modelo:
 
-- como genérico de `model<ProductoInterface>(...)`, para que `create`, `find`,
+- como genérico de `model<Producto>(...)`, para que `create`, `find`,
   etc. estén tipados;
 - como base de `ProductoDoc` (sección siguiente).
 
@@ -309,7 +309,7 @@ cada modelo (`Auto.ts`, `Alumno.ts`) lo recuerda.
 ## 6. `HydratedDocument` — el tipo del documento "vivo"
 
 ```ts
-export type ProductoDoc = HydratedDocument<ProductoInterface>;
+export type ProductoDoc = HydratedDocument<Producto>;
 ```
 
 Cuando Mongoose te devuelve un documento (de `.create()`, `.findById()`, etc.),
@@ -325,17 +325,17 @@ prod._id;                 // ObjectId
 prod.isModified('precio');
 ```
 
-- **`HydratedDocument<ProductoInterface>`** = "los campos de `ProductoInterface`"
+- **`HydratedDocument<Producto>`** = "los campos de `Producto`"
   **+** "las cosas que Mongoose le agrega a cada documento" (`_id`, `save`,
   `toJSON`, `id`, ...).
-- Usás **`ProductoInterface`** (plano) cuando trabajás con datos "muertos": el
+- Usás **`Producto`** (plano) cuando trabajás con datos "muertos": el
   body de un request, un `.lean()`, un objeto que vas a serializar.
 - Usás **`ProductoDoc`** cuando necesitás un documento con el que vas a
   `.save()`, modificar campos, etc.
 
 | Necesito... | Tipo |
 |---|---|
-| describir la forma de los datos (input, respuesta, `.lean()`) | `ProductoInterface` |
+| describir la forma de los datos (input, respuesta, `.lean()`) | `Producto` |
 | una variable que sale de `findById` y le voy a hacer `.save()` | `ProductoDoc` |
 
 ---
@@ -374,7 +374,7 @@ const productoSchema = new Schema(
 // 3. La forma de los datos, escrita A MANO. Lo ideal sería
 //    InferSchemaType<typeof productoSchema>, pero hoy devuelve
 //    "unknown" (mongoose 9 + TS 6). Mantener sincronizada con (2).
-export interface ProductoInterface {
+export interface Producto {
   nombre: string;
   precio: number;
   categoria: string;
@@ -382,10 +382,10 @@ export interface ProductoInterface {
 }
 
 // 4. El tipo del documento "vivo" de Mongoose (con .save(), .toJSON(), _id, ...).
-export type ProductoDoc = HydratedDocument<ProductoInterface>;
+export type ProductoDoc = HydratedDocument<Producto>;
 
 // 5. El modelo: el objeto con el que se consulta la colección "productos".
-export const ProductoModel = model<ProductoInterface>('Producto', productoSchema);
+export const ProductoModel = model<Producto>('Producto', productoSchema);
 ```
 
 Flujo mental — la misma forma se escribe **dos veces**, en paralelo:
@@ -393,9 +393,9 @@ Flujo mental — la misma forma se escribe **dos veces**, en paralelo:
 ```
                     ┌─ new Schema({ ... })          ──▶  validación en runtime + colección "productos"
   forma del     ────┤
-  producto          └─ interface ProductoInterface  ──HydratedDocument──▶  ProductoDoc (documento vivo)
+  producto          └─ interface Producto  ──HydratedDocument──▶  ProductoDoc (documento vivo)
                           │
-                          └──▶  model<ProductoInterface>('Producto', productoSchema)
+                          └──▶  model<Producto>('Producto', productoSchema)
 ```
 
 ---
@@ -412,7 +412,7 @@ Flujo mental — la misma forma se escribe **dos veces**, en paralelo:
 | **Setter** | Opción que *transforma* el valor antes de guardar (`trim`, `lowercase`). |
 | **Validador** | Opción que *acepta o rechaza* el valor (`required`, `enum`, `min`). |
 | **Índice único (`unique`)** | Regla a nivel MongoDB: no se repiten valores en ese campo. Violación → error `11000`. |
-| **Interfaz de datos (`XxxInterface`)** | La forma de los campos de una entidad, escrita a mano. Base de `XxxDoc` y genérico de `model<XxxInterface>()`. |
+| **Interfaz de datos (`Auto`, `Alumno`, …)** | La forma de los campos de una entidad, escrita a mano, con el nombre de la entidad. Base de `XxxDoc` y genérico de `model<Xxx>()`. |
 | **`InferSchemaType`** | Utilitario de TS que arma el tipo a partir del esquema. En este proyecto **no se usa**: devuelve `unknown` con mongoose 9 + TS 6, por eso la interfaz va a mano. |
 | **`HydratedDocument<T>`** | Utilitario de TS: los campos de `T` + lo que Mongoose agrega a cada documento (`_id`, `.save()`, `.toJSON()`, ...). |
 | **`as const`** | Le pide a TS tratar un literal como de solo lectura y con valores exactos. |

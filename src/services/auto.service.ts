@@ -5,7 +5,7 @@
 import {
   AutoModel,
   type AutoDoc,
-  type AutoInterface,
+  type Auto,
 } from '../models/Auto.js';
 
 
@@ -19,7 +19,7 @@ export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
 }
 
 
-export async function crear(datos: AutoInterface): Promise<AutoDoc> {
+export async function crear(datos: Auto): Promise<AutoDoc> {
   return AutoModel.create(datos);
 }
 
@@ -27,11 +27,11 @@ export async function crear(datos: AutoInterface): Promise<AutoDoc> {
 //  actualizar — modifica un auto existente
 // ============================================================
 // "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<AutoInterface>. Devuelve el auto YA actualizado,
+// por eso es Partial<Auto>. Devuelve el auto YA actualizado,
 // o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<AutoInterface>,
+  cambios: Partial<Auto>,
 ): Promise<AutoDoc | null> {
   return AutoModel.findByIdAndUpdate(id, cambios, {
     new: true, // devolver el documento actualizado, no el previo

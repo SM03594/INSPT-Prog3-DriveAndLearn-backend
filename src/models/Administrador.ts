@@ -46,17 +46,17 @@ const administradorSchema = new Schema(
 );
 
 
-export interface AdministradorInterface {
+export interface Administrador {
   email: string;
   password: string; // en la base: hash de bcrypt
   nomApe: string;
 }
 
 
-export type AdministradorDoc = HydratedDocument<AdministradorInterface>;
+export type AdministradorDoc = HydratedDocument<Administrador>;
 
 
-export const AdministradorModel = model<AdministradorInterface>(
+export const AdministradorModel = model<Administrador>(
   'Administrador',
   administradorSchema,
 );

@@ -55,13 +55,13 @@ const alumnoSchema = new Schema(
 );
 
 
-export interface AlumnoInterface {
+export interface Alumno {
   email: string;
   password: string; // en la base: hash de bcrypt
   nomApe: string;
   clasesPorReservar: number;
 }
 
-export type AlumnoDoc = HydratedDocument<AlumnoInterface>;
+export type AlumnoDoc = HydratedDocument<Alumno>;
 
-export const AlumnoModel = model<AlumnoInterface>('Alumno', alumnoSchema);
+export const AlumnoModel = model<Alumno>('Alumno', alumnoSchema);

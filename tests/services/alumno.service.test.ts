@@ -12,13 +12,13 @@ import {
   sumarClasesPorReservar,
   restarClasesPorReservar,
 } from '../../src/services/alumno.service.js';
-import type { AlumnoInterface } from '../../src/models/Alumno.js';
+import type { Alumno } from '../../src/models/Alumno.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
 
 // Datos de ejemplo reutilizables.
-const datosValidos: AlumnoInterface = {
+const datosValidos: Alumno = {
   email: 'ana@example.com',
   password: 'unHashDeBcrypt',
   nomApe: 'Ana Pérez',
@@ -48,7 +48,7 @@ describe('alumno.service', () => {
 
     it('pone clasesPorReservar=0 por defecto si no se especifica', async () => {
       const { clasesPorReservar: _omitido, ...sinClases } = datosValidos;
-      const alumno = await crear(sinClases as AlumnoInterface);
+      const alumno = await crear(sinClases as Alumno);
 
       expect(alumno.clasesPorReservar).toBe(0);
     });
@@ -56,7 +56,7 @@ describe('alumno.service', () => {
     it('tira ValidationError si falta el email', async () => {
       const { email: _omitido, ...sinEmail } = datosValidos;
 
-      await expect(crear(sinEmail as AlumnoInterface)).rejects.toThrow(
+      await expect(crear(sinEmail as Alumno)).rejects.toThrow(
         /email es obligatorio/,
       );
     });
@@ -64,7 +64,7 @@ describe('alumno.service', () => {
     it('tira ValidationError si falta la password', async () => {
       const { password: _omitido, ...sinPassword } = datosValidos;
 
-      await expect(crear(sinPassword as AlumnoInterface)).rejects.toThrow(
+      await expect(crear(sinPassword as Alumno)).rejects.toThrow(
         /contraseña es obligatoria/,
       );
     });

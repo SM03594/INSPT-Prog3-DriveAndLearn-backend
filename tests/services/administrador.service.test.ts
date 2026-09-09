@@ -11,13 +11,13 @@ import {
   crear,
   actualizar,
 } from '../../src/services/administrador.service.js';
-import type { AdministradorInterface } from '../../src/models/Administrador.js';
+import type { Administrador } from '../../src/models/Administrador.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
 
 // Datos de ejemplo reutilizables.
-const datosValidos: AdministradorInterface = {
+const datosValidos: Administrador = {
   email: 'admin@example.com',
   password: 'unHashDeBcrypt',
   nomApe: 'Admin Root',
@@ -47,7 +47,7 @@ describe('administrador.service', () => {
     it('tira ValidationError si falta el email', async () => {
       const { email: _omitido, ...sinEmail } = datosValidos;
 
-      await expect(crear(sinEmail as AdministradorInterface)).rejects.toThrow(
+      await expect(crear(sinEmail as Administrador)).rejects.toThrow(
         /email es obligatorio/,
       );
     });
@@ -55,7 +55,7 @@ describe('administrador.service', () => {
     it('tira ValidationError si falta la password', async () => {
       const { password: _omitido, ...sinPassword } = datosValidos;
 
-      await expect(crear(sinPassword as AdministradorInterface)).rejects.toThrow(
+      await expect(crear(sinPassword as Administrador)).rejects.toThrow(
         /contraseña es obligatoria/,
       );
     });
@@ -63,7 +63,7 @@ describe('administrador.service', () => {
     it('tira ValidationError si falta el nombre y apellido', async () => {
       const { nomApe: _omitido, ...sinNomApe } = datosValidos;
 
-      await expect(crear(sinNomApe as AdministradorInterface)).rejects.toThrow(
+      await expect(crear(sinNomApe as Administrador)).rejects.toThrow(
         /nombre y apellido es obligatorio/,
       );
     });
