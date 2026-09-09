@@ -11,9 +11,14 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
 
-    // Estructura de entrada/salida
-    "rootDir": "./src",
-    "outDir": "./dist",
+    // Este tsconfig es SOLO para chequear tipos: lo usa el editor y
+    // "npm run typecheck", y abarca src/ + tests/. "noEmit" hace que
+    // "tsc" no genere ningún .js/.d.ts (los tests los ejecuta Vitest,
+    // no tsc). La compilación real a dist/ vive en tsconfig.build.json,
+    // que reactiva la emisión pero solo sobre src/.
+    // (Por eso "sourceMap"/"declaration" de acá abajo recién tienen
+    //  efecto a través de tsconfig.build.json.)
+    "noEmit": true,
 
     // Interoperabilidad con módulos CommonJS (import default de Express, etc.)
     "esModuleInterop": true,
@@ -33,6 +38,6 @@
     "declaration": true
   },
 
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"]
 }
