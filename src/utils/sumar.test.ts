@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sumar } from './sumar';
+import { sumar } from './sumar.js';
 
 describe('sumar', () => {
   it('suma dos números positivos', () => {

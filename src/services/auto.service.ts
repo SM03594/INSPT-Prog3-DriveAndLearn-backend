@@ -34,7 +34,7 @@ export async function actualizar(
   cambios: Partial<AutoInterface>,
 ): Promise<AutoDoc | null> {
   return AutoModel.findByIdAndUpdate(id, cambios, {
-    new: true, // devolver el documento actualizado, no el previo
+    returnDocument: 'after', // devolver el documento actualizado, no el previo
     runValidators: true, // correr las validaciones del esquema también en el update
   });
 }
@@ -49,7 +49,7 @@ export async function cambiarEstado(
   return AutoModel.findByIdAndUpdate(
     id,
     { activo: estadoNuevo },
-    { new: true, runValidators: true }, //devolcer el documento acutalizado
+    { returnDocument: 'after', runValidators: true }, //devolcer el documento acutalizado
   );
 }
 

@@ -2,7 +2,6 @@
 //  alumno.service.ts — Capa de servicio de Alumnos
 // ============================================================
 
-
 import bcrypt from 'bcrypt';
 import {
   AlumnoModel,
@@ -10,9 +9,22 @@ import {
   type AlumnoInterface,
 } from '../models/Alumno.js';
 
-
 // Cantidad de rondas de sal que usa bcrypt para hashear.
 const BCRYPT_ROUNDS = 10;
+
+function crearErrorDeCantidad(mensaje: string): Error & { status: number } {
+  const error = new Error(mensaje) as Error & { status: number };
+  error.status = 400;
+  return error;
+}
+
+function validarCantidad(cantidad: unknown, operacion: 'sumar' | 'restar'): asserts cantidad is number {
+  if (typeof cantidad !== 'number' || !Number.isInteger(cantidad) || cantidad < 0) {
+    throw crearErrorDeCantidad(
+      `La cantidad a ${operacion} debe ser un número entero mayor o igual a 0.`,
+    );
+  }
+}
 
 // ============================================================
 //  listar — todos los alumnos
@@ -57,8 +69,8 @@ export async function actualizar(
   cambios: Partial<AlumnoInterface>,
 ): Promise<AlumnoDoc | null> {
   return AlumnoModel.findByIdAndUpdate(id, cambios, {
-    new: true, // devolver el documento actualizado, no el previo
-    runValidators: true, // correr las validaciones del esquema también en el update
+    returnDocument: 'after',
+    runValidators: true,
   });
 }
 
@@ -91,9 +103,7 @@ export async function sumarClasesPorReservar(
   id: string,
   cantidad: number,
 ): Promise<AlumnoDoc | null> {
-  if (cantidad < 0) {
-    throw new Error('La cantidad a sumar no puede ser negativa');
-  }
+  validarCantidad(cantidad, 'sumar');
   return ajustarClasesPorReservar(id, cantidad);
 }
 
@@ -107,8 +117,6 @@ export async function restarClasesPorReservar(
   id: string,
   cantidad: number,
 ): Promise<AlumnoDoc | null> {
-  if (cantidad < 0) {
-    throw new Error('La cantidad a restar no puede ser negativa');
-  }
+  validarCantidad(cantidad, 'restar');
   return ajustarClasesPorReservar(id, -cantidad);
 }
