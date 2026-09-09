@@ -1,22 +1,8 @@
 // ============================================================
-//  Horario.ts — Sub-esquemas de horarios, compartidos
+//  Horario.ts — Piezas atómicas de horarios, compartidas
 // ============================================================
-// Piezas reutilizables para modelar "un día + una franja horaria":
-// Este archivo NO define un modelo/colección propio: solo exporta
-// los sub-esquemas y sus tipos para embeberlos en otros esquemas.
 
-import { Schema, Types } from 'mongoose';
-
-// --- Días de la semana válidos para un horario de disponibilidad ---
-export const DIAS = [
-  'lunes',
-  'martes',
-  'miercoles',
-  'jueves',
-  'viernes',
-  'sabado',
-  'domingo',
-] as const;
+import { Schema } from 'mongoose';
 
 const MENSAJE_VALIDADOR_HORA = 'La hora debe estar entre 0 y 23';
 const MENSAJE_VALIDADOR_MINUTO = 'Los minutos deben estar entre 0 y 59';
@@ -54,52 +40,7 @@ export const horaDelDiaSchema = new Schema(
 export const aMinutos = (h: { hora: number; minuto: number }): number =>
   h.hora * 60 + h.minuto;
 
-// ============================================================
-//  Sub-esquema: un tramo de horario ("día + franja horaria")
-// ============================================================
-export const horarioSchema = new Schema({
-  dia: {
-    type: String,
-    required: [true, 'El día del horario es obligatorio'],
-    enum: {
-      values: [...DIAS],
-      message: 'día inválido (recibido: "{VALUE}")',
-    },
-  },
-  horaInicio: {
-    type: horaDelDiaSchema,
-    required: [true, 'La hora de inicio es obligatoria'],
-  },
-  horaFin: {
-    type: horaDelDiaSchema,
-    required: [true, 'La hora de fin es obligatoria'],
-  },
-});
-
-// Regla entre campos (validación a mano): el fin tiene que ser
-// posterior al inicio. Se corre cuando se valida el subdocumento
-// (es decir, al hacer .save() del documento que lo contiene).
-horarioSchema.pre('validate', async function () {
-  const inicio = this.get('horaInicio') as HoraDelDia | undefined;
-  const fin = this.get('horaFin') as HoraDelDia | undefined;
-
-  if (inicio && fin && aMinutos(inicio) >= aMinutos(fin)) {
-    this.invalidate(
-      'horaFin',
-      'La hora de fin debe ser posterior a la de inicio',
-    );
-  }
-});
-
-
 export interface HoraDelDia {
   hora: number; // 0–23
   minuto: number; // 0–59
-}
-
-export interface Horario {
-  _id?: Types.ObjectId; // lo genera Mongoose al agregar el intervalo
-  dia: (typeof DIAS)[number]; // 'lunes' | 'martes' | ... | 'domingo'
-  horaInicio: HoraDelDia;
-  horaFin: HoraDelDia;
 }

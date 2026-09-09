@@ -13,7 +13,11 @@ import {
   quitarDisponibilidad,
 } from '../../src/services/profesor.service.js';
 import { ProfesorModel } from '../../src/models/Profesor.js';
-import type { Horario } from '../../src/models/Horario.js';
+import type {
+  CalendarioSemanal,
+  Tramo,
+} from '../../src/models/CalendarioSemanal.js';
+import type { Dia } from '../../src/models/CalendarioSemanal.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
@@ -21,20 +25,22 @@ setupTestDB();
 // Un ObjectId con forma válida pero que no existe en la base.
 const ID_INEXISTENTE = '64b7f0f0f0f0f0f0f0f0f0f0';
 
-// Intervalos de disponibilidad de ejemplo.
-const LUNES: Horario = {
-  dia: 'lunes',
+// Un día que no existe, para los casos de error.
+const DIA_INVALIDO = 'narnia' as unknown as Dia;
+
+// Tramos de ejemplo (una franja horaria de inicio a fin).
+const MANIANA: Tramo = {
   horaInicio: { hora: 9, minuto: 0 },
   horaFin: { hora: 12, minuto: 0 },
 };
-const MARTES: Horario = {
-  dia: 'martes',
+const TARDE: Tramo = {
   horaInicio: { hora: 14, minuto: 0 },
   horaFin: { hora: 18, minuto: 0 },
 };
 
-// Helper: crea un profesor de prueba (con la disponibilidad que se le pase).
-const crearProfesor = (disponibilidad: Horario[] = []) =>
+// Helper: crea un profesor de prueba. "disponibilidad" es parcial;
+// los días que no se pasen arrancan como [].
+const crearProfesor = (disponibilidad: Partial<CalendarioSemanal> = {}) =>
   ProfesorModel.create({ nomApe: 'Juan Docente', disponibilidad });
 
 describe('profesor.service', () => {
@@ -121,7 +127,7 @@ describe('profesor.service', () => {
 
     it('tira ValidationError si la foto supera el tamaño máximo (2 MiB)', async () => {
       const creado = await crearProfesor();
-      const fotoEnorme = Buffer.alloc(2 * (Math.pow(1024, 2)) + 1); // 2 MiB + 1 byte
+      const fotoEnorme = Buffer.alloc(2 * Math.pow(1024, 2) + 1); // 2 MiB + 1 byte
 
       await expect(
         cambiarFotoPerfil(creado._id.toString(), fotoEnorme),
@@ -133,49 +139,70 @@ describe('profesor.service', () => {
   //  agregarDisponibilidad
   // --------------------------------------------------------
   describe('agregarDisponibilidad', () => {
-    it('agrega un intervalo al array y devuelve el doc actualizado', async () => {
+    it('agrega un tramo al día indicado y devuelve el doc actualizado', async () => {
       const creado = await crearProfesor();
 
-      const res = await agregarDisponibilidad(creado._id.toString(), LUNES);
+      const res = await agregarDisponibilidad(
+        creado._id.toString(),
+        'lunes',
+        MANIANA,
+      );
 
-      expect(res?.disponibilidad).toHaveLength(1);
-      expect(res?.disponibilidad[0]?._id).toBeDefined(); // Mongoose le asigna un _id
-      expect(res?.disponibilidad[0]?.dia).toBe('lunes');
-      expect(res?.disponibilidad[0]?.horaInicio?.hora).toBe(9);
-      expect(res?.disponibilidad[0]?.horaInicio?.minuto).toBe(0);
-      expect(res?.disponibilidad[0]?.horaFin?.hora).toBe(12);
+      expect(res?.disponibilidad.lunes).toHaveLength(1);
+      expect(res?.disponibilidad.lunes[0]?._id).toBeDefined(); // _id del tramo
+      expect(res?.disponibilidad.lunes[0]?.horaInicio?.hora).toBe(9);
+      expect(res?.disponibilidad.lunes[0]?.horaInicio?.minuto).toBe(0);
+      expect(res?.disponibilidad.lunes[0]?.horaFin?.hora).toBe(12);
+      // los otros días siguen vacíos
+      expect(res?.disponibilidad.martes).toHaveLength(0);
     });
 
-    it('acumula intervalos (no pisa los que ya había)', async () => {
-      const creado = await crearProfesor([LUNES]);
+    it('acumula tramos en el mismo día (no pisa los que ya había)', async () => {
+      const creado = await crearProfesor({ lunes: [MANIANA] });
 
-      const res = await agregarDisponibilidad(creado._id.toString(), MARTES);
+      const res = await agregarDisponibilidad(
+        creado._id.toString(),
+        'lunes',
+        TARDE,
+      );
 
-      expect(res?.disponibilidad).toHaveLength(2);
-      expect(res?.disponibilidad[1]?.dia).toBe('martes');
+      expect(res?.disponibilidad.lunes).toHaveLength(2);
+      expect(res?.disponibilidad.lunes[1]?.horaInicio?.hora).toBe(14);
+    });
+
+    it('cada día es independiente', async () => {
+      const creado = await crearProfesor({ lunes: [MANIANA] });
+
+      const res = await agregarDisponibilidad(
+        creado._id.toString(),
+        'martes',
+        TARDE,
+      );
+
+      expect(res?.disponibilidad.lunes).toHaveLength(1);
+      expect(res?.disponibilidad.martes).toHaveLength(1);
     });
 
     it('devuelve null si el profesor no existe', async () => {
-      expect(await agregarDisponibilidad(ID_INEXISTENTE, LUNES)).toBeNull();
+      expect(
+        await agregarDisponibilidad(ID_INEXISTENTE, 'lunes', MANIANA),
+      ).toBeNull();
     });
 
-    it('tira ValidationError si el intervalo tiene un día inválido', async () => {
+    it('tira error si el día no es válido', async () => {
       const creado = await crearProfesor();
 
       await expect(
-        agregarDisponibilidad(creado._id.toString(), {
-          ...LUNES,
-          dia: 'algo' as Horario['dia'],
-        }),
-      ).rejects.toThrow(/día inválido/);
+        agregarDisponibilidad(creado._id.toString(), DIA_INVALIDO, MANIANA),
+      ).rejects.toThrow(/día/i);
     });
 
     it('tira ValidationError si los minutos están fuera de rango', async () => {
       const creado = await crearProfesor();
 
       await expect(
-        agregarDisponibilidad(creado._id.toString(), {
-          ...LUNES,
+        agregarDisponibilidad(creado._id.toString(), 'lunes', {
+          ...MANIANA,
           horaInicio: { hora: 9, minuto: 99 },
         }),
       ).rejects.toThrow(/entre 0 y 59/);
@@ -185,8 +212,7 @@ describe('profesor.service', () => {
       const creado = await crearProfesor();
 
       await expect(
-        agregarDisponibilidad(creado._id.toString(), {
-          dia: 'lunes',
+        agregarDisponibilidad(creado._id.toString(), 'lunes', {
           horaInicio: { hora: 12, minuto: 0 },
           horaFin: { hora: 9, minuto: 0 },
         }),
@@ -198,28 +224,58 @@ describe('profesor.service', () => {
   //  quitarDisponibilidad
   // --------------------------------------------------------
   describe('quitarDisponibilidad', () => {
-    it('quita el intervalo del id dado y devuelve el doc actualizado', async () => {
-      const creado = await crearProfesor([LUNES, MARTES]);
-      const horarioId = creado.disponibilidad[0]!._id!.toString();
+    it('quita el tramo del id dado (dentro de su día) y devuelve el doc', async () => {
+      const creado = await crearProfesor({ lunes: [MANIANA, TARDE] });
+      const tramoId = creado.disponibilidad.lunes[0]!._id!.toString();
 
-      const res = await quitarDisponibilidad(creado._id.toString(), horarioId);
+      const res = await quitarDisponibilidad(
+        creado._id.toString(),
+        'lunes',
+        tramoId,
+      );
 
-      expect(res?.disponibilidad).toHaveLength(1);
-      expect(res?.disponibilidad[0]?.dia).toBe('martes');
+      expect(res?.disponibilidad.lunes).toHaveLength(1);
+      expect(res?.disponibilidad.lunes[0]?.horaInicio?.hora).toBe(14); // quedó TARDE
     });
 
     it('devuelve null si el profesor no existe', async () => {
       expect(
-        await quitarDisponibilidad(ID_INEXISTENTE, ID_INEXISTENTE),
+        await quitarDisponibilidad(ID_INEXISTENTE, 'lunes', ID_INEXISTENTE),
       ).toBeNull();
     });
 
-    it('devuelve null si el id de intervalo no existe', async () => {
-      const creado = await crearProfesor([LUNES]);
+    it('devuelve null si no hay un tramo con ese id en ese día', async () => {
+      const creado = await crearProfesor({ lunes: [MANIANA] });
 
       expect(
-        await quitarDisponibilidad(creado._id.toString(), ID_INEXISTENTE),
+        await quitarDisponibilidad(
+          creado._id.toString(),
+          'lunes',
+          ID_INEXISTENTE,
+        ),
       ).toBeNull();
+    });
+
+    it('devuelve null si el tramo existe pero en otro día', async () => {
+      const creado = await crearProfesor({ lunes: [MANIANA] });
+      const tramoId = creado.disponibilidad.lunes[0]!._id!.toString();
+
+      // el tramo está en lunes, se pide quitarlo de martes
+      expect(
+        await quitarDisponibilidad(creado._id.toString(), 'martes', tramoId),
+      ).toBeNull();
+    });
+
+    it('tira error si el día no es válido', async () => {
+      const creado = await crearProfesor();
+
+      await expect(
+        quitarDisponibilidad(
+          creado._id.toString(),
+          DIA_INVALIDO,
+          ID_INEXISTENTE,
+        ),
+      ).rejects.toThrow(/día/i);
     });
   });
 });

@@ -2,9 +2,9 @@
 //  profesor.service.ts — Capa de servicio de Profesores
 // ============================================================
 
-
 import { ProfesorModel, type ProfesorDoc } from '../models/Profesor.js';
-import type { Horario } from '../models/Horario.js';
+import type { Tramo, Dia } from '../models/CalendarioSemanal.js';
+import { agregarTramo, quitarTramo } from './calendarioSemanal.service.js';
 
 // ============================================================
 //  listar — todos los profesores
@@ -39,10 +39,6 @@ export async function cambiarNomApe(
 // ============================================================
 //  cambiarFotoPerfil — reemplaza la foto de perfil
 // ============================================================
-// Vía findById + .save() (no findByIdAndUpdate): los "update
-// validators" le pasan al validador un BSON Binary sin .length,
-// y el chequeo de tamaño máximo (2 MiB) daría siempre inválido.
-// Con .save() el valor es un Buffer real y el validador funciona.
 export async function cambiarFotoPerfil(
   id: string,
   foto: Buffer,
@@ -55,38 +51,33 @@ export async function cambiarFotoPerfil(
 }
 
 // ============================================================
-//  agregarDisponibilidad — suma un intervalo al array
+//  agregarDisponibilidad — suma un tramo al día indicado
 // ============================================================
 export async function agregarDisponibilidad(
   id: string,
-  horario: Horario,
+  dia: Dia,
+  tramo: Tramo,
 ): Promise<ProfesorDoc | null> {
   const profesor = await ProfesorModel.findById(id);
   if (profesor === null) return null;
 
-  profesor.disponibilidad.push(horario);
+  agregarTramo(profesor.disponibilidad, dia, tramo);
   return profesor.save();
 }
 
-/*
-  Pendiente: validar que no se pisen los horarios
-*/
-
 // ============================================================
-//  quitarDisponibilidad — elimina el intervalo con ese _id
+//  quitarDisponibilidad — elimina el tramo con ese _id
 // ============================================================
 export async function quitarDisponibilidad(
   id: string,
-  horarioId: string,
+  dia: Dia,
+  tramoId: string,
 ): Promise<ProfesorDoc | null> {
   const profesor = await ProfesorModel.findById(id);
   if (profesor === null) return null;
 
-  const indice = profesor.disponibilidad.findIndex(
-    (h) => h._id?.toString() === horarioId,
-  );
-  if (indice === -1) return null;
+  const quitado = quitarTramo(profesor.disponibilidad, dia, tramoId);
+  if (!quitado) return null;
 
-  profesor.disponibilidad.splice(indice, 1);
   return profesor.save();
 }

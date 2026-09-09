@@ -3,7 +3,11 @@
 // ============================================================
 
 import { Schema, model, HydratedDocument } from 'mongoose';
-import { horarioSchema, type Horario } from './Horario.js';
+import {
+  calendarioSemanalSchema,
+  crearCalendarioSemanal,
+  type CalendarioSemanal,
+} from './CalendarioSemanal.js';
 
 const MAX_FOTO_BYTES: number = 2 * Math.pow(1024, 2); // 2 MiB
 
@@ -20,9 +24,12 @@ const profesorSchema = new Schema(
     },
 
     disponibilidad: {
-      type: [horarioSchema],
-      required: true,
-      default: [], // arranca vacía; el admin define los horarios después
+      type: calendarioSemanalSchema,
+      // arranca como { lunes: [], martes: [], ... }; el admin carga
+      // los tramos de cada día después. Va como función (no como
+      // objeto literal) para que cada profesor tenga SU propio
+      // calendario y no compartan la misma instancia.
+      default: crearCalendarioSemanal,
     },
 
     fotoPerfil: {
@@ -53,7 +60,7 @@ const profesorSchema = new Schema(
 
 export interface Profesor {
   nomApe: string;
-  disponibilidad: Horario[];
+  disponibilidad: CalendarioSemanal;
   fotoPerfil?: Buffer;
 }
 
