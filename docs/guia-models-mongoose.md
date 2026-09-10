@@ -8,6 +8,9 @@ lo más básico.
 Los ejemplos son genéricos (usamos una entidad imaginaria `Producto`), no copian
 un modelo concreto del proyecto.
 
+Compañera de esta guía: [guia-capa-service.md](guia-capa-service.md) explica la
+capa que usa estos modelos.
+
 ---
 
 ## 1. El panorama: ¿qué es cada tecnología?
