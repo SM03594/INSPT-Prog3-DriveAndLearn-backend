@@ -2,7 +2,7 @@
 //  Auto.ts — Modelo Mongoose de la colección "autos"
 // ============================================================
 
-import { Schema, model, HydratedDocument } from 'mongoose';
+import { Schema, model, HydratedDocument, InferSchemaType } from 'mongoose';
 
 // --- Valores permitidos para "cambios" ---
 export const CAMBIOS = ['automatico', 'manual'] as const;
@@ -34,7 +34,7 @@ const autoSchema = new Schema(
       type: String,
       required: [true, 'El tipo de cambios es obligatorio'],
       enum: {
-        values: [...CAMBIOS],
+        values: CAMBIOS,
         message: 'cambios debe ser "automatico" o "manual" (recibido: "{VALUE}")',
       },
     },
@@ -59,18 +59,16 @@ const autoSchema = new Schema(
 );
 
 
-export interface AutoInterface {
-  marca: string;
-  modelo: string;
-  patente: string;
-  cambios: string;
-  activo: boolean;
-}
+export type Auto = InferSchemaType<typeof autoSchema>;
+
+// Alias compatible con el proyecto actual, pero el origen de verdad
+// pasa a ser el esquema y no una interface duplicada.
+export type AutoInterface = Auto;
 
 // HydratedDocument = un documento "vivo" de Mongoose (con
 // métodos como .save(), .toJSON(), y campos como _id), no un
 // objeto plano.
-export type AutoDoc = HydratedDocument<AutoInterface>;
+export type AutoDoc = HydratedDocument<Auto>;
 
 // ============================================================
 //  El modelo
@@ -78,4 +76,4 @@ export type AutoDoc = HydratedDocument<AutoInterface>;
 // model('Auto', schema) crea (o recupera) el modelo. Mongoose
 // pluraliza y pasa a minúsculas el nombre para la colección:
 // "Auto" -> colección "autos" (que es justo lo que queremos).
-export const AutoModel = model<AutoInterface>('Auto', autoSchema);
+export const AutoModel = model<Auto>('Auto', autoSchema);

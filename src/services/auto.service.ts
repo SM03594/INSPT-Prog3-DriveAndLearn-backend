@@ -4,23 +4,37 @@
 
 import {
   AutoModel,
+  type Auto,
   type AutoDoc,
-  type AutoInterface,
 } from '../models/Auto.js';
 
+function esErrorDeClaveDuplicada(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: number }).code === 11000
+  );
+}
 
 export async function listar(): Promise<AutoDoc[]> {
   return AutoModel.find();
 }
 
-
 export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
   return AutoModel.findById(id);
 }
 
+export async function crear(datos: Auto): Promise<AutoDoc> {
+  try {
+    return await AutoModel.create(datos);
+  } catch (error) {
+    if (esErrorDeClaveDuplicada(error)) {
+      throw new Error('Ya existe un auto con esos datos.');
+    }
 
-export async function crear(datos: AutoInterface): Promise<AutoDoc> {
-  return AutoModel.create(datos);
+    throw error;
+  }
 }
 
 // ============================================================
@@ -31,12 +45,20 @@ export async function crear(datos: AutoInterface): Promise<AutoDoc> {
 // o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<AutoInterface>,
+  cambios: Partial<Auto>,
 ): Promise<AutoDoc | null> {
-  return AutoModel.findByIdAndUpdate(id, cambios, {
-    returnDocument: 'after', // devolver el documento actualizado, no el previo
-    runValidators: true, // correr las validaciones del esquema también en el update
-  });
+  try {
+    return await AutoModel.findByIdAndUpdate(id, cambios, {
+      returnDocument: 'after',
+      runValidators: true,
+    });
+  } catch (error) {
+    if (esErrorDeClaveDuplicada(error)) {
+      throw new Error('Ya existe un auto con esos datos.');
+    }
+
+    throw error;
+  }
 }
 
 // ============================================================
@@ -49,7 +71,7 @@ export async function cambiarEstado(
   return AutoModel.findByIdAndUpdate(
     id,
     { activo: estadoNuevo },
-    { returnDocument: 'after', runValidators: true }, //devolcer el documento acutalizado
+    { returnDocument: 'after', runValidators: true },
   );
 }
 

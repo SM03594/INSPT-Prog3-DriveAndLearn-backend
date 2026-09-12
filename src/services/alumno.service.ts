@@ -5,17 +5,41 @@
 import bcrypt from 'bcrypt';
 import {
   AlumnoModel,
+  type Alumno,
   type AlumnoDoc,
-  type AlumnoInterface,
 } from '../models/Alumno.js';
 
 // Cantidad de rondas de sal que usa bcrypt para hashear.
 const BCRYPT_ROUNDS = 10;
 
-function crearErrorDeCantidad(mensaje: string): Error & { status: number } {
-  const error = new Error(mensaje) as Error & { status: number };
-  error.status = 400;
-  return error;
+type AlumnoConSaldo = AlumnoDoc & {
+  clasesPorReservar: number;
+};
+
+async function prepararDatosAlumno(
+  datos: Alumno | Partial<Alumno>,
+): Promise<Alumno | Partial<Alumno>> {
+  if (typeof datos.password !== 'string') {
+    return datos;
+  }
+
+  return {
+    ...datos,
+    password: await bcrypt.hash(datos.password, BCRYPT_ROUNDS),
+  };
+}
+
+function crearErrorDeCantidad(mensaje: string): Error {
+  return new Error(mensaje);
+}
+
+function esErrorDeClaveDuplicada(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: number }).code === 11000
+  );
 }
 
 function validarCantidad(cantidad: unknown, operacion: 'sumar' | 'restar'): asserts cantidad is number {
@@ -49,13 +73,18 @@ export async function obtenerPorId(id: string): Promise<AlumnoDoc | null> {
 // queda el texto plano. Si "password" no vino, NO llamamos a
 // bcrypt: dejamos que sea el validador "required" del esquema
 // el que rechace la creación con un ValidationError.
-export async function crear(datos: AlumnoInterface): Promise<AlumnoDoc> {
-  const datosAGuardar =
-    typeof datos.password === 'string'
-      ? { ...datos, password: await bcrypt.hash(datos.password, BCRYPT_ROUNDS) }
-      : datos;
+export async function crear(datos: Alumno): Promise<AlumnoDoc> {
+  const datosAGuardar = await prepararDatosAlumno(datos);
 
-  return AlumnoModel.create(datosAGuardar);
+  try {
+    return await AlumnoModel.create(datosAGuardar);
+  } catch (error) {
+    if (esErrorDeClaveDuplicada(error)) {
+      throw new Error('Ya existe un alumno con esos datos.');
+    }
+
+    throw error;
+  }
 }
 
 // ============================================================
@@ -66,12 +95,22 @@ export async function crear(datos: AlumnoInterface): Promise<AlumnoDoc> {
 // actualizado, o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<AlumnoInterface>,
+  cambios: Partial<Alumno>,
 ): Promise<AlumnoDoc | null> {
-  return AlumnoModel.findByIdAndUpdate(id, cambios, {
-    returnDocument: 'after',
-    runValidators: true,
-  });
+  const datosActualizados = await prepararDatosAlumno(cambios);
+
+  try {
+    return await AlumnoModel.findByIdAndUpdate(id, datosActualizados, {
+      returnDocument: 'after',
+      runValidators: true,
+    });
+  } catch (error) {
+    if (esErrorDeClaveDuplicada(error)) {
+      throw new Error('Ya existe un alumno con esos datos.');
+    }
+
+    throw error;
+  }
 }
 
 // ============================================================
@@ -86,7 +125,7 @@ async function ajustarClasesPorReservar(
   id: string,
   delta: number,
 ): Promise<AlumnoDoc | null> {
-  const alumno = await AlumnoModel.findById(id);
+  const alumno = (await AlumnoModel.findById(id)) as AlumnoConSaldo | null;
   if (alumno === null) return null;
 
   alumno.clasesPorReservar += delta;

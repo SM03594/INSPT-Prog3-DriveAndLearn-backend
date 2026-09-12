@@ -75,10 +75,12 @@ describe('alumno.service', () => {
       ).rejects.toThrow(/clasesPorReservar/);
     });
 
-    it('tira error de clave duplicada (11000) si el email ya existe', async () => {
+    it('tira un error con mensaje humano si el email ya existe', async () => {
       await crear(datosValidos);
 
-      await expect(crear(datosValidos)).rejects.toMatchObject({ code: 11000 });
+      await expect(crear(datosValidos)).rejects.toThrow(
+        /Ya existe un alumno con esos datos./,
+      );
     });
   });
 
@@ -138,6 +140,17 @@ describe('alumno.service', () => {
       expect(
         await actualizar(ID_INEXISTENTE, { nomApe: 'X' }),
       ).toBeNull();
+    });
+
+    it('hashea la contraseña si se actualiza', async () => {
+      const creado = await crear(datosValidos);
+
+      const actualizado = await actualizar(creado._id.toString(), {
+        password: 'nuevaPassword123',
+      });
+
+      expect(actualizado?.password).not.toBe('nuevaPassword123');
+      expect(actualizado?.password).toMatch(/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/);
     });
 
     it('tira ValidationError si se manda clasesPorReservar negativo (runValidators)', async () => {

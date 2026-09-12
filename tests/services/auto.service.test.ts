@@ -68,10 +68,12 @@ describe('auto.service', () => {
       ).rejects.toThrow(/cambios/);
     });
 
-    it('tira error de clave duplicada (11000) si la patente ya existe', async () => {
+    it('tira un error con mensaje humano si la patente ya existe', async () => {
       await crear(datosValidos);
 
-      await expect(crear(datosValidos)).rejects.toMatchObject({ code: 11000 });
+      await expect(crear(datosValidos)).rejects.toThrow(
+        /Ya existe un auto con esos datos./,
+      );
     });
   });
 
