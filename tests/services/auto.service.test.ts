@@ -12,13 +12,13 @@ import {
   actualizar,
   cambiarEstado,
 } from '../../src/services/auto.service.js';
-import type { AutoInterface } from '../../src/models/Auto.js';
+import type { Auto } from '../../src/models/Auto.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
 
 // Datos de ejemplo reutilizables.
-const datosValidos: AutoInterface = {
+const datosValidos: Auto = {
   marca: 'Toyota',
   modelo: 'Corolla',
   patente: 'AB123CD',
@@ -49,7 +49,7 @@ describe('auto.service', () => {
       // activo: _omitido hace que el atributo activo se guarde en la varible _omitido
       // mientras que el resto de los atributos en sinActivo
       const { activo: _omitido, ...sinActivo } = datosValidos;
-      const auto = await crear(sinActivo as AutoInterface);
+      const auto = await crear(sinActivo as Auto);
 
       expect(auto.activo).toBe(true);
     });
@@ -57,14 +57,14 @@ describe('auto.service', () => {
     it('tira ValidationError si falta la patente', async () => {
       const { patente: _omitido, ...sinPatente } = datosValidos;
 
-      await expect(crear(sinPatente as AutoInterface)).rejects.toThrow(
+      await expect(crear(sinPatente as Auto)).rejects.toThrow(
         /patente es obligatoria/,
       );
     });
 
     it('tira ValidationError si "cambios" no está en el enum', async () => {
       await expect(
-        crear({ ...datosValidos, cambios: 'cohete' as AutoInterface['cambios'] }),
+        crear({ ...datosValidos, cambios: 'cohete' as Auto['cambios'] }),
       ).rejects.toThrow(/cambios/);
     });
 
@@ -138,7 +138,7 @@ describe('auto.service', () => {
 
       await expect(
         actualizar(creado._id.toString(), {
-          cambios: 'cohete' as AutoInterface['cambios'],
+          cambios: 'cohete' as Auto['cambios'],
         }),
       ).rejects.toThrow(/cambios/);
     });

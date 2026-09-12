@@ -40,6 +40,8 @@ const alumnoSchema = new Schema(
   {
     timestamps: true,
 
+    collection: 'alumnos',
+
     toJSON: {
       transform: (_doc, ret) => {
         // res.json(alumno): sacamos el __v (contador interno de versión de
@@ -53,6 +55,7 @@ const alumnoSchema = new Schema(
 );
 
 
+<<<<<<< HEAD
 export type Alumno = InferSchemaType<typeof alumnoSchema>;
 
 // Alias compatible con el proyecto actual, pero el origen de verdad
@@ -61,4 +64,15 @@ export type AlumnoInterface = Alumno;
 
 export type AlumnoDoc = HydratedDocument<Alumno>;
 
+=======
+export interface Alumno {
+  email: string;
+  password: string; // en la base: hash de bcrypt
+  nomApe: string;
+  clasesPorReservar: number;
+}
+
+export type AlumnoDoc = HydratedDocument<Alumno>;
+
+>>>>>>> origin/main
 export const AlumnoModel = model<Alumno>('Alumno', alumnoSchema);

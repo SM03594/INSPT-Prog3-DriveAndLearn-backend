@@ -48,6 +48,8 @@ const autoSchema = new Schema(
     // timestamps: agrega automáticamente createdAt y updatedAt.
     timestamps: true,
 
+    collection: 'autos',
+
     toJSON: {
       transform: (_doc, ret) => {
         //res.json(auto): sacamos el __v (contador interno de versión de Mongoose) para no ensuciar la respuesta de la API.
@@ -59,11 +61,21 @@ const autoSchema = new Schema(
 );
 
 
+<<<<<<< HEAD
 export type Auto = InferSchemaType<typeof autoSchema>;
 
 // Alias compatible con el proyecto actual, pero el origen de verdad
 // pasa a ser el esquema y no una interface duplicada.
 export type AutoInterface = Auto;
+=======
+export interface Auto {
+  marca: string;
+  modelo: string;
+  patente: string;
+  cambios: string;
+  activo: boolean;
+}
+>>>>>>> origin/main
 
 // HydratedDocument = un documento "vivo" de Mongoose (con
 // métodos como .save(), .toJSON(), y campos como _id), no un

@@ -6,6 +6,10 @@ import {
   AutoModel,
   type Auto,
   type AutoDoc,
+<<<<<<< HEAD
+=======
+  type Auto,
+>>>>>>> origin/main
 } from '../models/Auto.js';
 
 function esErrorDeClaveDuplicada(error: unknown): boolean {
@@ -33,15 +37,20 @@ export async function crear(datos: Auto): Promise<AutoDoc> {
       throw new Error('Ya existe un auto con esos datos.');
     }
 
+<<<<<<< HEAD
     throw error;
   }
+=======
+export async function crear(datos: Auto): Promise<AutoDoc> {
+  return AutoModel.create(datos);
+>>>>>>> origin/main
 }
 
 // ============================================================
 //  actualizar — modifica un auto existente
 // ============================================================
 // "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<AutoInterface>. Devuelve el auto YA actualizado,
+// por eso es Partial<Auto>. Devuelve el auto YA actualizado,
 // o null si el id no existe.
 export async function actualizar(
   id: string,
