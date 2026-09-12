@@ -20,7 +20,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-//app.use('/api/autos', autosRoutes);
+app.use('/api/autos', autosRoutes);
 
 // Ninguna ruta anterior matcheó.
 app.use((_req, res) => {
