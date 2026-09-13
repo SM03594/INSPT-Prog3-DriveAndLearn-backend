@@ -2,7 +2,7 @@
 //  Auto.ts — Modelo Mongoose de la colección "autos"
 // ============================================================
 
-import { Schema, model, HydratedDocument, InferSchemaType } from 'mongoose';
+import { Schema, model, HydratedDocument } from 'mongoose';
 
 // --- Valores permitidos para "cambios" ---
 export const CAMBIOS = ['automatico', 'manual'] as const;
@@ -34,7 +34,7 @@ const autoSchema = new Schema(
       type: String,
       required: [true, 'El tipo de cambios es obligatorio'],
       enum: {
-        values: CAMBIOS,
+        values: [...CAMBIOS],
         message: 'cambios debe ser "automatico" o "manual" (recibido: "{VALUE}")',
       },
     },
@@ -61,13 +61,6 @@ const autoSchema = new Schema(
 );
 
 
-<<<<<<< HEAD
-export type Auto = InferSchemaType<typeof autoSchema>;
-
-// Alias compatible con el proyecto actual, pero el origen de verdad
-// pasa a ser el esquema y no una interface duplicada.
-export type AutoInterface = Auto;
-=======
 export interface Auto {
   marca: string;
   modelo: string;
@@ -75,7 +68,6 @@ export interface Auto {
   cambios: string;
   activo: boolean;
 }
->>>>>>> origin/main
 
 // HydratedDocument = un documento "vivo" de Mongoose (con
 // métodos como .save(), .toJSON(), y campos como _id), no un

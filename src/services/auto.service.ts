@@ -4,46 +4,23 @@
 
 import {
   AutoModel,
-  type Auto,
   type AutoDoc,
-<<<<<<< HEAD
-=======
   type Auto,
->>>>>>> origin/main
 } from '../models/Auto.js';
 
-function esErrorDeClaveDuplicada(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: number }).code === 11000
-  );
-}
 
 export async function listar(): Promise<AutoDoc[]> {
   return AutoModel.find();
 }
 
+
 export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
   return AutoModel.findById(id);
 }
 
-export async function crear(datos: Auto): Promise<AutoDoc> {
-  try {
-    return await AutoModel.create(datos);
-  } catch (error) {
-    if (esErrorDeClaveDuplicada(error)) {
-      throw new Error('Ya existe un auto con esos datos.');
-    }
 
-<<<<<<< HEAD
-    throw error;
-  }
-=======
 export async function crear(datos: Auto): Promise<AutoDoc> {
   return AutoModel.create(datos);
->>>>>>> origin/main
 }
 
 // ============================================================
@@ -56,18 +33,10 @@ export async function actualizar(
   id: string,
   cambios: Partial<Auto>,
 ): Promise<AutoDoc | null> {
-  try {
-    return await AutoModel.findByIdAndUpdate(id, cambios, {
-      returnDocument: 'after',
-      runValidators: true,
-    });
-  } catch (error) {
-    if (esErrorDeClaveDuplicada(error)) {
-      throw new Error('Ya existe un auto con esos datos.');
-    }
-
-    throw error;
-  }
+  return AutoModel.findByIdAndUpdate(id, cambios, {
+    new: true, // devolver el documento actualizado, no el previo
+    runValidators: true, // correr las validaciones del esquema también en el update
+  });
 }
 
 // ============================================================
@@ -80,7 +49,6 @@ export async function cambiarEstado(
   return AutoModel.findByIdAndUpdate(
     id,
     { activo: estadoNuevo },
-    { returnDocument: 'after', runValidators: true },
+    { new: true, runValidators: true }, //devolcer el documento acutalizado
   );
 }
-
