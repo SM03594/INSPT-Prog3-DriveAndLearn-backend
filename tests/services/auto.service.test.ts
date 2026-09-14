@@ -13,6 +13,7 @@ import {
   cambiarEstado,
 } from '../../src/services/auto.service.js';
 import type { Auto } from '../../src/models/Auto.js';
+import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
@@ -68,12 +69,24 @@ describe('auto.service', () => {
       ).rejects.toThrow(/cambios/);
     });
 
+<<<<<<< HEAD
     it('tira un error con mensaje humano si la patente ya existe', async () => {
       await crear(datosValidos);
 
       await expect(crear(datosValidos)).rejects.toThrow(
         /Ya existe un auto con esos datos./,
       );
+=======
+    it('tira ErrorClaveDuplicada (409) si la patente ya existe', async () => {
+      await crear(datosValidos);
+
+      // crear() atrapa el 11000 crudo y lo relanza como
+      // ErrorClaveDuplicada (ver auto.service.ts / errorClaveDuplicada.ts).
+      const promesa = crear(datosValidos);
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+      await expect(promesa).rejects.toMatchObject({ status: 409 });
+      await expect(promesa).rejects.toThrow(/patente/i);
+>>>>>>> origin/main
     });
   });
 

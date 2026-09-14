@@ -7,6 +7,11 @@ import {
   type AutoDoc,
   type Auto,
 } from '../models/Auto.js';
+import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+
+// Mensaje de respaldo si el Schema no definió uno propio para la
+// patente repetida (ver comoErrorClaveDuplicada).
+const MENSAJE_PATENTE_DUPLICADA = 'La patente ya está en uso';
 
 
 export async function listar(): Promise<AutoDoc[]> {
@@ -19,8 +24,15 @@ export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
 }
 
 
+// create() puede chocar contra el índice unique de patente: se atrapa
+// el error crudo de Mongo/Mongoose acá, no en el middleware, porque acá
+// es donde se sabe qué campo es y qué mensaje tiene sentido para Auto.
 export async function crear(datos: Auto): Promise<AutoDoc> {
-  return AutoModel.create(datos);
+  try {
+    return await AutoModel.create(datos);
+  } catch (err) {
+    throw comoErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
+  }
 }
 
 // ============================================================
@@ -33,10 +45,16 @@ export async function actualizar(
   id: string,
   cambios: Partial<Auto>,
 ): Promise<AutoDoc | null> {
-  return AutoModel.findByIdAndUpdate(id, cambios, {
-    new: true, // devolver el documento actualizado, no el previo
-    runValidators: true, // correr las validaciones del esquema también en el update
-  });
+  try {
+    return await AutoModel.findByIdAndUpdate(id, cambios, {
+      new: true, // devolver el documento actualizado, no el previo
+      runValidators: true, // correr las validaciones del esquema también en el update
+    });
+  } catch (err) {
+    // findByIdAndUpdate también puede chocar contra el índice unique
+    // si "cambios.patente" coincide con la de otro auto.
+    throw comoErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
+  }
 }
 
 // ============================================================

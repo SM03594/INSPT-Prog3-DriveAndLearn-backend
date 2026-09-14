@@ -12,13 +12,14 @@ import {
   type Dia,
   type Tramo,
 } from '../models/CalendarioSemanal.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 // ============================================================
 //  validarDia — rechaza un día que no está en DIAS
 // ============================================================
 export function validarDia(dia: string): void {
   if (!(DIAS as readonly string[]).includes(dia)) {
-    throw new Error(
+    throw new ErrorDeNegocio(
       `Día inválido: "${dia}". Debe ser uno de: ${DIAS.join(', ')}.`,
     );
   }

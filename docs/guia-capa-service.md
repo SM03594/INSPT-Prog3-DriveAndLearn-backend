@@ -5,7 +5,9 @@ Está pensada para alguien que está aprendiendo **TypeScript** y **desarrollo d
 APIs REST** al mismo tiempo.
 
 Es la compañera de [guia-models-mongoose.md](guia-models-mongoose.md): esa explica
-la capa de modelos (`src/models/`), esta explica la que la usa.
+la capa de modelos (`src/models/`), esta explica la que la usa. Para cómo un
+`throw` de un service (`ErrorDeNegocio`, `ValidationError`...) termina en una
+respuesta HTTP, ver [guia-manejo-de-errores.md](guia-manejo-de-errores.md).
 
 **Todos los ejemplos de acá son código real de `src/services/`**, no inventado.
 
@@ -322,7 +324,7 @@ Usás este patrón cuando necesitás: modificar un campo **según su valor actua
 
 ---
 
-## 9. Reglas de negocio: `throw new Error(...)`
+## 9. Reglas de negocio: `throw new ErrorDeNegocio(...)`
 
 Algunas reglas **no** van en el esquema del modelo porque dependen de los
 **argumentos** de la función. Se chequean al principio del service con un `throw`.
@@ -330,36 +332,53 @@ Algunas reglas **no** van en el esquema del modelo porque dependen de los
 Real, de `alumno.service.ts`:
 
 ```ts
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+
 export async function sumarClasesPorReservar(id: string, cantidad: number): Promise<AlumnoDoc | null> {
   if (cantidad < 0) {
-    throw new Error('La cantidad a sumar no puede ser negativa');
+    throw new ErrorDeNegocio('La cantidad a sumar no puede ser negativa');
   }
   return ajustarClasesPorReservar(id, cantidad);
 }
 
 export async function restarClasesPorReservar(id: string, cantidad: number): Promise<AlumnoDoc | null> {
   if (cantidad < 0) {
-    throw new Error('La cantidad a restar no puede ser negativa');
+    throw new ErrorDeNegocio('La cantidad a restar no puede ser negativa');
   }
   return ajustarClasesPorReservar(id, -cantidad);
 }
 ```
 
-- El service **lanza** el error, **no lo atrapa**. El controller lo agarra con
-  `try/catch` y responde 400. (Por eso los services casi nunca tienen `try/catch`.)
+- El service **lanza** el error, **no lo atrapa**. Cae en el middleware de
+  errores centralizado (`src/middlewares/errorHandler.middleware.ts`, ver
+  [guia-middleware-handlers-y-routers.md](guia-middleware-handlers-y-routers.md)
+  §3), que responde 400. Por eso **los controllers nunca** tienen
+  `try/catch`: en Express 5 un handler `async` que lanza reenvía solo el error
+  para allá. (Los services tampoco lo necesitan para lanzar sus propios
+  errores de negocio, como acá — hay una única excepción, cuando el service
+  tiene que *traducir* un error que tira Mongo/Mongoose en vez de lanzar el
+  suyo propio: ver `ErrorClaveDuplicada` en
+  [guia-manejo-de-errores.md §4](guia-manejo-de-errores.md#4-errorclaveduplicada-cuando-el-error-lo-tira-mongodb-no-el-service).)
+- **`ErrorDeNegocio`** (`src/errors/errorDeNegocio.ts`) y no un `Error` a secas: un
+  `Error` común también lo lanzaría un bug real (`undefined.algo`), y los dos
+  son `instanceof Error` por igual. El middleware distingue con
+  `instanceof ErrorDeNegocio`: si matchea, es una regla de negocio esperada →
+  400 (o el `status` que se le pase al construirla); si no matchea pero igual
+  hay un error, es un bug → 500 + log.
 - El mensaje va a llegar al cliente: que se entienda.
 - `restar` reusa el mismo helper que `sumar` pasando `-cantidad`: la lógica de
   tocar la base está en un solo lugar.
 
 **Dos formas de "salió mal", según el proyecto:**
 
-| Situación | El service... | El controller responde |
+| Situación | El service... | Responde |
 |---|---|---|
-| id inexistente | devuelve `null` | 404 |
+| id inexistente | devuelve `null` | 404 (lo maneja el controller con `if`) |
 | campo obligatorio faltante / valor fuera de rango | deja que Mongoose lance `ValidationError` | 400 |
 | id mal formado | deja que Mongoose lance `CastError` | 400 |
-| valor `unique` repetido (email, patente) | deja pasar el error `{ code: 11000 }` de MongoDB | 409 |
-| regla de negocio rota (cantidad negativa, día inválido) | hace `throw new Error(...)` | 400 |
+| valor `unique` repetido (email, patente) | atrapa el `{ code: 11000 }` de MongoDB y lo traduce a `ErrorClaveDuplicada` | 409 |
+| regla de negocio rota (cantidad negativa, día inválido) | hace `throw new ErrorDeNegocio(...)` | 400 |
+| bug real (no lo lanza el proyecto a propósito) | cualquier otro `Error` | 500 |
 
 ---
 
@@ -373,10 +392,11 @@ la otra guía).
 ```ts
 // calendarioSemanal.service.ts (completo)
 import { DIAS, type CalendarioSemanal, type Dia, type Tramo } from '../models/CalendarioSemanal.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 export function validarDia(dia: string): void {
   if (!(DIAS as readonly string[]).includes(dia)) {
-    throw new Error(`Día inválido: "${dia}". Debe ser uno de: ${DIAS.join(', ')}.`);
+    throw new ErrorDeNegocio(`Día inválido: "${dia}". Debe ser uno de: ${DIAS.join(', ')}.`);
   }
 }
 
@@ -445,6 +465,7 @@ MongoDB en memoria. De `auto.service.test.ts`:
 ```ts
 import { setupTestDB } from '../setupTestDB.js';
 import { crear, obtenerPorId } from '../../src/services/auto.service.js';
+import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
 
 setupTestDB(); // conecta Mongoose a un Mongo en memoria, limpia entre tests, apaga al final
 
@@ -461,9 +482,14 @@ it('tira ValidationError si falta la patente', async () => {
   await expect(crear({ /* sin patente */ } as Auto)).rejects.toThrow(/patente/);
 });
 
-it('tira error de clave duplicada (11000) si la patente ya existe', async () => {
+it('tira ErrorClaveDuplicada (409) si la patente ya existe', async () => {
   await crear(datos);
-  await expect(crear(datos)).rejects.toMatchObject({ code: 11000 });
+  // crear() atrapa el 11000 crudo de Mongo (try/catch) y lo relanza como
+  // ErrorClaveDuplicada. Ver guia-manejo-de-errores.md §4.
+  const promesa = crear(datos);
+  await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+  await expect(promesa).rejects.toMatchObject({ status: 409 });
+  await expect(promesa).rejects.toThrow(/patente/i);
 });
 ```
 
@@ -489,7 +515,7 @@ it('agrega el tramo al día indicado', () => {
 
 Matchers que aparecen en los tests: `.toBeDefined()`, `.toBeNull()`,
 `.toHaveLength(n)`, `await expect(promesa).rejects.toThrow(/regex/)`,
-`.rejects.toMatchObject({ code: 11000 })`.
+`.rejects.toBeInstanceOf(Clase)`, `.rejects.toMatchObject({ status: 409 })`.
 
 ---
 
@@ -505,6 +531,9 @@ subdocumentos). Sirve de plantilla mental para los demás.
 
 import { AutoModel, type AutoDoc, type Auto } from '../models/Auto.js';
 //         ↑ valor        ↑ tipos (del modelo, ver la otra guía)
+import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+
+const MENSAJE_PATENTE_DUPLICADA = 'La patente ya está en uso';
 
 // --- Lectura ------------------------------------------------
 
@@ -522,23 +551,35 @@ export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
 
 // Alta. El controller ya se aseguró de que "datos" traiga solo
 // los campos permitidos. Si falta uno obligatorio, .create()
-// lanza ValidationError; si la patente ya existe, MongoDB tira
-// el error 11000.
+// lanza ValidationError. Si la patente ya existe, MongoDB tira
+// el error 11000: se atrapa acá (try/catch) y se relanza como
+// ErrorClaveDuplicada -ver guia-manejo-de-errores.md §4-, en vez
+// de dejar pasar el error crudo de Mongo tal cual.
 export async function crear(datos: Auto): Promise<AutoDoc> {
-  return AutoModel.create(datos);
+  try {
+    return await AutoModel.create(datos);
+  } catch (err) {
+    throw comoErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
+  }
 }
 
 // Modificación parcial. "cambios" es Partial<Auto>: solo lo que
 // se quiere cambiar. new:true -> devolver el doc actualizado.
-// runValidators:true -> validar también en el update.
+// runValidators:true -> validar también en el update. También
+// puede chocar contra el índice unique si cambios.patente
+// coincide con la de otro auto: mismo try/catch que crear().
 export async function actualizar(
   id: string,
   cambios: Partial<Auto>,
 ): Promise<AutoDoc | null> {
-  return AutoModel.findByIdAndUpdate(id, cambios, {
-    new: true,
-    runValidators: true,
-  });
+  try {
+    return await AutoModel.findByIdAndUpdate(id, cambios, {
+      new: true,
+      runValidators: true,
+    });
+  } catch (err) {
+    throw comoErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
+  }
 }
 
 // --- Operación propia del recurso ------------------------
@@ -569,19 +610,36 @@ export async function cambiarEstado(
 ┌────────┐   ┌────────────────────┐   ┌───────────────────────┐   ┌──────┴─────┐
 │ routes │──▶│    controller      │──▶│       service         │──▶│   model    │
 │        │   │ lee req.params.id  │   │ actualizar(id, cambios)│  │  AutoModel │
-│        │   │ arma cambios desde │   │  = AutoModel.find-     │   │            │
+│        │   │ arma cambios desde │   │  = try AutoModel.find- │   │            │
 │        │   │  req.body          │   │    ByIdAndUpdate(...)  │   │            │
-│        │   │ try/catch          │   │                       │   │            │
+│        │   │ sin try/catch      │   │    catch: traduce 11000│   │            │
 └────────┘   └────────────────────┘   └───────────────────────┘   └────────────┘
    ▲                  │                          │
    │  200 + JSON      │  AutoDoc                 │  AutoDoc | null
-   │  (o 404 / 400)   │  ó throw (Cast/Valid.)   │  ó throw
+   │  (o 404, si null)│  ó throw (ya traducido)  │  ó throw
    └──────────────────┴──────────────────────────┘
+                       │
+                       ▼ (si hubo throw)
+            middleware de errores central
+          (errorHandler.middleware.ts)
+          → 400 / 409 / 500 según el error
 ```
 
-- El **service** solo devuelve `AutoDoc` / `null`, o deja propagar un error.
-- El **controller** traduce: `null` → 404, `ValidationError`/`CastError` → 400,
-  `11000` → 409, otra cosa → 500. Y `AutoDoc` → `res.json(auto)`.
+- El **service** devuelve `AutoDoc` / `null`, o deja propagar un error — pero
+  no cualquier error tal cual le llegó: `crear`/`actualizar` atrapan el 11000
+  crudo de Mongo (`try/catch`) y lo relanzan como `ErrorClaveDuplicada` antes
+  de dejarlo seguir (`ValidationError`/`CastError`, en cambio, sí se dejan
+  propagar sin tocar). Ver
+  [guia-manejo-de-errores.md §4](guia-manejo-de-errores.md#4-errorclaveduplicada-cuando-el-error-lo-tira-mongodb-no-el-service).
+- El **controller** solo maneja el `null` → 404 (con un `if`) y arma
+  `res.json(auto)` en el caso de éxito. **No** tiene `try/catch`.
+- Un `throw` nunca llega al controller: Express 5 lo reenvía directo al
+  **middleware de errores central** (`src/middlewares/errorHandler.middleware.ts`),
+  que traduce `ValidationError`/`CastError` → 400 y `ErrorDeNegocio` (con
+  `ErrorClaveDuplicada` adentro) → su propio `status` (409 en este caso),
+  cualquier otro → 500. El middleware ya no traduce el 11000 directamente:
+  eso lo resolvió el service antes. Ver
+  [guia-middleware-handlers-y-routers.md](guia-middleware-handlers-y-routers.md) §3.
 
 ---
 
@@ -602,9 +660,11 @@ export async function cambiarEstado(
 | **`doc.save()`** | Guarda un documento que ya se trajo con `findById` y se modificó. Corre validadores y hooks. |
 | **`ValidationError`** | Error de Mongoose por no cumplir el esquema (`required`, `enum`, `min`...). → 400 |
 | **`CastError`** | Error de Mongoose al no poder convertir un valor (id mal formado). → 400 |
-| **`11000`** | Código de error de MongoDB por violar un índice `unique` (email/patente repetido). → 409 |
+| **`11000`** | Código de error de MongoDB por violar un índice `unique` (email/patente repetido). Cada service lo atrapa (`try/catch`) y lo traduce a `ErrorClaveDuplicada` — el middleware ya no lo ve directamente. → 409 |
 | **`bcrypt.hash`** | Convierte una contraseña en un hash irreversible antes de guardarla. |
-| **`throw new Error(...)`** | Cómo el service corta ante una regla de negocio rota. El controller lo mapea a 400. |
+| **`ErrorDeNegocio`** (`src/errors/errorDeNegocio.ts`) | Subclase de `Error` que un service lanza a propósito ante una regla de negocio rota. La distingue de un bug real (que sería un `Error` común) para que el middleware de errores la traduzca a 400 (o su `status`) y no a 500. |
+| **`ErrorClaveDuplicada`** (`src/errors/errorClaveDuplicada.ts`) | Subclase de `ErrorDeNegocio` (`status` fijo en 409) para el caso del `11000`. La arma `comoErrorClaveDuplicada()` a partir del error crudo de Mongo; ver [guia-manejo-de-errores.md §4](guia-manejo-de-errores.md#4-errorclaveduplicada-cuando-el-error-lo-tira-mongodb-no-el-service). |
+| **Middleware de errores central** (`src/middlewares/errorHandler.middleware.ts`) | El único lugar del proyecto que traduce errores a status HTTP. Ver [guia-middleware-handlers-y-routers.md](guia-middleware-handlers-y-routers.md) §3. |
 | **Función pura** | Función que solo trabaja con sus argumentos y no toca nada de afuera (`calendarioSemanal.service`). |
 | **`mongodb-memory-server` / `setupTestDB()`** | Un MongoDB real, en memoria, para los tests de los services que tocan la base. |
 
