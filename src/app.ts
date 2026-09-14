@@ -5,15 +5,11 @@
 // (middlewares globales + routers). server.ts es quien conecta
 // la base y hace app.listen(). Esto permite, más adelante, testear
 // la app con supertest sin levantar un puerto real.
-//
-// Todavía NO hay middleware de errores (4 parámetros) que traduzca
-// ValidationError/CastError/11000 a 400/400/409: por ahora, un error
-// en un handler async cae en el manejador de errores por defecto de
-// Express (respuesta 500 genérica). Queda para una próxima etapa.
 
 import express from 'express';
 import cors from 'cors';
 import autosRoutes from './routes/auto.routes.js';
+import { errorHandler } from './middlewares/errorHandler.middleware.js';
 
 const app = express();
 
@@ -26,5 +22,7 @@ app.use('/api/autos', autosRoutes);
 app.use((_req, res) => {
   res.status(404).json({ mensaje: 'Ruta no encontrada' });
 });
+
+app.use(errorHandler);
 
 export default app;

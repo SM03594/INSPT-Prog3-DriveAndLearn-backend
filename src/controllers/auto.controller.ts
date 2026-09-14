@@ -1,7 +1,10 @@
 // ============================================================
 //  auto.controller.ts — Controller HTTP de Autos
 // ============================================================
-// (todavía sin middleware de errores propio).
+// Sin try/catch: en Express 5, si un handler async lanza o su
+// promesa rechaza, el error se reenvía solo al middleware de
+// errores centralizado (src/middlewares/errorHandler.middleware.ts),
+// montado al final de app.ts.
 
 import type { Request, Response } from 'express';
 import * as autoService from '../services/auto.service.js';

@@ -13,10 +13,10 @@ Los ejemplos salen de tres lugares:
   (es JavaScript, pero la estructura es la misma que vamos a usar);
 - algún fragmento **genérico** cuando hace falta inventar un caso.
 
-Compañera de esta guía: [guia-capa-service.md](guia-capa-service.md) explica la
-capa que los handlers van a llamar. Cuando existan `src/controllers/` y
-`src/routes/` va a haber una guía específica de esas dos capas; esta es la base
-conceptual que va **antes**.
+Compañeras de esta guía: [guia-capa-service.md](guia-capa-service.md) explica la
+capa que los handlers van a llamar, y
+[guia-manejo-de-errores.md](guia-manejo-de-errores.md) explica en detalle el
+middleware de errores que acá solo se presenta como concepto (§3).
 
 ---
 
@@ -215,12 +215,12 @@ import type { ErrorRequestHandler } from 'express';
 // va SIEMPRE al final de app.ts, después de montar todos los routers.
 // El tipo ErrorRequestHandler obliga a los 4 parámetros: si escribís 3,
 // TS no se queja pero Express deja de tratarla como middleware de errores.
-const manejarErrores: ErrorRequestHandler = (err, _req, res, _next) => {
+const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);
   res.status(500).json({ mensaje: 'Error interno del servidor' });
 };
 
-app.use(manejarErrores);
+app.use(errorHandler);
 ```
 
 Cómo llega un error hasta acá:
@@ -353,7 +353,10 @@ código. Consecuencias prácticas:
 - `app.use(express.json())` tiene que estar **antes** de los routers, si no los
   handlers reciben `req.body` vacío.
 - El middleware de errores (4 parámetros) va **al final de todo**, después de los
-  routers: es lo último de la cinta.
+  routers: es lo último de la cinta. La razón mecánica —Express, al toparse con
+  un error, busca hacia **adelante** en la cinta, nunca hacia atrás— está
+  explicada en detalle en
+  [guia-manejo-de-errores.md §6](guia-manejo-de-errores.md#por-qué-el-errorhandler-tiene-que-ir-último).
 - Un middleware "catch-all" de 404 (`app.use((req, res) => res.status(404)...)`)
   va **después** de los routers pero **antes** del de errores: si ningún router
   matcheó, cae ahí.
@@ -373,8 +376,8 @@ app.use('/api/alumnos', alumnosRoutes);
 app.use((_req: Request, res: Response) =>  // 3. no matcheó ningún router
   res.status(404).json({ mensaje: 'Ruta no encontrada' }));
 
-const manejarErrores: ErrorRequestHandler = (err, _req, res, _next) => { /* ... */ }; // 4. errores (4 params)
-app.use(manejarErrores);
+const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => { /* ... */ }; // 4. errores (4 params)
+app.use(errorHandler);
 
 export default app;
 ```
