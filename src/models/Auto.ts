@@ -27,7 +27,7 @@ const autoSchema = new Schema(
       required: [true, 'La patente es obligatoria'],
       trim: true,
       uppercase: true,
-      unique: true,
+      unique: [true, 'La patente ingresada ya está en uso'],
     },
 
     cambios: {
