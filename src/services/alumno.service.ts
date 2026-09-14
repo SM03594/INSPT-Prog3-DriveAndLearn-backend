@@ -9,6 +9,7 @@ import {
   type AlumnoDoc,
   type Alumno,
 } from '../models/Alumno.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 
 // Cantidad de rondas de sal que usa bcrypt para hashear.
@@ -92,7 +93,7 @@ export async function sumarClasesPorReservar(
   cantidad: number,
 ): Promise<AlumnoDoc | null> {
   if (cantidad < 0) {
-    throw new Error('La cantidad a sumar no puede ser negativa');
+    throw new ErrorDeNegocio('La cantidad a sumar no puede ser negativa');
   }
   return ajustarClasesPorReservar(id, cantidad);
 }
@@ -108,7 +109,7 @@ export async function restarClasesPorReservar(
   cantidad: number,
 ): Promise<AlumnoDoc | null> {
   if (cantidad < 0) {
-    throw new Error('La cantidad a restar no puede ser negativa');
+    throw new ErrorDeNegocio('La cantidad a restar no puede ser negativa');
   }
   return ajustarClasesPorReservar(id, -cantidad);
 }
