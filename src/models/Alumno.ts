@@ -14,7 +14,7 @@ const alumnoSchema = new Schema(
       required: [true, 'El email es obligatorio'],
       trim: true,
       lowercase: true,
-      unique: true,
+      unique:[true, 'La direccion de email ya esta en uso'],
     },
 
     password: {
