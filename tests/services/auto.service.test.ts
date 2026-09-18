@@ -69,14 +69,6 @@ describe('auto.service', () => {
       ).rejects.toThrow(/cambios/);
     });
 
-<<<<<<< HEAD
-    it('tira un error con mensaje humano si la patente ya existe', async () => {
-      await crear(datosValidos);
-
-      await expect(crear(datosValidos)).rejects.toThrow(
-        /Ya existe un auto con esos datos./,
-      );
-=======
     it('tira ErrorClaveDuplicada (409) si la patente ya existe', async () => {
       await crear(datosValidos);
 
@@ -86,7 +78,6 @@ describe('auto.service', () => {
       await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
       await expect(promesa).rejects.toMatchObject({ status: 409 });
       await expect(promesa).rejects.toThrow(/patente/i);
->>>>>>> origin/main
     });
   });
 

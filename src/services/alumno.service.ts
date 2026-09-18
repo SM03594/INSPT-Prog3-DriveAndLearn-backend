@@ -10,10 +10,15 @@ import {
   type Alumno,
 } from '../models/Alumno.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 
 
 // Cantidad de rondas de sal que usa bcrypt para hashear.
 const BCRYPT_ROUNDS = 10;
+
+// Mensaje de respaldo si el Schema no definió uno propio para el
+// email repetido (ver comoErrorClaveDuplicada).
+const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
 
 // ============================================================
 //  listar — todos los alumnos
@@ -44,7 +49,11 @@ export async function crear(datos: Alumno): Promise<AlumnoDoc> {
       ? { ...datos, password: await bcrypt.hash(datos.password, BCRYPT_ROUNDS) }
       : datos;
 
-  return AlumnoModel.create(datosAGuardar);
+  try {
+    return await AlumnoModel.create(datosAGuardar);
+  } catch (err) {
+    throw comoErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
+  }
 }
 
 // ============================================================
@@ -57,10 +66,14 @@ export async function actualizar(
   id: string,
   cambios: Partial<Alumno>,
 ): Promise<AlumnoDoc | null> {
-  return AlumnoModel.findByIdAndUpdate(id, cambios, {
-    new: true, // devolver el documento actualizado, no el previo
-    runValidators: true, // correr las validaciones del esquema también en el update
-  });
+  try {
+    return await AlumnoModel.findByIdAndUpdate(id, cambios, {
+      new: true, // devolver el documento actualizado, no el previo
+      runValidators: true, // correr las validaciones del esquema también en el update
+    });
+  } catch (err) {
+    throw comoErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
+  }
 }
 
 // ============================================================
