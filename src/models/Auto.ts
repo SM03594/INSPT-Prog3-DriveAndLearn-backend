@@ -5,7 +5,7 @@
 import { Schema, model, HydratedDocument } from 'mongoose';
 
 // --- Valores permitidos para "cambios" ---
-export const CAMBIOS = ['automatico', 'manual'] as const;
+export const CAMBIOS = ['AUTOMATICO', 'MANUAL'] as const;
 
 // ============================================================
 //  Definición del esquema
@@ -33,9 +33,10 @@ const autoSchema = new Schema(
     cambios: {
       type: String,
       required: [true, 'El tipo de cambios es obligatorio'],
+      uppercase: true,
       enum: {
         values: [...CAMBIOS],
-        message: 'cambios debe ser "automatico" o "manual" (recibido: "{VALUE}")',
+        message: 'cambios debe ser "AUTOMATICO" o "MANUAL" (recibido: "{VALUE}")',
       },
     },
 
