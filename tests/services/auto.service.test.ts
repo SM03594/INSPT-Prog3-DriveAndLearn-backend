@@ -23,7 +23,7 @@ const datosValidos: Auto = {
   marca: 'Toyota',
   modelo: 'Corolla',
   patente: 'AB123CD',
-  cambios: 'automatico',
+  cambios: 'AUTOMATICO',
   activo: true,
 };
 
@@ -38,12 +38,20 @@ describe('auto.service', () => {
 
       expect(auto._id).toBeDefined();
       expect(auto.marca).toBe('Toyota');
-      expect(auto.cambios).toBe('automatico');
+      expect(auto.cambios).toBe('AUTOMATICO');
     });
 
     it('normaliza la patente a mayúsculas (uppercase del esquema)', async () => {
       const auto = await crear({ ...datosValidos, patente: 'xy999zz' });
       expect(auto.patente).toBe('XY999ZZ');
+    });
+
+    it('normaliza "cambios" a mayúsculas (uppercase del esquema)', async () => {
+      const auto = await crear({
+        ...datosValidos,
+        cambios: 'automatico' as Auto['cambios'],
+      });
+      expect(auto.cambios).toBe('AUTOMATICO');
     });
 
     it('pone activo=true por defecto si no se especifica', async () => {

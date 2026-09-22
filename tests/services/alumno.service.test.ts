@@ -13,6 +13,7 @@ import {
   restarClasesPorReservar,
 } from '../../src/services/alumno.service.js';
 import type { Alumno } from '../../src/models/Alumno.js';
+import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
@@ -75,12 +76,15 @@ describe('alumno.service', () => {
       ).rejects.toThrow(/clasesPorReservar/);
     });
 
-    it('tira un error con mensaje humano si el email ya existe', async () => {
+    it('tira ErrorClaveDuplicada (409) si el email ya existe', async () => {
       await crear(datosValidos);
 
-      await expect(crear(datosValidos)).rejects.toThrow(
-        /Ya existe un alumno con esos datos./,
-      );
+      // crear() atrapa el 11000 crudo y lo relanza como
+      // ErrorClaveDuplicada (ver alumno.service.ts / errorClaveDuplicada.ts).
+      const promesa = crear(datosValidos);
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+      await expect(promesa).rejects.toMatchObject({ status: 409 });
+      await expect(promesa).rejects.toThrow(/email/i);
     });
   });
 
@@ -159,6 +163,18 @@ describe('alumno.service', () => {
       await expect(
         actualizar(creado._id.toString(), { clasesPorReservar: -5 }),
       ).rejects.toThrow(/clasesPorReservar/);
+    });
+
+    it('tira ErrorClaveDuplicada (409) si el email ya está en uso por otro alumno', async () => {
+      await crear(datosValidos);
+      const otro = await crear({ ...datosValidos, email: 'beto@example.com' });
+
+      const promesa = actualizar(otro._id.toString(), {
+        email: datosValidos.email,
+      });
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+      await expect(promesa).rejects.toMatchObject({ status: 409 });
+      await expect(promesa).rejects.toThrow(/email/i);
     });
   });
 
