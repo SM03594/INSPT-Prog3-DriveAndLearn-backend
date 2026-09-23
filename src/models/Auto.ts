@@ -36,7 +36,7 @@ const autoSchema = new Schema(
       uppercase: true,
       enum: {
         values: [...CAMBIOS],
-        message: 'cambios debe ser "AUTOMATICO" o "MANUAL" (recibido: "{VALUE}")',
+        message: 'Atributo "cambios" debe ser "AUTOMATICO" o "MANUAL" (recibido: "{VALUE}")',
       },
     },
 

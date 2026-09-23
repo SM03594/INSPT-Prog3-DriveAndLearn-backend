@@ -37,8 +37,8 @@ el status HTTP:
                                     (único lugar que decide el status HTTP)
                                                    │
                                                    ▼
-                                     400 { "mensaje": "Auto validation
-                                           failed: patente: ..." }
+                                     400 { "mensaje": "La patente
+                                           es obligatoria" }
 ```
 
 Por qué esto funciona sin que cada handler tenga su propio `try/catch`: en
@@ -76,7 +76,7 @@ estos cuatro casos:
 
 | Quién lo genera | Cuándo | Status | Mensaje al cliente |
 |---|---|---|---|
-| Mongoose — `ValidationError` | falta un campo `required`, o un valor no pasa el validador del esquema (`enum`, `min`...) | 400 | el `err.message` de Mongoose |
+| Mongoose — `ValidationError` | falta un campo `required`, o un valor no pasa el validador del esquema (`enum`, `min`...) | 400 | se arma juntando el `.message` de cada campo que falló (`err.errors`), no el mensaje compuesto de Mongoose |
 | Mongoose — `CastError` | el id no tiene forma de `ObjectId` (ej. `"abc"`) | 400 | `'Id inválido'` |
 | `ErrorDeNegocio` (nuestra, y sus subclases) | una regla de negocio que el service chequeó/tradujo a mano | `err.status` (lo elige quien la lanzó) | el mensaje que le pasó el service |
 | cualquier otro `Error` | un **bug real**, no previsto por el proyecto | 500 | mensaje genérico, sin detalles |
@@ -315,11 +315,15 @@ Completo, [`src/middlewares/errorHandler.middleware.ts`](../src/middlewares/erro
 
 ```ts
 import type { ErrorRequestHandler } from 'express';
+import mongoose from 'mongoose';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  if (err instanceof Error && err.name === 'ValidationError') {
-    return res.status(400).json({ mensaje: err.message });
+  if (err instanceof mongoose.Error.ValidationError) {
+    const mensaje = Object.values(err.errors)
+      .map((e) => e.message)
+      .join('. ');
+    return res.status(400).json({ mensaje });
   }
 
   if (err instanceof Error && err.name === 'CastError') {
@@ -355,11 +359,27 @@ Punto por punto:
   primero los errores *conocidos* de Mongoose (por `.name`), después
   cualquier error *nuestro* (`ErrorDeNegocio` y sus subclases, por
   `instanceof`), y lo que sobrevive a los tres es, por descarte, un bug.
-- **`err instanceof Error && err.name === 'ValidationError'`** — Mongoose no
-  exporta clases específicas fáciles de importar para cada tipo de error acá,
-  así que se chequea por **nombre**. `instanceof Error` primero es una guarda
-  de tipos: sin ella, TypeScript no te deja leer `.name` sobre un `err` de
-  tipo `any`/`unknown` con seguridad.
+- **`err instanceof mongoose.Error.ValidationError`** — a diferencia de la
+  clave duplicada (§4), acá Mongoose sí exporta una clase concreta para
+  `instanceof`, así que no hace falta chequear por nombre ni escribir un
+  `type guard` a mano: TypeScript ya sabe, dentro del `if`, que `err.errors`
+  existe. `err.errors` es un objeto con **una entrada por cada campo que
+  falló** (`ValidatorError` para `required`/`enum`/`min`/`max`, `CastError`
+  si el valor ni siquiera se pudo convertir al tipo del campo — ej. un
+  `hora` no numérico), y cada una ya trae el mensaje que redactó el
+  `Schema` en su propio `.message`. `Object.values(err.errors).map(e =>
+  e.message).join('. ')` junta los mensajes de **todos** los campos que
+  fallaron (no solo el primero) en un solo string — a diferencia de
+  `err.message`, que es el resumen compuesto que arma Mongoose
+  (`"Auto validation failed: cambios: ..."`), pensado para logs, no para
+  mostrárselo a un cliente HTTP.
+- **`err instanceof Error && err.name === 'CastError'`** — este sí se
+  chequea por **nombre**, porque acá alcanza con un mensaje fijo
+  (`'Id inválido'`); no hace falta leer nada del error en sí, así que no
+  vale la pena importar `mongoose.Error.CastError` solo para el
+  `instanceof`. `instanceof Error` primero es una guarda de tipos: sin
+  ella, TypeScript no te deja leer `.name` sobre un `err` de tipo
+  `any`/`unknown` con seguridad.
 - **`err instanceof ErrorDeNegocio`** — un solo chequeo cubre `ErrorDeNegocio`
   **y todas sus subclases** (hoy, `ErrorClaveDuplicada`), porque `instanceof`
   en JS/TS reconoce toda la cadena de herencia. `err.status` ya viene
@@ -518,7 +538,7 @@ subclase, como `ErrorClaveDuplicada`.)
 | **`ErrorDeNegocio`** | Clase propia (`src/errors/errorDeNegocio.ts`) que extiende `Error`, con un `status` (400 por defecto). La lanzan los services para una regla de negocio esperada, para distinguirla de un bug real. |
 | **`ErrorClaveDuplicada`** | Subclase de `ErrorDeNegocio` (`src/errors/errorClaveDuplicada.ts`), `status` fijo en 409. La arma `comoErrorClaveDuplicada()` a partir del error crudo de MongoDB (código 11000); el service la lanza desde un `try/catch` alrededor de la operación que puede chocar contra un índice `unique`. |
 | **`instanceof`** | Operador de JS/TS que chequea de qué clase es una instancia — reconoce también las subclases. Es cómo el middleware reconoce `ErrorDeNegocio` (y `ErrorClaveDuplicada`) entre todos los errores posibles. |
-| **`ValidationError`** | Error de Mongoose por no cumplir el esquema (`required`, `enum`, `min`...). → 400 |
+| **`ValidationError`** | Error de Mongoose por no cumplir el esquema (`required`, `enum`, `min`...). → 400, con los mensajes de `err.errors` (uno por campo) unidos, no el resumen compuesto de Mongoose. |
 | **`CastError`** | Error de Mongoose al no poder convertir un valor (id mal formado). → 400 |
 | **`11000`** | Código de error de MongoDB por violar un índice `unique`. Cada service lo traduce a `ErrorClaveDuplicada` antes de que llegue al middleware. → 409 |
 | **`Error.cause`** | Propiedad estándar de JS para "encadenar" un error dentro de otro. Mongoose la usa cuando `unique: [true, 'mensaje']` envuelve el error crudo de MongoDB. |

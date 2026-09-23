@@ -18,14 +18,17 @@
 
 
 import type { ErrorRequestHandler } from 'express';
+import mongoose from 'mongoose';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  // ValidationError: Mongoose la lanza cuando un campo obligatorio
-  // falta o un valor no pasa el validador del esquema (required,
-  // enum, min...).
-  if (err instanceof Error && err.name === 'ValidationError') {
-    return res.status(400).json({ mensaje: err.message });
+ 
+  if (err instanceof mongoose.Error.ValidationError) {
+    const mensaje = Object.values(err.errors)
+      //para devolver varios mensajes de error a la vez de distintos campos
+      .map((e) => e.message)
+      .join('. ');
+    return res.status(400).json({ mensaje });
   }
 
   // CastError: el id no tiene forma de ObjectId.
