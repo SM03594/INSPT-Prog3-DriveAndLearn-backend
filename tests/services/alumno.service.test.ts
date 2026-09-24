@@ -42,6 +42,13 @@ describe('alumno.service', () => {
       expect(alumno.nomApe).toBe('Ana Pérez');
     });
 
+    it('guarda la contraseña hasheada, no en texto plano', async () => {
+      const alumno = await crear(datosValidos);
+
+      expect(alumno.password).not.toBe('unHashDeBcrypt');
+      expect(alumno.password).toMatch(/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/);
+    });
+
     it('normaliza el email a minúsculas (lowercase del esquema)', async () => {
       const alumno = await crear({ ...datosValidos, email: 'ANA@Example.COM' });
       expect(alumno.email).toBe('ana@example.com');
@@ -155,6 +162,16 @@ describe('alumno.service', () => {
 
       expect(actualizado?.password).not.toBe('nuevaPassword123');
       expect(actualizado?.password).toMatch(/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/);
+    });
+
+    it('no toca la contraseña si no viene en los cambios', async () => {
+      const creado = await crear(datosValidos);
+
+      const actualizado = await actualizar(creado._id.toString(), {
+        nomApe: 'Ana Editada',
+      });
+
+      expect(actualizado?.password).toBe(creado.password);
     });
 
     it('tira ValidationError si se manda clasesPorReservar negativo (runValidators)', async () => {

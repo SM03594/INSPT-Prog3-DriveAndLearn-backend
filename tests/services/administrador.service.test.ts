@@ -39,6 +39,13 @@ describe('administrador.service', () => {
       expect(admin.nomApe).toBe('Admin Root');
     });
 
+    it('guarda la contraseña hasheada, no en texto plano', async () => {
+      const admin = await crear(datosValidos);
+
+      expect(admin.password).not.toBe('unHashDeBcrypt');
+      expect(admin.password).toMatch(/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/);
+    });
+
     it('normaliza el email a minúsculas (lowercase del esquema)', async () => {
       const admin = await crear({ ...datosValidos, email: 'ADMIN@Example.COM' });
       expect(admin.email).toBe('admin@example.com');
@@ -125,6 +132,28 @@ describe('administrador.service', () => {
 
       expect(actualizado?.nomApe).toBe('Admin Editado');
       expect(actualizado?.email).toBe('admin@example.com'); // intacto
+    });
+
+    it('hashea la contraseña si se actualiza', async () => {
+      const creado = await crear(datosValidos);
+
+      const actualizado = await actualizar(creado._id.toString(), {
+        password: 'nuevaPassword123',
+      });
+
+      expect(actualizado?.password).not.toBe('nuevaPassword123');
+      expect(actualizado?.password).toMatch(/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/);
+      expect(actualizado?.password).not.toBe(creado.password);
+    });
+
+    it('no toca la contraseña si no viene en los cambios', async () => {
+      const creado = await crear(datosValidos);
+
+      const actualizado = await actualizar(creado._id.toString(), {
+        nomApe: 'Admin Editado',
+      });
+
+      expect(actualizado?.password).toBe(creado.password);
     });
 
     it('devuelve null si el administrador no existe', async () => {
