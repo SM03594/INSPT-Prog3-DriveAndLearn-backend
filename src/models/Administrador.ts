@@ -19,7 +19,7 @@ const administradorSchema = new Schema(
       type: String,
       required: [true, 'La contraseña es obligatoria'],
       // Guardamos el hash de bcrypt, nunca la contraseña en texto plano.
-      // El hasheo se hace en el service antes de crear el administrador.
+      // El hasheo se hace en el service (utils/password.ts), al crear y al actualizar.
     },
 
     nomApe: {

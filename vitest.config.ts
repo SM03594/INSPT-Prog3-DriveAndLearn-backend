@@ -5,6 +5,11 @@ export default defineConfig({
     // Entorno de backend (no navegador)
     environment: 'node',
 
+    // Proceso en UTC (como un deploy típico): si algún código usa
+    // getDay()/getHours() en vez de aHoraLocal (src/utils/fechas.ts),
+    // el test falla en todas las máquinas, no solo en producción.
+    env: { TZ: 'UTC' },
+
     // Hace disponibles describe, it, expect, etc. sin importarlos
     globals: true,
 

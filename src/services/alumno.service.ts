@@ -3,7 +3,6 @@
 // ============================================================
 
 
-import bcrypt from 'bcrypt';
 import {
   AlumnoModel,
   type AlumnoDoc,
@@ -11,10 +10,8 @@ import {
 } from '../models/Alumno.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+import { conPasswordHasheada } from '../utils/password.js';
 
-
-// Cantidad de rondas de sal que usa bcrypt para hashear.
-const BCRYPT_ROUNDS = 10;
 
 // Mensaje de respaldo si el Schema no definió uno propio para el
 // email repetido (ver comoErrorClaveDuplicada).
@@ -39,15 +36,11 @@ export async function obtenerPorId(id: string): Promise<AlumnoDoc | null> {
 // ============================================================
 //  crear — alta de un alumno
 // ============================================================
-// Antes de guardar hasheamos la contraseña: en la base nunca
-// queda el texto plano. Si "password" no vino, NO llamamos a
-// bcrypt: dejamos que sea el validador "required" del esquema
-// el que rechace la creación con un ValidationError.
+// Antes de guardar hasheamos la contraseña (ver utils/password.ts).
+// Si "password" no vino, el validador "required" del esquema
+// rechaza la creación con un ValidationError.
 export async function crear(datos: Alumno): Promise<AlumnoDoc> {
-  const datosAGuardar =
-    typeof datos.password === 'string'
-      ? { ...datos, password: await bcrypt.hash(datos.password, BCRYPT_ROUNDS) }
-      : datos;
+  const datosAGuardar = await conPasswordHasheada(datos);
 
   try {
     return await AlumnoModel.create(datosAGuardar);
@@ -61,13 +54,16 @@ export async function crear(datos: Alumno): Promise<AlumnoDoc> {
 // ============================================================
 // "cambios" trae solo los campos que el cliente quiere cambiar,
 // por eso es Partial<DatosAlumno>. Devuelve el alumno YA
-// actualizado, o null si el id no existe.
+// actualizado, o null si el id no existe. Si viene "password",
+// se hashea igual que en crear.
 export async function actualizar(
   id: string,
   cambios: Partial<Alumno>,
 ): Promise<AlumnoDoc | null> {
+  const cambiosAGuardar = await conPasswordHasheada(cambios);
+
   try {
-    return await AlumnoModel.findByIdAndUpdate(id, cambios, {
+    return await AlumnoModel.findByIdAndUpdate(id, cambiosAGuardar, {
       new: true, // devolver el documento actualizado, no el previo
       runValidators: true, // correr las validaciones del esquema también en el update
     });

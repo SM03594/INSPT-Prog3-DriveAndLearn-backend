@@ -34,3 +34,12 @@ export const MONGODB_URI: string = process.env.MONGODB_URI ?? '';
 // para NO conectar a la base real cuando corremos los tests
 // (los tests levantan su propio Mongo en memoria).
 export const NODE_ENV: string = process.env.NODE_ENV ?? 'development';
+
+// --- ZONA_HORARIA ---
+// Zona IANA de la escuela. Todo cálculo "local" (qué día de la semana
+// es, qué hora marca el reloj en la escuela) usa esta constante, nunca
+// la zona del sistema operativo donde corre el server (un deploy suele
+// correr en UTC). Nombre IANA, no un offset fijo como "-03:00": si
+// vuelve el horario de verano, el nombre lo contempla solo.
+export const ZONA_HORARIA: string =
+  process.env.ZONA_HORARIA ?? 'America/Argentina/Buenos_Aires';

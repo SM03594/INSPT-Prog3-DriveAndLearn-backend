@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { Types } from 'mongoose';
 import { setupTestDB } from '../setupTestDB.js';
+import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
 import {
   listar,
   obtenerPorId,
@@ -17,7 +18,7 @@ import {
   actualizar,
   cancelar,
 } from '../../src/services/clase.service.js';
-import type { Clase } from '../../src/models/Clase.js';
+import type { DatosClase } from '../../src/services/clase.service.js';
 
 setupTestDB();
 
@@ -25,13 +26,13 @@ const alumnoId = new Types.ObjectId();
 const profesorId = new Types.ObjectId();
 const autoId = new Types.ObjectId();
 
-const datosValidos: Clase = {
+const datosValidos: DatosClase = {
   alumno: alumnoId,
   profesor: profesorId,
   auto: autoId,
-  fecha: '2026-09-20',
-  horaInicio: '09:00',
-  horaFin: '10:00',
+  // Como llega del body: string ISO con offset de Argentina.
+  inicio: '2026-09-20T09:00:00-03:00',
+  fin: '2026-09-20T10:00:00-03:00',
   estado: 'pendiente',
 };
 
@@ -51,30 +52,71 @@ describe('clase.service', () => {
       await crear(datosValidos);
       await crear({
         ...datosValidos,
-        fecha: '2026-09-21',
-        horaInicio: '11:00',
-        horaFin: '12:00',
+        inicio: '2026-09-21T11:00:00-03:00',
+        fin: '2026-09-21T12:00:00-03:00',
       });
 
       expect(await listar()).toHaveLength(2);
     });
 
-    it('tira ValidationError si falta la fecha', async () => {
-      const { fecha: _omitida, ...sinFecha } = datosValidos;
+    it('guarda el instante en UTC respetando el offset enviado', async () => {
+      const clase = await crear(datosValidos);
 
-      await expect(crear(sinFecha as Clase)).rejects.toThrow(/fecha/i);
+      // 09:00 en Argentina (-03:00) son las 12:00 UTC.
+      expect(clase.inicio.toISOString()).toBe('2026-09-20T12:00:00.000Z');
+    });
+
+    it('acepta también un Date', async () => {
+      const inicio = new Date('2026-09-20T12:00:00Z');
+      const clase = await crear({
+        ...datosValidos,
+        inicio,
+        fin: new Date('2026-09-20T13:00:00Z'),
+      });
+
+      expect(clase.inicio.toISOString()).toBe(inicio.toISOString());
+    });
+
+    it('tira ValidationError si falta el inicio', async () => {
+      const { inicio: _omitido, ...sinInicio } = datosValidos;
+
+      await expect(crear(sinInicio as DatosClase)).rejects.toThrow(/inicio/i);
+    });
+
+    it('tira ValidationError si falta el fin', async () => {
+      const { fin: _omitido, ...sinFin } = datosValidos;
+
+      await expect(crear(sinFin as DatosClase)).rejects.toThrow(/fin/i);
+    });
+
+    it('tira ErrorDeNegocio si el inicio no tiene zona horaria', async () => {
+      await expect(
+        crear({ ...datosValidos, inicio: '2026-09-20T09:00:00' }),
+      ).rejects.toThrow(ErrorDeNegocio);
+    });
+
+    it('tira ErrorDeNegocio si el inicio no es una fecha', async () => {
+      await expect(
+        crear({ ...datosValidos, inicio: 'no-es-una-fecha' }),
+      ).rejects.toThrow(/inicio/i);
+    });
+
+    it('tira ValidationError si el fin no es posterior al inicio', async () => {
+      await expect(
+        crear({ ...datosValidos, fin: datosValidos.inicio }),
+      ).rejects.toThrow(/posterior al inicio/i);
     });
 
     it('tira ValidationError si falta el alumno', async () => {
       const { alumno: _omitido, ...sinAlumno } = datosValidos;
 
-      await expect(crear(sinAlumno as Clase)).rejects.toThrow(/alumno/i);
+      await expect(crear(sinAlumno as DatosClase)).rejects.toThrow(/alumno/i);
     });
 
     it('tira ValidationError si falta el profesor', async () => {
       const { profesor: _omitido, ...sinProfesor } = datosValidos;
 
-      await expect(crear(sinProfesor as Clase)).rejects.toThrow(/profesor/i);
+      await expect(crear(sinProfesor as DatosClase)).rejects.toThrow(/profesor/i);
     });
   });
 
@@ -87,9 +129,8 @@ describe('clase.service', () => {
       await crear(datosValidos);
       await crear({
         ...datosValidos,
-        fecha: '2026-09-21',
-        horaInicio: '14:00',
-        horaFin: '15:00',
+        inicio: '2026-09-21T14:00:00-03:00',
+        fin: '2026-09-21T15:00:00-03:00',
       });
 
       expect(await listar()).toHaveLength(2);
@@ -122,7 +163,26 @@ describe('clase.service', () => {
       });
 
       expect(actualizada?.estado).toBe('confirmada');
-      expect(actualizada?.fecha).toBe('2026-09-20');
+      expect(actualizada?.inicio.toISOString()).toBe('2026-09-20T12:00:00.000Z');
+    });
+
+    it('parsea inicio/fin si vienen en los cambios', async () => {
+      const creada = await crear(datosValidos);
+
+      const actualizada = await actualizar(creada._id.toString(), {
+        inicio: '2026-09-20T10:00:00-03:00',
+        fin: '2026-09-20T11:00:00-03:00',
+      });
+
+      expect(actualizada?.inicio.toISOString()).toBe('2026-09-20T13:00:00.000Z');
+    });
+
+    it('tira ErrorDeNegocio si el fin nuevo no tiene zona horaria', async () => {
+      const creada = await crear(datosValidos);
+
+      await expect(
+        actualizar(creada._id.toString(), { fin: '2026-09-20T11:00' }),
+      ).rejects.toThrow(ErrorDeNegocio);
     });
 
     it('devuelve null si la clase no existe', async () => {
