@@ -6,8 +6,11 @@
 
 import { Router } from 'express';
 import * as autoController from '../controllers/auto.controller.js';
+import { requireAuthentication } from '../middlewares/auth.middleware.js';
 
 const router = Router();
+
+router.use(requireAuthentication);
 
 router.get('/', autoController.listar);
 router.get('/:id', autoController.obtener);

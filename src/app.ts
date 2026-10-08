@@ -8,6 +8,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import authRoutes from './routes/auth.routes.js';
 import autosRoutes from './routes/auto.routes.js';
 import alumnosRoutes from './routes/alumno.routes.js';
 import administradoresRoutes from './routes/administrador.routes.js';
@@ -22,6 +23,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use('/api/auth', authRoutes);
 app.use('/api/autos', autosRoutes);
 app.use('/api/alumnos', alumnosRoutes);
 app.use('/api/administradores', administradoresRoutes);

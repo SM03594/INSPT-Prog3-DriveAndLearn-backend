@@ -6,8 +6,11 @@
 
 import { Router } from 'express';
 import * as administradorController from '../controllers/administrador.controller.js';
+import { requireAuthentication } from '../middlewares/auth.middleware.js';
 
 const router = Router();
+
+router.use(requireAuthentication);
 
 router.get('/', administradorController.listar);
 router.get('/:id', administradorController.obtener);

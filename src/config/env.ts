@@ -35,6 +35,16 @@ export const MONGODB_URI: string = process.env.MONGODB_URI ?? '';
 // (los tests levantan su propio Mongo en memoria).
 export const NODE_ENV: string = process.env.NODE_ENV ?? 'development';
 
+export function obtenerJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+
+  if (secret === undefined || secret.length < 32) {
+    throw new Error('JWT_SECRET debe estar configurado con al menos 32 caracteres');
+  }
+
+  return secret;
+}
+
 // --- ZONA_HORARIA ---
 // Zona IANA de la escuela. Todo cálculo "local" (qué día de la semana
 // es, qué hora marca el reloj en la escuela) usa esta constante, nunca

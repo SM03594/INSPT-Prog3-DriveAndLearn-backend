@@ -6,7 +6,9 @@
 
 import app from './app.js';
 import { connectDB } from './config/db.js';
-import { PORT } from './config/env.js';
+import { obtenerJwtSecret, PORT } from './config/env.js';
+
+obtenerJwtSecret();
 
 connectDB()
   .then(() => {

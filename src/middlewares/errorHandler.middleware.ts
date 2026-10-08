@@ -19,6 +19,7 @@
 
 import type { ErrorRequestHandler } from 'express';
 import mongoose from 'mongoose';
+import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
@@ -34,6 +35,10 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   // CastError: el id no tiene forma de ObjectId.
   if (err instanceof Error && err.name === 'CastError') {
     return res.status(400).json({ mensaje: 'Id inválido' });
+  }
+
+  if (err instanceof ErrorAutenticacion) {
+    return res.status(err.status).json({ mensaje: err.message });
   }
 
   // ErrorDeNegocio (y sus subclases, como ErrorClaveDuplicada): una

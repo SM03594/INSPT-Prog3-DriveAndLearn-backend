@@ -6,8 +6,11 @@
 
 import { Router } from 'express';
 import * as profesorController from '../controllers/profesor.controller.js';
+import { requireAuthentication } from '../middlewares/auth.middleware.js';
 
 const router = Router();
+
+router.use(requireAuthentication);
 
 router.get('/', profesorController.listar);
 router.get('/:id', profesorController.obtener);

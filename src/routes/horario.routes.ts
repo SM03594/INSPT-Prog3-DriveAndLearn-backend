@@ -6,8 +6,11 @@
 
 import { Router } from 'express';
 import * as horarioController from '../controllers/horario.controller.js';
+import { requireAuthentication } from '../middlewares/auth.middleware.js';
 
 const router = Router();
+
+router.use(requireAuthentication);
 
 router.get('/validar/:dia', horarioController.validar);
 router.post('/agregar', horarioController.agregar);

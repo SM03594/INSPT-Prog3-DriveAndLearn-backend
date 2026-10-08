@@ -36,7 +36,7 @@ request  ─▶  src/routes/  ─▶  src/controllers/  ─▶  src/services/  �
 > *"acá vive la lógica de negocio y TODO el acceso a datos. No sabe nada de
 > req/res/HTTP. Devuelve null cuando algo 'no se encontró'."*
 
-### Los 5 archivos
+### Los services
 
 | Archivo | Recurso | Funciones que exporta |
 |---|---|---|
@@ -45,9 +45,11 @@ request  ─▶  src/routes/  ─▶  src/controllers/  ─▶  src/services/  �
 | `administrador.service.ts` | Administradores | `listar`, `obtenerPorId`, `crear`, `actualizar` |
 | `profesor.service.ts` | Profesores | `listar`, `obtenerPorId`, `cambiarNomApe`, `cambiarFotoPerfil`, `agregarDisponibilidad`, `quitarDisponibilidad` |
 | `calendarioSemanal.service.ts` | *(auxiliar, sin colección propia)* | `validarDia`, `agregarTramo`, `quitarTramo` |
+| `auth.service.ts` | Autenticación | `autenticar` |
 
-Los cuatro primeros son "un service por recurso", con el mismo esqueleto. El
-quinto es distinto (§10).
+Los services de Auto, Alumno, Administrador y Profesor siguen el patrón de
+"un service por recurso". `calendarioSemanal.service.ts` es auxiliar y
+`auth.service.ts` concentra el inicio de sesión, que consulta más de un modelo.
 
 ---
 
