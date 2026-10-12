@@ -72,6 +72,10 @@ export async function actualizar(
   }
 }
 
+export async function eliminar(id: string): Promise<AlumnoDoc | null> {
+  return AlumnoModel.findByIdAndDelete(id);
+}
+
 // ============================================================
 //  ajustarClasesPorReservar — helper interno
 // ============================================================

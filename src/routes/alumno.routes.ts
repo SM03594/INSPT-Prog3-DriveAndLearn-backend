@@ -6,7 +6,11 @@
 
 import { Router } from 'express';
 import * as alumnoController from '../controllers/alumno.controller.js';
-import { requireAuthentication } from '../middlewares/auth.middleware.js';
+import {
+  requireAuthentication,
+  requireAdministrator,
+  requireSelfOrAdministrator,
+} from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -14,10 +18,23 @@ router.post('/', alumnoController.crear);
 
 router.use(requireAuthentication);
 
-router.get('/', alumnoController.listar);
-router.get('/:id', alumnoController.obtener);
-router.put('/:id', alumnoController.actualizar);
-router.patch('/:id/sumar-clases', alumnoController.sumarClases);
-router.patch('/:id/restar-clases', alumnoController.restarClases);
+router.get('/', requireAdministrator, alumnoController.listar);
+router.get('/:id', requireSelfOrAdministrator(), alumnoController.obtener);
+router.put(
+  '/:id',
+  requireSelfOrAdministrator(['email', 'password', 'nomApe']),
+  alumnoController.actualizar,
+);
+router.delete('/:id', requireSelfOrAdministrator(), alumnoController.eliminar);
+router.patch(
+  '/:id/sumar-clases',
+  requireAdministrator,
+  alumnoController.sumarClases,
+);
+router.patch(
+  '/:id/restar-clases',
+  requireAdministrator,
+  alumnoController.restarClases,
+);
 
 export default router;

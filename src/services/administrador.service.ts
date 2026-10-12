@@ -62,3 +62,9 @@ export async function actualizar(
     runValidators: true, // correr las validaciones del esquema también en el update
   });
 }
+
+export async function eliminar(
+  id: string,
+): Promise<AdministradorDoc | null> {
+  return AdministradorModel.findByIdAndDelete(id);
+}

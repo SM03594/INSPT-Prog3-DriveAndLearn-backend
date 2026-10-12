@@ -9,7 +9,26 @@ process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
 setupTestDB();
 
 describe('autenticación HTTP', () => {
+  async function iniciarSesion(email: string, password: string): Promise<string> {
+    const respuesta = await request(app)
+      .post('/api/auth/login')
+      .send({ email, password })
+      .expect(200);
+
+    return respuesta.body.token as string;
+  }
+
   it('permite registrar alumnos y autenticar sus credenciales', async () => {
+    await request(app)
+      .post('/api/alumnos')
+      .send({
+        email: 'sin-clases@example.com',
+        password: 'claveSegura123',
+        nomApe: 'Sin Clases',
+        clasesPorReservar: 100,
+      })
+      .expect(400);
+
     const registro = await request(app)
       .post('/api/alumnos')
       .send({
@@ -89,5 +108,116 @@ describe('autenticación HTTP', () => {
       .expect(401);
 
     expect(respuesta.body.mensaje).toBe('Email y contraseña son obligatorios');
+  });
+
+  it('permite a un alumno gestionar su perfil, pero no el de otros usuarios', async () => {
+    const alumno = await crearAlumno({
+      email: 'ana@example.com',
+      password: 'claveSegura123',
+      nomApe: 'Ana Pérez',
+      clasesPorReservar: 0,
+    });
+    const otroAlumno = await crearAlumno({
+      email: 'otro@example.com',
+      password: 'claveSegura123',
+      nomApe: 'Otro Alumno',
+      clasesPorReservar: 0,
+    });
+    const token = await iniciarSesion('ana@example.com', 'claveSegura123');
+
+    await request(app)
+      .put(`/api/alumnos/${alumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nomApe: 'Ana Actualizada' })
+      .expect(200);
+
+    await request(app)
+      .put(`/api/alumnos/${alumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ clasesPorReservar: 100 })
+      .expect(403);
+
+    await request(app)
+      .put(`/api/alumnos/${otroAlumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nomApe: 'Cambio no autorizado' })
+      .expect(403);
+
+    await request(app)
+      .delete(`/api/alumnos/${otroAlumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+
+    await request(app)
+      .get('/api/alumnos')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+
+    await request(app)
+      .post('/api/administradores')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'no-autorizado@example.com',
+        password: 'claveAdmin123',
+        nomApe: 'No autorizado',
+      })
+      .expect(403);
+
+    await request(app)
+      .delete(`/api/alumnos/${alumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+  });
+
+  it('permite a un administrador actualizar y eliminar otras cuentas', async () => {
+    const administrador = await crearAdministrador({
+      email: 'admin@example.com',
+      password: 'claveAdmin123',
+      nomApe: 'Administradora',
+    });
+    const otroAdministrador = await crearAdministrador({
+      email: 'admin2@example.com',
+      password: 'claveAdmin123',
+      nomApe: 'Segundo administrador',
+    });
+    const alumno = await crearAlumno({
+      email: 'alumno@example.com',
+      password: 'claveSegura123',
+      nomApe: 'Alumno',
+      clasesPorReservar: 0,
+    });
+    const token = await iniciarSesion('admin@example.com', 'claveAdmin123');
+
+    await request(app)
+      .put(`/api/alumnos/${alumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nomApe: 'Alumno actualizado', clasesPorReservar: 2 })
+      .expect(200);
+
+    await request(app)
+      .put(`/api/administradores/${otroAdministrador._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nomApe: 'Administrador actualizado' })
+      .expect(200);
+
+    await request(app)
+      .delete(`/api/alumnos/${alumno._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(app)
+      .delete(`/api/administradores/${otroAdministrador._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(app)
+      .delete(`/api/administradores/${administrador._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(app)
+      .get('/api/administradores')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
   });
 });

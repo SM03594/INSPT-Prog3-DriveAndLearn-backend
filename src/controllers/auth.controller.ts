@@ -7,5 +7,5 @@ export async function login(req: Request, res: Response) {
     req.body?.password,
   );
 
-  res.json(resultado);
+  res.status(200).json(resultado);
 }

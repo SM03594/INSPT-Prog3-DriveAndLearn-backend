@@ -40,3 +40,12 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
 
   res.json(administrador);
 }
+
+export async function eliminar(req: Request<{ id: string }>, res: Response) {
+  const administrador = await administradorService.eliminar(req.params.id);
+  if (administrador === null) {
+    return res.status(404).json({ mensaje: 'Administrador no encontrado' });
+  }
+
+  res.status(204).end();
+}

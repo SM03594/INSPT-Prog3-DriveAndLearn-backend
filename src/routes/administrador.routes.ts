@@ -6,15 +6,32 @@
 
 import { Router } from 'express';
 import * as administradorController from '../controllers/administrador.controller.js';
-import { requireAuthentication } from '../middlewares/auth.middleware.js';
+import {
+  requireAuthentication,
+  requireAdministrator,
+  requireSelfOrAdministrator,
+} from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
 router.use(requireAuthentication);
 
-router.get('/', administradorController.listar);
-router.get('/:id', administradorController.obtener);
-router.post('/', administradorController.crear);
-router.put('/:id', administradorController.actualizar);
+router.get('/', requireAdministrator, administradorController.listar);
+router.get(
+  '/:id',
+  requireSelfOrAdministrator(),
+  administradorController.obtener,
+);
+router.post('/', requireAdministrator, administradorController.crear);
+router.put(
+  '/:id',
+  requireSelfOrAdministrator(['email', 'password', 'nomApe']),
+  administradorController.actualizar,
+);
+router.delete(
+  '/:id',
+  requireSelfOrAdministrator(),
+  administradorController.eliminar,
+);
 
 export default router;
