@@ -17,7 +17,7 @@ import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 // ============================================================
 //  validarDia — rechaza un día que no está en DIAS
 // ============================================================
-export function validarDia(dia: string): void {
+export function validarDia(dia: string): asserts dia is Dia {
   if (!(DIAS as readonly string[]).includes(dia)) {
     throw new ErrorDeNegocio(
       `Día inválido: "${dia}". Debe ser uno de: ${DIAS.join(', ')}.`,

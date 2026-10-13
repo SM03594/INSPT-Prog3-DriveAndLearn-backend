@@ -7,10 +7,9 @@
 
 import type { Request, Response } from 'express';
 import {
-  agregarTramo,
-  quitarTramo,
   validarDia,
 } from '../services/calendarioSemanal.service.js';
+import * as horarioService from '../services/horarioEscuela.service.js';
 
 export async function validar(req: Request<{ dia: string }>, res: Response) {
   validarDia(req.params.dia);
@@ -18,23 +17,17 @@ export async function validar(req: Request<{ dia: string }>, res: Response) {
 }
 
 export async function agregar(req: Request, res: Response) {
-  const { calendario, dia, tramo } = req.body;
-
-  agregarTramo(calendario, dia, tramo);
-
-  res.json(calendario);
+  const { dia, tramo } = req.body;
+  res.json(await horarioService.agregarTramo(dia, tramo));
 }
 
 export async function quitar(req: Request, res: Response) {
-  const { calendario, dia, tramoId } = req.body;
-
-  const quitado = quitarTramo(calendario, dia, tramoId);
-
-  if (!quitado) {
+  const { dia, tramoId } = req.body;
+  const calendario = await horarioService.quitarTramo(dia, tramoId);
+  if (calendario === null) {
     return res.status(404).json({
       mensaje: 'No se encontró el tramo solicitado en ese día',
     });
   }
-
   res.json(calendario);
 }

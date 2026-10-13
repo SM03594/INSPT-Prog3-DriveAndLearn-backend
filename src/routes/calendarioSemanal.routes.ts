@@ -6,14 +6,17 @@
 
 import { Router } from 'express';
 import * as calendarioSemanalController from '../controllers/calendarioSemanal.controller.js';
-import { requireAuthentication } from '../middlewares/auth.middleware.js';
+import {
+  requireAuthentication,
+  requireAdministrator,
+} from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
 router.use(requireAuthentication);
 
 router.get('/validar/:dia', calendarioSemanalController.validar);
-router.post('/agregar', calendarioSemanalController.agregar);
-router.post('/quitar', calendarioSemanalController.quitar);
+router.post('/agregar', requireAdministrator, calendarioSemanalController.agregar);
+router.post('/quitar', requireAdministrator, calendarioSemanalController.quitar);
 
 export default router;

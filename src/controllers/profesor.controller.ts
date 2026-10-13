@@ -8,10 +8,30 @@
 
 import type { Request, Response } from 'express';
 import * as profesorService from '../services/profesor.service.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 export async function listar(_req: Request, res: Response) {
   const profesores = await profesorService.listar();
   res.json(profesores);
+}
+
+export async function crear(req: Request, res: Response) {
+  const body: unknown = req.body;
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new ErrorDeNegocio('El cuerpo de la petición debe ser un objeto JSON');
+  }
+
+  const campos = body as Record<string, unknown>;
+  const noPermitidos = Object.keys(campos).filter((campo) => campo !== 'nomApe');
+  if (noPermitidos.length > 0) {
+    throw new ErrorDeNegocio(`Campos no permitidos: ${noPermitidos.join(', ')}`);
+  }
+  if (typeof campos.nomApe !== 'string' || campos.nomApe.trim() === '') {
+    throw new ErrorDeNegocio('El nombre y apellido del profesor es obligatorio');
+  }
+
+  const profesor = await profesorService.crear({ nomApe: campos.nomApe });
+  res.status(201).json(profesor);
 }
 
 export async function obtener(req: Request<{ id: string }>, res: Response) {

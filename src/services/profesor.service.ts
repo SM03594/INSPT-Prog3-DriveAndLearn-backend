@@ -2,7 +2,11 @@
 //  profesor.service.ts — Capa de servicio de Profesores
 // ============================================================
 
-import { ProfesorModel, type ProfesorDoc } from '../models/Profesor.js';
+import {
+  ProfesorModel,
+  type ProfesorDoc,
+  type Profesor,
+} from '../models/Profesor.js';
 import type { Tramo, Dia } from '../models/CalendarioSemanal.js';
 import { agregarTramo, quitarTramo } from './calendarioSemanal.service.js';
 
@@ -11,6 +15,10 @@ import { agregarTramo, quitarTramo } from './calendarioSemanal.service.js';
 // ============================================================
 export async function listar(): Promise<ProfesorDoc[]> {
   return ProfesorModel.find();
+}
+
+export async function crear(datos: Pick<Profesor, 'nomApe'>): Promise<ProfesorDoc> {
+  return ProfesorModel.create(datos);
 }
 
 // ============================================================

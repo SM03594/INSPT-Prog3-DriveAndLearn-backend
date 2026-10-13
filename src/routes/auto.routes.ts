@@ -6,7 +6,10 @@
 
 import { Router } from 'express';
 import * as autoController from '../controllers/auto.controller.js';
-import { requireAuthentication } from '../middlewares/auth.middleware.js';
+import {
+  requireAuthentication,
+  requireAdministrator,
+} from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -14,8 +17,8 @@ router.use(requireAuthentication);
 
 router.get('/', autoController.listar);
 router.get('/:id', autoController.obtener);
-router.post('/', autoController.crear);
-router.put('/:id', autoController.actualizar);
-//router.patch('/:id/activo', autoController.cambiarActivo);
+router.post('/', requireAdministrator, autoController.crear);
+router.put('/:id', requireAdministrator, autoController.actualizar);
+router.patch('/:id/activo', requireAdministrator, autoController.cambiarActivo);
 
 export default router;

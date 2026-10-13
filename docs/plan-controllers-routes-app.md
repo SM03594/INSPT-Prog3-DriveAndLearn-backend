@@ -1,11 +1,10 @@
 # Plan: controller + routes + app.ts para Auto (piloto de arquitectura)
 
-> Este documento es el plan acordado para construir la primera capa HTTP
-> (`controllers`/`routes`/`app.ts`) sobre los `models`/`services` ya
-> existentes. A diferencia de las demás guías de `docs/`, que explican código
-> **ya escrito**, este documento describe un plan **todavía no ejecutado** —
-> sirve de referencia para esta etapa y de punto de partida para replicar el
-> mismo patrón en Alumno, Profesor y Administrador.
+> Documento histórico del plan inicial de la capa HTTP. Ese plan ya fue
+> ejecutado y el código actual incluye autenticación, rutas, controladores y
+> pruebas; las decisiones y el inventario de archivos de abajo describen el
+> estado previo a su implementación, no tareas pendientes vigentes. Para el
+> comportamiento actual de reservas, consultar [reservas de clases](./reservas-clases.md).
 
 ## Contexto
 

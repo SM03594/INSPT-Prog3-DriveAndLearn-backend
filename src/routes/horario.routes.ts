@@ -6,14 +6,19 @@
 
 import { Router } from 'express';
 import * as horarioController from '../controllers/horario.controller.js';
-import { requireAuthentication } from '../middlewares/auth.middleware.js';
+import {
+  requireAuthentication,
+  requireAdministrator,
+} from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
 router.use(requireAuthentication);
 
+router.get('/', horarioController.obtener);
+router.put('/', requireAdministrator, horarioController.reemplazar);
 router.get('/validar/:dia', horarioController.validar);
-router.post('/agregar', horarioController.agregar);
-router.post('/quitar', horarioController.quitar);
+router.post('/agregar', requireAdministrator, horarioController.agregar);
+router.post('/quitar', requireAdministrator, horarioController.quitar);
 
 export default router;

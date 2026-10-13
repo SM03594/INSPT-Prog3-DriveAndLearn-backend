@@ -373,22 +373,14 @@ Paso a paso:
 `{ dia: Dia; hora: number; minuto: number }`. Como incluye `HoraDelDia`, el
 resultado se puede pasar directo a `aMinutos()`.
 
-### Cómo se va a usar (pendiente en `clase.service.ts`)
+### Cómo se valida una reserva
 
-Chequear que la clase entre en la disponibilidad del profesor:
-
-```ts
-const ini = aHoraLocal(clase.inicio); // { dia: 'lunes', hora: 9, minuto: 0 }
-const fin = aHoraLocal(clase.fin);
-
-const entra =
-  ini.dia === fin.dia && // la clase no cruza la medianoche
-  profesor.disponibilidad[ini.dia].some(
-    (t) =>
-      aMinutos(t.horaInicio) <= aMinutos(ini) &&
-      aMinutos(fin) <= aMinutos(t.horaFin),
-  );
-```
+`clase.service.ts` convierte inicio y fin a la zona horaria de la escuela y
+comprueba que la clase de una hora quede completa dentro de un tramo del horario
+general persistido y de la disponibilidad del profesor para ese día. También
+rechaza clases que cruzan de día, fechas pasadas y horarios ocupados. Los
+instantes se comparan en UTC; solo la disponibilidad semanal usa día y hora
+local.
 
 ---
 
@@ -397,12 +389,12 @@ const entra =
 Todo lo que compara **instantes con instantes** funciona directo, sin
 `aHoraLocal`:
 
-**Superposición con otra clase** (profesor o auto ocupado) — una sola
+**Superposición con otra clase** (alumno, profesor o auto ocupado) — una sola
 consulta:
 
 ```ts
 const ocupado = await ClaseModel.exists({
-  profesor,                        // o { auto }
+  $or: [{ alumno }, { profesor }, { auto }],
   estado: { $ne: 'cancelada' },
   inicio: { $lt: finNueva },       // la otra empieza antes de que termine la nueva
   fin: { $gt: inicioNueva },       // y termina después de que empiece la nueva

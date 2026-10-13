@@ -1,206 +1,272 @@
-// ============================================================
-//  clase.service.test.ts — Tests de la CAPA SERVICE de Clases
-// ============================================================
-// Nota: este archivo asume un servicio de clases con las operaciones
-// típicas del proyecto: listar, obtenerPorId, crear, actualizar y
-// cancelar. Si tu diseño usa nombres distintos para los campos
-// (por ejemplo alumnoId/profesorId/autoId), solo tenés que ajustar
-// `datosValidos` y los imports del servicio/modelo.
-
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { Types } from 'mongoose';
 import { setupTestDB } from '../setupTestDB.js';
 import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
+import { AlumnoModel } from '../../src/models/Alumno.js';
+import { AdministradorModel } from '../../src/models/Administrador.js';
+import { ClaseModel } from '../../src/models/Clase.js';
+import { AutoModel } from '../../src/models/Auto.js';
+import { ProfesorModel } from '../../src/models/Profesor.js';
+import { HorarioEscuelaModel } from '../../src/models/HorarioEscuela.js';
+import {
+  DIAS,
+  crearCalendarioSemanal,
+  type CalendarioSemanal,
+} from '../../src/models/CalendarioSemanal.js';
+import { aHoraLocal } from '../../src/utils/fechas.js';
 import {
   listar,
   obtenerPorId,
   crear,
   actualizar,
   cancelar,
+  type ActorClase,
+  type DatosClase,
 } from '../../src/services/clase.service.js';
-import type { DatosClase } from '../../src/services/clase.service.js';
 
 setupTestDB();
 
-const alumnoId = new Types.ObjectId();
-const profesorId = new Types.ObjectId();
-const autoId = new Types.ObjectId();
+const actor: ActorClase = { id: '', role: 'alumno' };
+const actorAdministrador: ActorClase = { id: '', role: 'administrador' };
+let alumnoId: Types.ObjectId;
+let otroAlumnoId: Types.ObjectId;
+let profesorId: Types.ObjectId;
+let profesorAlternativoId: Types.ObjectId;
+let autoId: Types.ObjectId;
+let autoAlternativoId: Types.ObjectId;
+let administradorId: Types.ObjectId;
+let inicioBase: Date;
+let datosValidos: DatosClase;
 
-const datosValidos: DatosClase = {
-  alumno: alumnoId,
-  profesor: profesorId,
-  auto: autoId,
-  // Como llega del body: string ISO con offset de Argentina.
-  inicio: '2026-09-20T09:00:00-03:00',
-  fin: '2026-09-20T10:00:00-03:00',
-  estado: 'pendiente',
-};
+function proximoLunes(): Date {
+  const fecha = new Date();
+  fecha.setUTCHours(12, 0, 0, 0);
+  do {
+    fecha.setUTCDate(fecha.getUTCDate() + 1);
+  } while (aHoraLocal(fecha).dia !== 'lunes');
+  return fecha;
+}
 
-const ID_INEXISTENTE = '64b7f0f0f0f0f0f0f0f0f0f0';
+function calendarioConHorario(horaInicio: number, horaFin: number): CalendarioSemanal {
+  const calendario = crearCalendarioSemanal();
+  calendario.lunes.push({
+    horaInicio: { hora: horaInicio, minuto: 0 },
+    horaFin: { hora: horaFin, minuto: 0 },
+  });
+  return calendario;
+}
+
+function calendarioEscuela(): CalendarioSemanal {
+  const calendario = crearCalendarioSemanal();
+  for (const dia of DIAS) {
+    calendario[dia].push({
+      horaInicio: { hora: 8, minuto: 0 },
+      horaFin: { hora: 18, minuto: 0 },
+    });
+  }
+  return calendario;
+}
+
+beforeEach(async () => {
+  alumnoId = new Types.ObjectId();
+  otroAlumnoId = new Types.ObjectId();
+  profesorId = new Types.ObjectId();
+  profesorAlternativoId = new Types.ObjectId();
+  autoId = new Types.ObjectId();
+  autoAlternativoId = new Types.ObjectId();
+  administradorId = new Types.ObjectId();
+  actor.id = alumnoId.toString();
+  actorAdministrador.id = administradorId.toString();
+
+  inicioBase = proximoLunes();
+  const finBase = new Date(inicioBase.getTime() + 60 * 60 * 1000);
+
+  await AlumnoModel.create([
+    {
+      _id: alumnoId,
+      email: 'alumno@example.com',
+      password: 'hash',
+      nomApe: 'Alumno',
+      clasesPorReservar: 2,
+    },
+    {
+      _id: otroAlumnoId,
+      email: 'otro@example.com',
+      password: 'hash',
+      nomApe: 'Otro alumno',
+      clasesPorReservar: 2,
+    },
+  ]);
+  await AdministradorModel.create({
+    _id: administradorId,
+    email: 'admin@example.com',
+    password: 'hash',
+    nomApe: 'Admin',
+  });
+  await ProfesorModel.create([
+    {
+      _id: profesorId,
+      nomApe: 'Profesor',
+      disponibilidad: calendarioConHorario(9, 17),
+    },
+    {
+      _id: profesorAlternativoId,
+      nomApe: 'Profesor alternativo',
+      disponibilidad: calendarioConHorario(9, 17),
+    },
+  ]);
+  await AutoModel.create([
+    { _id: autoId, patente: 'AA000AA', cambios: 'MANUAL', activo: true },
+    { _id: autoAlternativoId, patente: 'BB000BB', cambios: 'AUTOMATICO', activo: true },
+  ]);
+  await HorarioEscuelaModel.create({
+    _id: 'escuela',
+    calendario: calendarioEscuela(),
+  });
+
+  datosValidos = {
+    profesor: profesorId.toString(),
+    auto: autoId.toString(),
+    inicio: inicioBase.toISOString(),
+    fin: finBase.toISOString(),
+  };
+});
 
 describe('clase.service', () => {
-  describe('crear', () => {
-    it('guarda la clase y le asigna un _id', async () => {
-      const clase = await crear(datosValidos);
+  it('reserva una hora, descuenta un crédito y persiste la clase', async () => {
+    const clase = await crear(datosValidos, actor);
+    const alumno = await AlumnoModel.findById(alumnoId);
 
-      expect(clase._id).toBeDefined();
-      expect(clase.alumno.toString()).toBe(alumnoId.toString());
-      expect(clase.profesor.toString()).toBe(profesorId.toString());
-    });
+    expect(clase._id).toBeDefined();
+    expect(clase.alumno.toString()).toBe(alumnoId.toString());
+    expect(alumno?.clasesPorReservar).toBe(1);
+  });
 
-    it('lista todas las clases creadas', async () => {
-      await crear(datosValidos);
-      await crear({
+  it('permite a un administrador reservar para un alumno', async () => {
+    const clase = await crear(
+      { ...datosValidos, alumno: otroAlumnoId.toString() },
+      actorAdministrador,
+    );
+    expect(clase.alumno.toString()).toBe(otroAlumnoId.toString());
+  });
+
+  it('rechaza intervalos que no duran exactamente una hora', async () => {
+    await expect(
+      crear({ ...datosValidos, fin: new Date(inicioBase.getTime() + 30 * 60 * 1000).toISOString() }, actor),
+    ).rejects.toThrow(/exactamente una hora/i);
+  });
+
+  it('rechaza reservas pasadas y fuera del horario escolar', async () => {
+    await expect(
+      crear({
         ...datosValidos,
-        inicio: '2026-09-21T11:00:00-03:00',
-        fin: '2026-09-21T12:00:00-03:00',
-      });
+        inicio: '2020-09-20T12:00:00.000Z',
+        fin: '2020-09-20T13:00:00.000Z',
+      }, actor),
+    ).rejects.toThrow(/fecha futura/i);
 
-      expect(await listar()).toHaveLength(2);
-    });
-
-    it('guarda el instante en UTC respetando el offset enviado', async () => {
-      const clase = await crear(datosValidos);
-
-      // 09:00 en Argentina (-03:00) son las 12:00 UTC.
-      expect(clase.inicio.toISOString()).toBe('2026-09-20T12:00:00.000Z');
-    });
-
-    it('acepta también un Date', async () => {
-      const inicio = new Date('2026-09-20T12:00:00Z');
-      const clase = await crear({
+    await expect(
+      crear({
         ...datosValidos,
-        inicio,
-        fin: new Date('2026-09-20T13:00:00Z'),
-      });
-
-      expect(clase.inicio.toISOString()).toBe(inicio.toISOString());
-    });
-
-    it('tira ValidationError si falta el inicio', async () => {
-      const { inicio: _omitido, ...sinInicio } = datosValidos;
-
-      await expect(crear(sinInicio as DatosClase)).rejects.toThrow(/inicio/i);
-    });
-
-    it('tira ValidationError si falta el fin', async () => {
-      const { fin: _omitido, ...sinFin } = datosValidos;
-
-      await expect(crear(sinFin as DatosClase)).rejects.toThrow(/fin/i);
-    });
-
-    it('tira ErrorDeNegocio si el inicio no tiene zona horaria', async () => {
-      await expect(
-        crear({ ...datosValidos, inicio: '2026-09-20T09:00:00' }),
-      ).rejects.toThrow(ErrorDeNegocio);
-    });
-
-    it('tira ErrorDeNegocio si el inicio no es una fecha', async () => {
-      await expect(
-        crear({ ...datosValidos, inicio: 'no-es-una-fecha' }),
-      ).rejects.toThrow(/inicio/i);
-    });
-
-    it('tira ValidationError si el fin no es posterior al inicio', async () => {
-      await expect(
-        crear({ ...datosValidos, fin: datosValidos.inicio }),
-      ).rejects.toThrow(/posterior al inicio/i);
-    });
-
-    it('tira ValidationError si falta el alumno', async () => {
-      const { alumno: _omitido, ...sinAlumno } = datosValidos;
-
-      await expect(crear(sinAlumno as DatosClase)).rejects.toThrow(/alumno/i);
-    });
-
-    it('tira ValidationError si falta el profesor', async () => {
-      const { profesor: _omitido, ...sinProfesor } = datosValidos;
-
-      await expect(crear(sinProfesor as DatosClase)).rejects.toThrow(/profesor/i);
-    });
+        inicio: new Date(inicioBase.getTime() + 11 * 60 * 60 * 1000).toISOString(),
+        fin: new Date(inicioBase.getTime() + 12 * 60 * 60 * 1000).toISOString(),
+      }, actor),
+    ).rejects.toThrow(/horario de la escuela/i);
   });
 
-  describe('listar', () => {
-    it('devuelve [] cuando no hay clases', async () => {
-      expect(await listar()).toEqual([]);
-    });
-
-    it('devuelve todas las clases creadas', async () => {
-      await crear(datosValidos);
-      await crear({
+  it('rechaza clases fuera de disponibilidad o con el auto fuera de servicio', async () => {
+    const domingo = new Date(inicioBase.getTime() + 6 * 24 * 60 * 60 * 1000);
+    await expect(
+      crear({
         ...datosValidos,
-        inicio: '2026-09-21T14:00:00-03:00',
-        fin: '2026-09-21T15:00:00-03:00',
-      });
+        inicio: domingo.toISOString(),
+        fin: new Date(domingo.getTime() + 60 * 60 * 1000).toISOString(),
+      }, actor),
+    ).rejects.toThrow(/profesor no está disponible/i);
 
-      expect(await listar()).toHaveLength(2);
-    });
+    await AutoModel.findByIdAndUpdate(autoId, { activo: false });
+    await expect(crear(datosValidos, actor)).rejects.toThrow(/auto no está disponible/i);
   });
 
-  describe('obtenerPorId', () => {
-    it('devuelve la clase pedida', async () => {
-      const creada = await crear(datosValidos);
-      const encontrada = await obtenerPorId(creada._id.toString());
+  it('rechaza si no hay créditos o si profesor/auto ya están ocupados', async () => {
+    await AlumnoModel.findByIdAndUpdate(alumnoId, { clasesPorReservar: 0 });
+    await expect(crear(datosValidos, actor)).rejects.toThrow(/clases disponibles/i);
 
-      expect(encontrada?._id.toString()).toBe(creada._id.toString());
-    });
-
-    it('devuelve null si la clase no existe', async () => {
-      expect(await obtenerPorId(ID_INEXISTENTE)).toBeNull();
-    });
-
-    it('tira CastError si el id no tiene forma válida', async () => {
-      await expect(obtenerPorId('no-es-un-objectid')).rejects.toThrow();
-    });
+    await AlumnoModel.findByIdAndUpdate(alumnoId, { clasesPorReservar: 2 });
+    await crear(datosValidos, actor);
+    await expect(crear({
+      ...datosValidos,
+      alumno: otroAlumnoId.toString(),
+    }, actorAdministrador)).rejects.toThrow(/ya tiene una clase/i);
   });
 
-  describe('actualizar', () => {
-    it('modifica solo los campos enviados y devuelve el doc actualizado', async () => {
-      const creada = await crear(datosValidos);
-
-      const actualizada = await actualizar(creada._id.toString(), {
-        estado: 'confirmada',
-      });
-
-      expect(actualizada?.estado).toBe('confirmada');
-      expect(actualizada?.inicio.toISOString()).toBe('2026-09-20T12:00:00.000Z');
-    });
-
-    it('parsea inicio/fin si vienen en los cambios', async () => {
-      const creada = await crear(datosValidos);
-
-      const actualizada = await actualizar(creada._id.toString(), {
-        inicio: '2026-09-20T10:00:00-03:00',
-        fin: '2026-09-20T11:00:00-03:00',
-      });
-
-      expect(actualizada?.inicio.toISOString()).toBe('2026-09-20T13:00:00.000Z');
-    });
-
-    it('tira ErrorDeNegocio si el fin nuevo no tiene zona horaria', async () => {
-      const creada = await crear(datosValidos);
-
-      await expect(
-        actualizar(creada._id.toString(), { fin: '2026-09-20T11:00' }),
-      ).rejects.toThrow(ErrorDeNegocio);
-    });
-
-    it('devuelve null si la clase no existe', async () => {
-      expect(await actualizar(ID_INEXISTENTE, { estado: 'cancelada' })).toBeNull();
-    });
+  it('no permite que un alumno reserve dos clases superpuestas con recursos diferentes', async () => {
+    await crear(datosValidos, actor);
+    await expect(
+      crear({
+        ...datosValidos,
+        profesor: profesorAlternativoId.toString(),
+        auto: autoAlternativoId.toString(),
+      }, actor),
+    ).rejects.toThrow(/alumno, profesor o auto/i);
   });
 
-  describe('cancelar', () => {
-    it('cambia el estado a cancelada y devuelve la clase actualizada', async () => {
-      const creada = await crear(datosValidos);
+  it('filtra el listado y oculta las clases de otros alumnos', async () => {
+    const clase = await crear(datosValidos, actor);
+    expect(await listar(actor)).toHaveLength(1);
+    const otroActor = {
+      id: otroAlumnoId.toString(),
+      role: 'alumno',
+    } as const;
+    expect(await obtenerPorId(clase._id.toString(), otroActor)).toBeNull();
+    expect(await actualizar(clase._id.toString(), { profesor: profesorAlternativoId.toString() }, otroActor)).toBeNull();
+    expect(await cancelar(clase._id.toString(), otroActor)).toBeNull();
+    expect(await listar(actorAdministrador)).toHaveLength(1);
+  });
 
-      const cancelada = await cancelar(creada._id.toString());
+  it('reprograma una reserva validando disponibilidad y conserva su crédito', async () => {
+    const clase = await crear(datosValidos, actor);
+    const nuevaInicio = new Date(inicioBase.getTime() + 2 * 60 * 60 * 1000);
+    const actualizada = await actualizar(
+      clase._id.toString(),
+      { inicio: nuevaInicio.toISOString(), profesor: profesorAlternativoId.toString() },
+      actor,
+    );
+    const alumno = await AlumnoModel.findById(alumnoId);
 
-      expect(cancelada?.estado).toBe('cancelada');
+    expect(actualizada?.inicio.toISOString()).toBe(nuevaInicio.toISOString());
+    expect(actualizada?.fin.toISOString()).toBe(
+      new Date(nuevaInicio.getTime() + 60 * 60 * 1000).toISOString(),
+    );
+    expect(alumno?.clasesPorReservar).toBe(1);
+  });
+
+  it('cancela una clase futura y devuelve el crédito una única vez', async () => {
+    const clase = await crear(datosValidos, actor);
+    await cancelar(clase._id.toString(), actor);
+    await cancelar(clase._id.toString(), actor);
+
+    const alumno = await AlumnoModel.findById(alumnoId);
+    expect((await obtenerPorId(clase._id.toString(), actor))?.estado).toBe('cancelada');
+    expect(alumno?.clasesPorReservar).toBe(2);
+  });
+
+  it('no permite cancelar una clase que ya comenzó', async () => {
+    const clase = await ClaseModel.create({
+      alumno: alumnoId,
+      profesor: profesorId,
+      auto: autoId,
+      inicio: new Date('2020-09-20T12:00:00.000Z'),
+      fin: new Date('2020-09-20T13:00:00.000Z'),
     });
 
-    it('devuelve null si la clase no existe', async () => {
-      expect(await cancelar(ID_INEXISTENTE)).toBeNull();
-    });
+    await expect(cancelar(clase._id.toString(), actor)).rejects.toThrow(
+      /solo se pueden cancelar clases futuras/i,
+    );
+    expect((await AlumnoModel.findById(alumnoId))?.clasesPorReservar).toBe(2);
+  });
+
+  it('devuelve null al buscar un ID inexistente', async () => {
+    expect(await obtenerPorId(new Types.ObjectId().toString(), actor)).toBeNull();
   });
 });

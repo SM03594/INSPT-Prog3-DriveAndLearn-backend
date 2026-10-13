@@ -1,44 +1,38 @@
 // ============================================================
 //  horario.controller.ts — Controller HTTP de horarios
 // ============================================================
-// Este controller no apunta a una colección propia: trabaja con
-// un CalendarioSemanal, reutilizando las reglas de negocio de
-// src/services/calendarioSemanal.service.ts.
-//
-// La idea es que el handler reciba desde HTTP el calendario y los
-// datos necesarios para agregar/quitar un tramo, y luego devolver
-// el calendario actualizado.
+// Expone el calendario semanal persistido de la escuela. Las
+// modificaciones se guardan en horarioEscuela.service.ts.
 
 import type { Request, Response } from 'express';
-import {
-  agregarTramo,
-  quitarTramo,
-  validarDia,
-} from '../services/reglasEscuela.service.js';
+import * as horarioService from '../services/horarioEscuela.service.js';
+import { validarDia } from '../services/calendarioSemanal.service.js';
 
 export async function validar(req: Request<{ dia: string }>, res: Response) {
   validarDia(req.params.dia);
   res.json({ valido: true, dia: req.params.dia });
 }
 
+export async function obtener(_req: Request, res: Response) {
+  res.json(await horarioService.obtener());
+}
+
+export async function reemplazar(req: Request, res: Response) {
+  res.json(await horarioService.reemplazar(req.body));
+}
+
 export async function agregar(req: Request, res: Response) {
-  const { calendario, dia, tramo } = req.body;
-
-  agregarTramo(calendario, dia, tramo);
-
-  res.json(calendario);
+  const { dia, tramo } = req.body;
+  res.json(await horarioService.agregarTramo(dia, tramo));
 }
 
 export async function quitar(req: Request, res: Response) {
-  const { calendario, dia, tramoId } = req.body;
-
-  const quitado = quitarTramo(calendario, dia, tramoId);
-
-  if (!quitado) {
+  const { dia, tramoId } = req.body;
+  const calendario = await horarioService.quitarTramo(dia, tramoId);
+  if (calendario === null) {
     return res.status(404).json({
       mensaje: 'No se encontró el tramo solicitado en ese día',
     });
   }
-
   res.json(calendario);
 }

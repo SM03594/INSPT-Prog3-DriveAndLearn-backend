@@ -46,9 +46,17 @@ Content-Type: application/json
 
 Las contraseñas nuevas deben tener al menos 8 caracteres. El backend las guarda
 con bcrypt, no en texto plano. La ruta de administración está protegida, por lo
-que el alta inicial de un administrador debe hacerse mediante un procedimiento
-de confianza (por ejemplo, una carga inicial controlada), nunca dejando público
-el registro de administradores.
+que el alta inicial nunca se expone como registro público. Para crear el primer
+administrador en una base vacía, ejecutá desde la raíz del backend:
+
+```sh
+npm run admin:bootstrap
+```
+
+El comando solicita email, nombre y contraseña (oculta mientras se escribe),
+usa el servicio habitual para hashearla y crea la cuenta en la base configurada
+en `.env`. Si ya existe un administrador, se detiene; las cuentas adicionales
+se crean autenticándose y usando `POST /api/administradores`.
 
 ## 3. Iniciar sesión
 
