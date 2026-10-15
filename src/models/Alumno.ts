@@ -1,67 +1,48 @@
 // ============================================================
-//  Alumno.ts — Modelo Mongoose de la colección "alumnos"
+//  Alumno.ts — Discriminator "alumno" de la colección "usuarios"
 // ============================================================
+// Los campos comunes (email, password, nomApe, timestamps, toJSON)
+// vienen del modelo base (Usuario.ts). Acá solo va lo propio del
+// alumno.
 
-import { Schema, model, HydratedDocument } from 'mongoose';
+import { Schema, HydratedDocument } from 'mongoose';
+import {
+  UsuarioModel,
+  type DatosUsuario,
+  type Usuario,
+} from './Usuario.js';
 
 // ============================================================
 //  Definición del esquema
 // ============================================================
-const alumnoSchema = new Schema(
-  {
-    email: {
-      type: String,
-      required: [true, 'El email es obligatorio'],
-      trim: true,
-      lowercase: true,
-      unique:[true, 'La direccion de email ya esta en uso'],
-    },
-
-    password: {
-      type: String,
-      required: [true, 'La contraseña es obligatoria'],
-      // Guardamos el hash de bcrypt, nunca la contraseña en texto plano.
-      // El hasheo se hace en el service (utils/password.ts), al crear y al actualizar.
-    },
-
-    nomApe: {
-      type: String,
-      required: [true, 'El nombre y apellido es obligatorio'],
-      trim: true,
-    },
-
-    clasesPorReservar: {
-      type: Number,
-      required: [true, 'La cantidad de clases por reservar es obligatoria'],
-      min: [0, 'clasesPorReservar no puede ser negativo'],
-      default: 0,
-    },
+const alumnoSchema = new Schema({
+  clasesPorReservar: {
+    type: Number,
+    required: [true, 'La cantidad de clases por reservar es obligatoria'],
+    min: [0, 'clasesPorReservar no puede ser negativo'],
+    default: 0,
   },
-  {
-    timestamps: true,
-
-    collection: 'alumnos',
-
-    toJSON: {
-      transform: (_doc, ret) => {
-        // res.json(alumno): sacamos el __v (contador interno de versión de
-        // Mongoose) y el password (aunque sea un hash, no debe salir de la API).
-        delete (ret as Record<string, unknown>).__v;
-        delete (ret as Record<string, unknown>).password;
-        return ret;
-      },
-    },
-  },
-);
+});
 
 
-export interface Alumno {
-  email: string;
-  password: string; // en la base: hash de bcrypt
-  nomApe: string;
+// Campos que se cargan al crear un alumno ("rol" lo pone Mongoose).
+export interface Alumno extends DatosUsuario {
   clasesPorReservar: number;
 }
 
-export type AlumnoDoc = HydratedDocument<Alumno>;
+// Documento tal como queda guardado. Extiende Usuario (con el rol
+// fijo) para que un AlumnoDoc sea también un UsuarioDoc.
+export interface AlumnoGuardado extends Usuario, Alumno {
+  rol: 'ALUMNO';
+}
 
-export const AlumnoModel = model<Alumno>('Alumno', alumnoSchema);
+export type AlumnoDoc = HydratedDocument<AlumnoGuardado>;
+
+// El nombre del modelo ('Alumno') es el que usan las referencias,
+// como ref: 'Alumno' en Clase.ts. El valor ('alumno') es el que se
+// guarda en el campo "role".
+export const AlumnoModel = UsuarioModel.discriminator<AlumnoGuardado>(
+  'Alumno',
+  alumnoSchema,
+  { value: 'ALUMNO' },
+);

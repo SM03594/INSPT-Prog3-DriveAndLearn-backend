@@ -1,62 +1,32 @@
 // ============================================================
-//  Administrador.ts — Modelo Mongoose de la colección "administradores"
+//  Administrador.ts — Discriminator "administrador" de la colección "usuarios"
 // ============================================================
+// El administrador no tiene campos propios: todo lo que guarda
+// (email, password, nomApe, timestamps) viene del modelo base
+// (Usuario.ts). El discriminator existe para que AdministradorModel
+// filtre solo los usuarios con role "administrador".
 
-import { Schema, model, HydratedDocument } from 'mongoose';
-
-
-const administradorSchema = new Schema(
-  {
-    email: {
-      type: String,
-      required: [true, 'El email es obligatorio'],
-      trim: true,
-      lowercase: true,
-      unique: true,
-    },
-
-    password: {
-      type: String,
-      required: [true, 'La contraseña es obligatoria'],
-      // Guardamos el hash de bcrypt, nunca la contraseña en texto plano.
-      // El hasheo se hace en el service (utils/password.ts), al crear y al actualizar.
-    },
-
-    nomApe: {
-      type: String,
-      required: [true, 'El nombre y apellido es obligatorio'],
-      trim: true,
-    },
-  },
-  {
-    timestamps: true,
-
-    collection: 'administradores',
-
-    toJSON: {
-      transform: (_doc, ret) => {
-        // res.json(admin): sacamos el __v (contador interno de versión de
-        // Mongoose) y el password (aunque sea un hash, no debe salir de la API).
-        delete (ret as Record<string, unknown>).__v;
-        delete (ret as Record<string, unknown>).password;
-        return ret;
-      },
-    },
-  },
-);
+import { Schema, HydratedDocument } from 'mongoose';
+import {
+  UsuarioModel,
+  type DatosUsuario,
+  type Usuario,
+} from './Usuario.js';
 
 
-export interface Administrador {
-  email: string;
-  password: string; // en la base: hash de bcrypt
-  nomApe: string;
+// Campos que se cargan al crear un administrador ("rol" lo pone Mongoose).
+export type Administrador = DatosUsuario;
+
+// Documento tal como queda guardado. Extiende Usuario (con el rol
+// fijo) para que un AdministradorDoc sea también un UsuarioDoc.
+export interface AdministradorGuardado extends Usuario {
+  rol: 'ADMINISTRADOR';
 }
 
+export type AdministradorDoc = HydratedDocument<AdministradorGuardado>;
 
-export type AdministradorDoc = HydratedDocument<Administrador>;
-
-
-export const AdministradorModel = model<Administrador>(
+export const AdministradorModel = UsuarioModel.discriminator<AdministradorGuardado>(
   'Administrador',
-  administradorSchema,
+  new Schema({}),
+  { value: 'ADMINISTRADOR' },
 );
