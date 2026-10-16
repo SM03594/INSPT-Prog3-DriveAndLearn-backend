@@ -56,8 +56,8 @@ describe('usuario.service', () => {
       const usuarios = await listar();
 
       expect(usuarios).toHaveLength(3);
-      expect(usuarios.filter((u) => u.rol === 'ALUMNO')).toHaveLength(2);
-      expect(usuarios.filter((u) => u.rol === 'ADMINISTRADOR')).toHaveLength(1);
+      expect(usuarios.filter((u) => u.rol === 'alumno')).toHaveLength(2);
+      expect(usuarios.filter((u) => u.rol === 'administrador')).toHaveLength(1);
     });
 
     it('hidrata cada documento con el modelo de su rol', async () => {
@@ -65,8 +65,8 @@ describe('usuario.service', () => {
       await crearAdministrador(datosAdministrador);
 
       const usuarios = await listar();
-      const alumno = usuarios.find((u) => u.rol === 'ALUMNO');
-      const admin = usuarios.find((u) => u.rol === 'ADMINISTRADOR');
+      const alumno = usuarios.find((u) => u.rol === 'alumno');
+      const admin = usuarios.find((u) => u.rol === 'administrador');
 
       expect(alumno).toBeInstanceOf(AlumnoModel);
       expect(admin).toBeInstanceOf(AdministradorModel);
@@ -78,7 +78,7 @@ describe('usuario.service', () => {
       const [usuario] = await listar();
 
       // El if achica el tipo a AlumnoDoc (ver UsuarioDoc en Usuario.ts).
-      if (usuario?.rol !== 'ALUMNO') throw new Error('Se esperaba un alumno');
+      if (usuario?.rol !== 'alumno') throw new Error('Se esperaba un alumno');
       expect(usuario.clasesPorReservar).toBe(3);
     });
 
@@ -101,7 +101,7 @@ describe('usuario.service', () => {
       const encontrado = await obtenerPorId(creado._id.toString());
 
       expect(encontrado?._id.toString()).toBe(creado._id.toString());
-      expect(encontrado?.rol).toBe('ALUMNO');
+      expect(encontrado?.rol).toBe('alumno');
       expect(encontrado).toBeInstanceOf(AlumnoModel);
     });
 
@@ -110,7 +110,7 @@ describe('usuario.service', () => {
       const encontrado = await obtenerPorId(creado._id.toString());
 
       expect(encontrado?._id.toString()).toBe(creado._id.toString());
-      expect(encontrado?.rol).toBe('ADMINISTRADOR');
+      expect(encontrado?.rol).toBe('administrador');
       expect(encontrado).toBeInstanceOf(AdministradorModel);
     });
 
@@ -132,7 +132,7 @@ describe('usuario.service', () => {
       const encontrado = await obtenerPorEmail('ana@example.com');
 
       expect(encontrado?._id.toString()).toBe(creado._id.toString());
-      expect(encontrado?.rol).toBe('ALUMNO');
+      expect(encontrado?.rol).toBe('alumno');
     });
 
     it('encuentra a un administrador por su email', async () => {
@@ -140,7 +140,7 @@ describe('usuario.service', () => {
       const encontrado = await obtenerPorEmail('admin@example.com');
 
       expect(encontrado?._id.toString()).toBe(creado._id.toString());
-      expect(encontrado?.rol).toBe('ADMINISTRADOR');
+      expect(encontrado?.rol).toBe('administrador');
     });
 
     it('ignora mayúsculas y espacios alrededor del email', async () => {

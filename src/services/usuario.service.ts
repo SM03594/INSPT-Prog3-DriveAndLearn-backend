@@ -31,9 +31,6 @@ export async function obtenerPorId(id: string): Promise<UsuarioDoc | null> {
 // ============================================================
 //  obtenerPorEmail — un usuario por su email (null si no existe)
 // ============================================================
-// El email es único en toda la colección, así que hay a lo sumo
-// uno. Se normaliza igual que lo guarda el esquema (trim +
-// lowercase) para que " Ana@Mail.com" encuentre a "ana@mail.com".
 export async function obtenerPorEmail(
   email: string,
 ): Promise<UsuarioDoc | null> {

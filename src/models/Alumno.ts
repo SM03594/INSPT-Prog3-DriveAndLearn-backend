@@ -33,16 +33,16 @@ export interface Alumno extends DatosUsuario {
 // Documento tal como queda guardado. Extiende Usuario (con el rol
 // fijo) para que un AlumnoDoc sea también un UsuarioDoc.
 export interface AlumnoGuardado extends Usuario, Alumno {
-  rol: 'ALUMNO';
+  rol: 'alumno';
 }
 
 export type AlumnoDoc = HydratedDocument<AlumnoGuardado>;
 
 // El nombre del modelo ('Alumno') es el que usan las referencias,
 // como ref: 'Alumno' en Clase.ts. El valor ('alumno') es el que se
-// guarda en el campo "role".
+// guarda en el campo "rol".
 export const AlumnoModel = UsuarioModel.discriminator<AlumnoGuardado>(
   'Alumno',
   alumnoSchema,
-  { value: 'ALUMNO' },
+  { value: 'alumno' },
 );

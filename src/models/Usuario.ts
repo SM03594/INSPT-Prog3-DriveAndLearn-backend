@@ -8,9 +8,7 @@ import { Schema, model } from 'mongoose';
 // importan UsuarioModel de este archivo).
 import type { AlumnoDoc } from './Alumno.js';
 import type { AdministradorDoc } from './Administrador.js';
-
-export const ROLES = ['ALUMNO', 'ADMINISTRADOR'] as const;
-export type Rol = (typeof ROLES)[number];
+import { ROLES, type Rol } from '../types/roles.js';
 
 
 const usuarioSchema = new Schema(
@@ -23,7 +21,7 @@ const usuarioSchema = new Schema(
       required: [true, 'El rol es obligatorio'],
       enum: {
         values: [...ROLES],
-        message: 'rol debe ser "ALUMNO" o "ADMINISTRADOR"',
+        message: 'rol debe ser "alumno" o "administrador"',
       },
     },
 

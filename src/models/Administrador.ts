@@ -4,7 +4,7 @@
 // El administrador no tiene campos propios: todo lo que guarda
 // (email, password, nomApe, timestamps) viene del modelo base
 // (Usuario.ts). El discriminator existe para que AdministradorModel
-// filtre solo los usuarios con role "administrador".
+// filtre solo los usuarios con rol "administrador".
 
 import { Schema, HydratedDocument } from 'mongoose';
 import {
@@ -20,7 +20,7 @@ export type Administrador = DatosUsuario;
 // Documento tal como queda guardado. Extiende Usuario (con el rol
 // fijo) para que un AdministradorDoc sea también un UsuarioDoc.
 export interface AdministradorGuardado extends Usuario {
-  rol: 'ADMINISTRADOR';
+  rol: 'administrador';
 }
 
 export type AdministradorDoc = HydratedDocument<AdministradorGuardado>;
@@ -28,5 +28,5 @@ export type AdministradorDoc = HydratedDocument<AdministradorGuardado>;
 export const AdministradorModel = UsuarioModel.discriminator<AdministradorGuardado>(
   'Administrador',
   new Schema({}),
-  { value: 'ADMINISTRADOR' },
+  { value: 'administrador' },
 );
