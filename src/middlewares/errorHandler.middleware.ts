@@ -13,6 +13,9 @@
 // Traduce los errores documentados en guia-capa-service.md §9:
 //   ValidationError (falta un campo / valor fuera de rango) -> 400
 //   CastError (id mal formado, ej. "abc")                   -> 400
+//   ErrorPeticionInvalida (pedido mal armado)               -> 400
+//   ErrorAutenticacion (no sabemos quién es)                -> 401
+//   ErrorAutorizacion (sabemos quién es, pero no puede)     -> 403
 //   ErrorDeNegocio (regla de negocio rota, ej. cantidad<0)  -> err.status (400 por defecto)
 //   cualquier otro caso (bug real, no lo lanzamos nosotros) -> 500 + log
 
@@ -20,7 +23,9 @@
 import type { ErrorRequestHandler } from 'express';
 import mongoose from 'mongoose';
 import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
+import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+import { ErrorPeticionInvalida } from '../errors/errorPeticionInvalida.js';
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
  
@@ -37,7 +42,13 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(400).json({ mensaje: 'Id inválido' });
   }
 
-  if (err instanceof ErrorAutenticacion) {
+  // Errores de la capa HTTP (los lanza auth.middleware): cada clase
+  // trae su status fijo (400, 401 o 403).
+  if (
+    err instanceof ErrorPeticionInvalida ||
+    err instanceof ErrorAutenticacion ||
+    err instanceof ErrorAutorizacion
+  ) {
     return res.status(err.status).json({ mensaje: err.message });
   }
 
