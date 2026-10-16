@@ -33,6 +33,17 @@ export async function obtenerPorId(
 }
 
 // ============================================================
+//  existe — si hay un administrador con ese _id
+// ============================================================
+// Usa exists() en vez de obtenerPorId para no traer el documento
+// entero (con el hash de la contraseña) solo para chequear null.
+// El discriminator filtra por rol, así que el id de un alumno
+// devuelve false.
+export async function existe(id: string): Promise<boolean> {
+  return (await AdministradorModel.exists({ _id: id })) !== null;
+}
+
+// ============================================================
 //  crear — alta de un administrador
 // ============================================================
 // Antes de guardar hasheamos la contraseña (ver utils/password.ts).

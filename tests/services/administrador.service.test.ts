@@ -8,10 +8,12 @@ import { setupTestDB } from '../setupTestDB.js';
 import {
   listar,
   obtenerPorId,
+  existe,
   crear,
   actualizar,
 } from '../../src/services/administrador.service.js';
 import type { Administrador } from '../../src/models/Administrador.js';
+import { crear as crearAlumno } from '../../src/services/alumno.service.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
@@ -116,6 +118,32 @@ describe('administrador.service', () => {
 
     it('tira CastError si el id no tiene forma de ObjectId', async () => {
       await expect(obtenerPorId('no-es-un-objectid')).rejects.toThrow();
+    });
+  });
+
+  // --------------------------------------------------------
+  //  existe
+  // --------------------------------------------------------
+  describe('existe', () => {
+    it('devuelve true si el administrador existe', async () => {
+      const creado = await crear(datosValidos);
+
+      expect(await existe(creado._id.toString())).toBe(true);
+    });
+
+    it('devuelve false si el id no existe', async () => {
+      expect(await existe(ID_INEXISTENTE)).toBe(false);
+    });
+
+    it('devuelve false para el id de un alumno', async () => {
+      const alumno = await crearAlumno({
+        email: 'alumno@example.com',
+        password: 'unHashDeBcrypt',
+        nomApe: 'Alumno',
+        clasesPorReservar: 0,
+      });
+
+      expect(await existe(alumno._id.toString())).toBe(false);
     });
   });
 
