@@ -1,17 +1,15 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { AdministradorModel } from '../models/Administrador.js';
-import { AlumnoModel } from '../models/Alumno.js';
+import * as usuarioService from './usuario.service.js';
 import { obtenerJwtSecret } from '../config/env.js';
 import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
-
-type RolUsuario = 'alumno' | 'administrador';
+import type { Rol } from '../types/roles.js';
 
 interface UsuarioAutenticado {
   id: string;
   email: string;
   nomApe: string;
-  role: RolUsuario;
+  role: Rol;
 }
 
 export interface ResultadoAutenticacion {
@@ -34,34 +32,14 @@ export async function autenticar(
     throw new ErrorAutenticacion('Email y contraseña son obligatorios');
   }
 
-  const emailNormalizado = email.trim().toLowerCase();
-  const [alumno, administrador] = await Promise.all([
-    AlumnoModel.findOne({ email: emailNormalizado }),
-    AdministradorModel.findOne({ email: emailNormalizado }),
-  ]);
+  const usuario = await usuarioService.obtenerPorEmail(email);
 
-  const coincidencias: UsuarioAutenticado[] = [];
-  const usuarios = [
-    { usuario: alumno, role: 'alumno' },
-    { usuario: administrador, role: 'administrador' },
-  ] as const;
-
-  for (const { usuario, role } of usuarios) {
-    if (usuario !== null && await bcrypt.compare(password, usuario.password)) {
-      coincidencias.push({
-        id: usuario._id.toString(),
-        email: usuario.email,
-        nomApe: usuario.nomApe,
-        role,
-      });
-    }
-  }
-
-  if (coincidencias.length !== 1) {
+  if (usuario === null || !(await bcrypt.compare(password, usuario.password))) {
     throw new ErrorAutenticacion(MENSAJE_CREDENCIALES_INVALIDAS);
   }
 
-  const { id, email: emailUsuario, nomApe, role } = coincidencias[0];
+  const id = usuario._id.toString();
+  const role = usuario.rol;
   const token = jwt.sign({ role }, obtenerJwtSecret(), {
     algorithm: 'HS256',
     audience: 'driveandlearn-api',
@@ -72,6 +50,6 @@ export async function autenticar(
 
   return {
     token,
-    usuario: { id, email: emailUsuario, nomApe, role },
+    usuario: { id, email: usuario.email, nomApe: usuario.nomApe, role },
   };
 }

@@ -92,6 +92,15 @@ describe('autenticación HTTP', () => {
     expect(respuesta.body.mensaje).toBe('Email o contraseña incorrectos');
   });
 
+  it('rechaza un email inexistente con el mismo mensaje genérico', async () => {
+    const respuesta = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'nadie@example.com', password: 'claveSegura123' })
+      .expect(401);
+
+    expect(respuesta.body.mensaje).toBe('Email o contraseña incorrectos');
+  });
+
   it('exige un JWT válido para las rutas protegidas', async () => {
     await request(app).get('/api/autos').expect(401);
 
