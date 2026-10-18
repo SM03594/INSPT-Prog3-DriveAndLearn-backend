@@ -9,12 +9,15 @@
 // del dominio (como "la cantidad no puede ser negativa"), sino que
 // el cliente mandó algo con un formato que no corresponde.
 //
-// Extiende directamente de Error y siempre corresponde a un HTTP 400.
+// Extiende directamente de Error. Corresponde a un HTTP 400 por
+// defecto; las subclases pueden indicar otro 4xx (ErrorLecturaCuerpo
+// usa 413 para un body demasiado grande, por ejemplo).
 
 export class ErrorPeticionInvalida extends Error {
-  readonly status = 400;
-
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly status: number = 400,
+  ) {
     super(message);
     this.name = 'ErrorPeticionInvalida';
   }

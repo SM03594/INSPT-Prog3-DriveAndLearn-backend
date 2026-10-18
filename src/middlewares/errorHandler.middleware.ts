@@ -11,9 +11,10 @@
 // por vos). Por eso los controllers no llevan try/catch.
 //
 // Traduce los errores documentados en guia-capa-service.md §9:
+//   body ilegible (JSON mal formado, demasiado grande...)   -> err.status (400, 413, 415)
 //   ValidationError (falta un campo / valor fuera de rango) -> 400
 //   CastError (id mal formado, ej. "abc")                   -> 400
-//   ErrorPeticionInvalida (pedido mal armado)               -> 400
+//   ErrorPeticionInvalida (pedido mal armado)               -> err.status (400 por defecto)
 //   ErrorAutenticacion (no sabemos quién es)                -> 401
 //   ErrorAutorizacion (sabemos quién es, pero no puede)     -> 403
 //   ErrorDeNegocio (regla de negocio rota, ej. cantidad<0)  -> err.status (400 por defecto)
@@ -26,9 +27,12 @@ import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { ErrorPeticionInvalida } from '../errors/errorPeticionInvalida.js';
+import { comoErrorLecturaCuerpo, ErrorLecturaCuerpo } from '../errors/errorLecturaCuerpo.js';
 
-export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
- 
+export const errorHandler: ErrorRequestHandler = (errOriginal, _req, res, _next) => {
+
+  const err = comoErrorLecturaCuerpo(errOriginal);
+
   if (err instanceof mongoose.Error.ValidationError) {
     const mensaje = Object.values(err.errors)
       //para devolver varios mensajes de error a la vez de distintos campos
@@ -42,9 +46,11 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return res.status(400).json({ mensaje: 'Id inválido' });
   }
 
-  // Errores de la capa HTTP (los lanza auth.middleware): cada clase
-  // trae su status fijo (400, 401 o 403).
+  // Errores de la capa HTTP (los lanza auth.middleware, o los traduce
+  // comoErrorLecturaCuerpo): cada uno trae su status (400, 401, 403,
+  // o el 4xx de un ErrorLecturaCuerpo).
   if (
+    err instanceof ErrorLecturaCuerpo ||
     err instanceof ErrorPeticionInvalida ||
     err instanceof ErrorAutenticacion ||
     err instanceof ErrorAutorizacion
