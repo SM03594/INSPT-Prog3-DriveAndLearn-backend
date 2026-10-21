@@ -8,6 +8,7 @@
 
 import type { Request, Response } from 'express';
 import * as alumnoService from '../services/alumno.service.js';
+import { cuerpoComoObjeto } from '../utils/cuerpoPeticion.js';
 
 export async function listar(_req: Request, res: Response) {
   const alumnos = await alumnoService.listar();
@@ -24,15 +25,10 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function crear(req: Request, res: Response) {
-  const body: unknown = req.body;
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    return res.status(400).json({
-      mensaje: 'El cuerpo de la petición debe ser un objeto JSON',
-    });
-  }
+  const datos = cuerpoComoObjeto(req.body);
 
   const camposPermitidos = ['email', 'password', 'nomApe'];
-  const camposNoPermitidos = Object.keys(body).filter(
+  const camposNoPermitidos = Object.keys(datos).filter(
     (campo) => !camposPermitidos.includes(campo),
   );
   if (camposNoPermitidos.length > 0) {
@@ -41,7 +37,6 @@ export async function crear(req: Request, res: Response) {
     });
   }
 
-  const datos = body as Record<string, unknown>;
   if (
     typeof datos.email !== 'string' ||
     typeof datos.password !== 'string' ||
@@ -61,8 +56,13 @@ export async function crear(req: Request, res: Response) {
   res.status(201).json(alumno);
 }
 
+// cuerpoComoObjeto: 400 si el body no es un objeto JSON. Qué campos
+// se pueden modificar y de qué tipo lo valida el service.
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
-  const alumno = await alumnoService.actualizar(req.params.id, req.body);
+  const alumno = await alumnoService.actualizar(
+    req.params.id,
+    cuerpoComoObjeto(req.body),
+  );
   if (alumno === null) {
     return res.status(404).json({ mensaje: 'Alumno no encontrado' });
   }
@@ -79,10 +79,13 @@ export async function eliminar(req: Request<{ id: string }>, res: Response) {
   res.status(204).end();
 }
 
+// cuerpoComoObjeto: si el pedido no trae un objeto JSON (sin body,
+// un array...), 400 acá. "cantidad" se pasa tal cual vino, sin
+// convertirla: qué valores se aceptan lo decide el service.
 export async function sumarClases(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.sumarClasesPorReservar(
     req.params.id,
-    Number(req.body.cantidad),
+    cuerpoComoObjeto(req.body).cantidad,
   );
 
   if (alumno === null) {
@@ -95,7 +98,7 @@ export async function sumarClases(req: Request<{ id: string }>, res: Response) {
 export async function restarClases(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.restarClasesPorReservar(
     req.params.id,
-    Number(req.body.cantidad),
+    cuerpoComoObjeto(req.body).cantidad,
   );
 
   if (alumno === null) {
