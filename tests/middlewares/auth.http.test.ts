@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
-import app from '../src/app.js';
-import { crear as crearAlumno } from '../src/services/alumno.service.js';
-import { crear as crearAdministrador } from '../src/services/administrador.service.js';
-import { setupTestDB } from './setupTestDB.js';
+import app from '../../src/app.js';
+import { crear as crearAlumno } from '../../src/services/alumno.service.js';
+import { crear as crearAdministrador } from '../../src/services/administrador.service.js';
+import { setupTestDB } from '../setupTestDB.js';
 
 process.env.JWT_SECRET = 'secreto-de-prueba-de-al-menos-32-caracteres';
 setupTestDB();
