@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 10 carpetas, 152 requests
+├── DriveAndLearn.postman_collection.json   # 10 carpetas, 163 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado
@@ -60,19 +60,12 @@ Clic derecho en la colección → **Run collection** → dejar el orden por defe
 ids que usan las demás). `07 Clases` además supone que el alumno 1 tiene 2 clases:
 para repetirla, volver a correr el Setup.
 
-### Tests que hoy fallan a propósito
+### Tests que fallan a propósito
 
-Están escritos con el comportamiento correcto y documentan problemas de la API
-(ver §7 del plan). Llevan "hallazgo" en el nombre:
-
-| Request | Hoy | Esperado |
-|---|---|---|
-| `02 / [400] sumar-clases sin body` | 500 | 400 |
-| `03 / [409] Crear admin con email repetido` | 500 | 409 |
-| `05 / [400] nom-ape sin body` | 500 | 400 |
-| `06 / [400] agregar sin body` | 500 | 400 |
-
-Cuando se corrija cada uno, su test pasa a verde solo.
+Hoy no hay ninguno: contra la API local pasan todos. Si se encuentra un problema
+nuevo en la API, la convención es escribir el test con el comportamiento
+correcto, poner "hallazgo" en el nombre del request y anotarlo en §7 del plan;
+cuando se corrija, el test pasa a verde solo.
 
 ## 4. Convenciones
 

@@ -2005,6 +2005,249 @@
           }
         },
         {
+          "name": "[400] Admin edita un alumno sin body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe incluir un cuerpo JSON\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "description": "Antes respondía 500: el body llegaba undefined al service. Ahora lo rechaza el middleware validacionDeCuerpo (ErrorRequestSinCuerpo)."
+          }
+        },
+        {
+          "name": "[400] Admin no puede cambiar el saldo por PUT",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"sumar-clases / restar-clases\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clasesPorReservar\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "clasesPorReservar no se modifica por PUT: el saldo se cambia solo con sumar-clases / restar-clases."
+          }
+        },
+        {
+          "name": "[400] Admin edita un alumno con un campo no permitido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: rol\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rol\": \"administrador\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Admin edita un alumno con body vacío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"al menos un campo\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Admin edita un alumno con nomApe numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomApe\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[200] Admin edita el nomApe de un alumno",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "pm.test('nomApe actualizado', function () {",
+                  "  pm.expect(pm.response.json().nomApe).to.include('editado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomApe\": \"[POSTMAN] Alumno 3 editado {{runId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "[200] Admin suma 3 clases al alumno 3",
           "event": [
             {
@@ -2104,7 +2347,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"no puede ser negativa\");"
+                  "utils.esperarError(pm, 400, \"debe ser mayor que 0\");"
                 ]
               }
             }
@@ -2183,14 +2426,14 @@
           }
         },
         {
-          "name": "[400] sumar-clases sin body (hallazgo §7.3)",
+          "name": "[400] sumar-clases sin body",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarStatus(pm, 400);"
+                  "utils.esperarError(pm, 400, \"debe incluir un cuerpo JSON\");"
                 ]
               }
             }
@@ -2209,7 +2452,136 @@
                 "sumar-clases"
               ]
             },
-            "description": "Hallazgo §7.3 del plan: hoy responde 500 porque el controller lee req.body.cantidad y req.body es undefined. Lo esperado es 400."
+            "description": "Sin body, req.body es undefined (Express 5): el middleware validacionDeCuerpo lo rechaza con 400. Antes respondía 500 (hallazgo §7.3 del plan, resuelto)."
+          }
+        },
+        {
+          "name": "[400] sumar-clases con cantidad 0",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe ser mayor que 0\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}/sumar-clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}",
+                "sumar-clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] sumar-clases con cantidad en texto (\"2\")",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe ser un número entero\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}/sumar-clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}",
+                "sumar-clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": \"2\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] sumar-clases con cantidad decimal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe ser un número entero\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}/sumar-clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}",
+                "sumar-clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 1.5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         },
         {
@@ -2419,7 +2791,7 @@
           }
         },
         {
-          "name": "[409] Crear admin con email repetido (hallazgo §7.1)",
+          "name": "[409] Crear admin con email repetido",
           "event": [
             {
               "listen": "test",
@@ -2457,7 +2829,7 @@
                 }
               }
             },
-            "description": "Hallazgo §7.1 del plan: hoy responde 500 porque administrador.service no traduce el error de índice único. Lo esperado es 409."
+            "description": "El email es único entre todos los usuarios. Antes respondía 500 (hallazgo §7.1 del plan, resuelto): administrador.service no traducía el error del índice único."
           }
         },
         {
@@ -2632,6 +3004,59 @@
                 }
               }
             }
+          }
+        },
+        {
+          "name": "[409] Admin nuevo no puede tomar el email de otro usuario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 409, \"email\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores/{{adminExtraId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores",
+                "{{adminExtraId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdminExtra}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Intenta ponerse el email del admin principal. El índice único del email también aplica al editar."
           }
         },
         {
@@ -3774,14 +4199,14 @@
           }
         },
         {
-          "name": "[400] nom-ape sin body (hallazgo §7.3)",
+          "name": "[400] nom-ape sin body",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarStatus(pm, 400);"
+                  "utils.esperarError(pm, 400, \"debe incluir un cuerpo JSON\");"
                 ]
               }
             }
@@ -3800,7 +4225,7 @@
                 "nom-ape"
               ]
             },
-            "description": "Hallazgo §7.3 del plan: hoy responde 500 porque el controller lee req.body.nomApe y req.body es undefined. Lo esperado es 400."
+            "description": "Antes respondía 500 (hallazgo §7.3 del plan, resuelto): el controller leía req.body.nomApe con req.body undefined. Ahora lo rechaza el middleware validacionDeCuerpo."
           }
         },
         {
@@ -4650,14 +5075,14 @@
           }
         },
         {
-          "name": "[400] agregar sin body (hallazgo §7.3)",
+          "name": "[400] agregar sin body",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarStatus(pm, 400);"
+                  "utils.esperarError(pm, 400, \"debe incluir un cuerpo JSON\");"
                 ]
               }
             }
@@ -4675,7 +5100,7 @@
                 "agregar"
               ]
             },
-            "description": "Hallazgo §7.3 del plan: hoy responde 500 porque el controller desestructura req.body y req.body es undefined. Lo esperado es 400."
+            "description": "Antes respondía 500 (hallazgo §7.3 del plan, resuelto): el controller desestructuraba req.body con req.body undefined. Ahora lo rechaza el middleware validacionDeCuerpo."
           }
         },
         {
@@ -6786,6 +7211,38 @@
                 }
               }
             }
+          }
+        },
+        {
+          "name": "[400] Login sin body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe incluir un cuerpo JSON\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Las rutas que necesitan body llevan el middleware validacionDeCuerpo, login incluido (antes respondía 401 \"Email y contraseña son obligatorios\")."
           }
         }
       ]
