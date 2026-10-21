@@ -11,10 +11,11 @@ import {
   requireAdministrator,
   requireSelfOrAdministrator,
 } from '../middlewares/auth.middleware.js';
+import { validacionDeCuerpo } from '../middlewares/validacionDeCuerpo.middleware.js';
 
 const router = Router();
 
-router.post('/', alumnoController.crear);
+router.post('/', validacionDeCuerpo, alumnoController.crear);
 
 router.use(requireAuthentication);
 
@@ -23,17 +24,20 @@ router.get('/:id', requireSelfOrAdministrator(), alumnoController.obtener);
 router.put(
   '/:id',
   requireSelfOrAdministrator(['email', 'password', 'nomApe']),
+  validacionDeCuerpo,
   alumnoController.actualizar,
 );
 router.delete('/:id', requireSelfOrAdministrator(), alumnoController.eliminar);
 router.patch(
   '/:id/sumar-clases',
   requireAdministrator,
+  validacionDeCuerpo,
   alumnoController.sumarClases,
 );
 router.patch(
   '/:id/restar-clases',
   requireAdministrator,
+  validacionDeCuerpo,
   alumnoController.restarClases,
 );
 

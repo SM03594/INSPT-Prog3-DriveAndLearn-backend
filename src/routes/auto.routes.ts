@@ -10,6 +10,7 @@ import {
   requireAuthentication,
   requireAdministrator,
 } from '../middlewares/auth.middleware.js';
+import { validacionDeCuerpo } from '../middlewares/validacionDeCuerpo.middleware.js';
 
 const router = Router();
 
@@ -17,8 +18,8 @@ router.use(requireAuthentication);
 
 router.get('/', autoController.listar);
 router.get('/:id', autoController.obtener);
-router.post('/', requireAdministrator, autoController.crear);
-router.put('/:id', requireAdministrator, autoController.actualizar);
-router.patch('/:id/activo', requireAdministrator, autoController.cambiarActivo);
+router.post('/', requireAdministrator, validacionDeCuerpo, autoController.crear);
+router.put('/:id', requireAdministrator, validacionDeCuerpo, autoController.actualizar);
+router.patch('/:id/activo', requireAdministrator, validacionDeCuerpo, autoController.cambiarActivo);
 
 export default router;

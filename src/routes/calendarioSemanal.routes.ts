@@ -10,13 +10,14 @@ import {
   requireAuthentication,
   requireAdministrator,
 } from '../middlewares/auth.middleware.js';
+import { validacionDeCuerpo } from '../middlewares/validacionDeCuerpo.middleware.js';
 
 const router = Router();
 
 router.use(requireAuthentication);
 
 router.get('/validar/:dia', calendarioSemanalController.validar);
-router.post('/agregar', requireAdministrator, calendarioSemanalController.agregar);
-router.post('/quitar', requireAdministrator, calendarioSemanalController.quitar);
+router.post('/agregar', requireAdministrator, validacionDeCuerpo, calendarioSemanalController.agregar);
+router.post('/quitar', requireAdministrator, validacionDeCuerpo, calendarioSemanalController.quitar);
 
 export default router;

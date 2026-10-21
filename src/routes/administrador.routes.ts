@@ -11,6 +11,7 @@ import {
   requireAdministrator,
   requireSelfOrAdministrator,
 } from '../middlewares/auth.middleware.js';
+import { validacionDeCuerpo } from '../middlewares/validacionDeCuerpo.middleware.js';
 
 const router = Router();
 
@@ -22,10 +23,11 @@ router.get(
   requireSelfOrAdministrator(),
   administradorController.obtener,
 );
-router.post('/', requireAdministrator, administradorController.crear);
+router.post('/', requireAdministrator, validacionDeCuerpo, administradorController.crear);
 router.put(
   '/:id',
   requireSelfOrAdministrator(['email', 'password', 'nomApe']),
+  validacionDeCuerpo,
   administradorController.actualizar,
 );
 router.delete(
