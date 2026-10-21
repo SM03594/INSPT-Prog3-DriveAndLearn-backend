@@ -11,6 +11,7 @@ import {
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import { conPasswordHasheada } from '../utils/password.js';
+import { DESCRIPCION_TIPO, esDelTipo } from '../utils/validacionTipos.js';
 
 
 // Mensaje de respaldo si el Schema no definió uno propio para el
@@ -49,18 +50,84 @@ export async function crear(datos: Alumno): Promise<AlumnoDoc> {
   }
 }
 
+const CAMPOS_ACTUALIZABLES = {
+  email: { tipo: 'string', nombre: 'El email' },
+  password: { tipo: 'string', nombre: 'La contraseña' },
+  nomApe: { tipo: 'string', nombre: 'El nombre y apellido' },
+} as const;
+
+// 'email' | 'password' | 'nomApe', derivado de las claves de arriba.
+type CampoActualizable = keyof typeof CAMPOS_ACTUALIZABLES;
+
+// Type guard: ¿"campo" es una de las claves de CAMPOS_ACTUALIZABLES?
+// Usa Object.hasOwn y no "campo in ...": "in" también mira las
+// propiedades heredadas, y aceptaría campos como "toString".
+function esCampoActualizable(campo: string): campo is CampoActualizable {
+  return Object.hasOwn(CAMPOS_ACTUALIZABLES, campo);
+}
+
+// ============================================================
+//  validarCambios — helper interno de actualizar
+// ============================================================
+// "cambios" es el objeto que mandó el cliente (el controller ya
+// comprobó que es un objeto), con campos sin revisar.
+// Devuelve un Partial<Alumno> armado solo con los campos validados.
+function validarCambios(cambios: Record<string, unknown>): Partial<Alumno> {
+  // Una sola pasada por las claves: cada una va a permitidos o a no
+  // permitidos. Como esCampoActualizable es un type guard, dentro del
+  // if "campo" ya es CampoActualizable y se puede guardar en
+  // camposPermitidos.
+  const camposPermitidos: CampoActualizable[] = [];
+  const camposNoPermitidos: string[] = [];
+  for (const campo of Object.keys(cambios)) {
+    if (esCampoActualizable(campo)) {
+      camposPermitidos.push(campo);
+    } else {
+      camposNoPermitidos.push(campo);
+    }
+  }
+
+  if (camposNoPermitidos.length > 0) {
+    const ayuda = camposNoPermitidos.includes('clasesPorReservar')
+      ? ' (el saldo de clases se cambia con sumar-clases / restar-clases)'
+      : '';
+    throw new ErrorDeNegocio(
+      `No se pueden modificar estos campos: ${camposNoPermitidos.join(', ')}${ayuda}`,
+    );
+  }
+
+  if (camposPermitidos.length === 0) {
+    throw new ErrorDeNegocio('Debe indicarse al menos un campo para actualizar');
+  }
+
+  const validados: Partial<Alumno> = {};
+
+  for (const campo of camposPermitidos) {
+    const { tipo, nombre } = CAMPOS_ACTUALIZABLES[campo];
+    const valor = cambios[campo];
+
+    if (!esDelTipo(valor, tipo)) {
+      throw new ErrorDeNegocio(`${nombre} debe ser ${DESCRIPCION_TIPO[tipo]}`);
+    }
+
+    validados[campo] = valor;
+  }
+
+  return validados;
+}
+
 // ============================================================
 //  actualizar — modifica un alumno existente
 // ============================================================
-// "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<DatosAlumno>. Devuelve el alumno YA
-// actualizado, o null si el id no existe. Si viene "password",
-// se hashea igual que en crear.
+// "cambios" es el objeto que mandó el cliente, con solo los campos
+// que quiere cambiar; se valida con validarCambios antes de tocar
+// la base. Devuelve el alumno YA actualizado, o null si el id no
+// existe. Si viene "password", se hashea igual que en crear.
 export async function actualizar(
   id: string,
-  cambios: Partial<Alumno>,
+  cambios: Record<string, unknown>,
 ): Promise<AlumnoDoc | null> {
-  const cambiosAGuardar = await conPasswordHasheada(cambios);
+  const cambiosAGuardar = await conPasswordHasheada(validarCambios(cambios));
 
   try {
     return await AlumnoModel.findByIdAndUpdate(id, cambiosAGuardar, {
