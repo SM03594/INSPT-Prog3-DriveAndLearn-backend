@@ -9,13 +9,13 @@ import {
   type Alumno,
 } from '../models/Alumno.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
-import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import { conPasswordHasheada } from '../utils/password.js';
 import { DESCRIPCION_TIPO, esDelTipo } from '../utils/validacionTipos.js';
 
 
 // Mensaje de respaldo si el Schema no definió uno propio para el
-// email repetido (ver comoErrorClaveDuplicada).
+// email repetido (ver verSiErrorClaveDuplicada).
 const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
 
 // ============================================================
@@ -46,7 +46,7 @@ export async function crear(datos: Alumno): Promise<AlumnoDoc> {
   try {
     return await AlumnoModel.create(datosAGuardar);
   } catch (err) {
-    throw comoErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
+    throw verSiErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
   }
 }
 
@@ -135,7 +135,7 @@ export async function actualizar(
       runValidators: true, // correr las validaciones del esquema también en el update
     });
   } catch (err) {
-    throw comoErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
+    throw verSiErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
   }
 }
 

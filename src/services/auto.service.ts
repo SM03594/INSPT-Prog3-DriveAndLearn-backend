@@ -7,10 +7,10 @@ import {
   type AutoDoc,
   type Auto,
 } from '../models/Auto.js';
-import { comoErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 
 // Mensaje de respaldo si el Schema no definió uno propio para la
-// patente repetida (ver comoErrorClaveDuplicada).
+// patente repetida (ver verSiErrorClaveDuplicada).
 const MENSAJE_PATENTE_DUPLICADA = 'La patente ya está en uso';
 
 
@@ -31,7 +31,7 @@ export async function crear(datos: Auto): Promise<AutoDoc> {
   try {
     return await AutoModel.create(datos);
   } catch (err) {
-    throw comoErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
+    throw verSiErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
   }
 }
 
@@ -53,7 +53,7 @@ export async function actualizar(
   } catch (err) {
     // findByIdAndUpdate también puede chocar contra el índice unique
     // si "cambios.patente" coincide con la de otro auto.
-    throw comoErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
+    throw verSiErrorClaveDuplicada(err, MENSAJE_PATENTE_DUPLICADA);
   }
 }
 

@@ -19,7 +19,7 @@ export class ErrorClaveDuplicada extends ErrorDeNegocio {
 
 
 // ------------------------------------------------------------
-//  comoErrorClaveDuplicada — traduce el error crudo de Mongo
+//  verSiErrorClaveDuplicada — traduce el error crudo de Mongo
 // ------------------------------------------------------------
 // El error "crudo" que tira MongoDB al violar un índice unique tiene la
 // forma { code: 11000, keyValue: {...}, ... }. Puede llegar de dos formas
@@ -39,7 +39,7 @@ type ErrorMongoDuplicado = { code: 11000 };
 // secas). Gracias a eso, después de un `if (esErrorMongoDuplicado(algo))`,
 // TypeScript "recuerda" adentro del if que `algo` es un ErrorMongoDuplicado
 // (con `.code` disponible), en vez de seguir tratándolo como `unknown`.
-// Es lo que le permite a comoErrorClaveDuplicada() leer `.code`/`.message`
+// Es lo que le permite a verSiErrorClaveDuplicada() leer `.code`/`.message`
 // más abajo sin pelearse con el compilador.
 //
 // El cuerpo es un && de tres chequeos, evaluados de izquierda a derecha
@@ -63,7 +63,7 @@ function esErrorMongoDuplicado(x: unknown): x is ErrorMongoDuplicado {
 }
 
 
-export function comoErrorClaveDuplicada(err: unknown, mensajePorDefecto: string): unknown {
+export function verSiErrorClaveDuplicada(err: unknown, mensajePorDefecto: string): unknown {
   // Arranca asumiendo que "err" no es un duplicado: si ningún caso de
   // abajo lo cambia, se devuelve tal cual llegó (único punto de salida).
   let resultado: unknown = err;

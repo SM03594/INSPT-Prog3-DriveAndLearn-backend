@@ -11,7 +11,10 @@ import {
   type AdministradorDoc,
   type Administrador,
 } from '../models/Administrador.js';
+import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import { conPasswordHasheada } from '../utils/password.js';
+
+const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
 
 // La forma del administrador (los campos que aceptamos al
 // crear/actualizar) vive en el model, como Administrador.
@@ -52,7 +55,13 @@ export async function existe(id: string): Promise<boolean> {
 export async function crear(
   datos: Administrador,
 ): Promise<AdministradorDoc> {
-  return AdministradorModel.create(await conPasswordHasheada(datos));
+  const datosAGuardar = await conPasswordHasheada(datos);
+
+  try {
+    return await AdministradorModel.create(datosAGuardar);
+  } catch (err) {
+    throw verSiErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
+  }
 }
 
 // ============================================================
@@ -68,10 +77,14 @@ export async function actualizar(
 ): Promise<AdministradorDoc | null> {
   const cambiosAGuardar = await conPasswordHasheada(cambios);
 
-  return AdministradorModel.findByIdAndUpdate(id, cambiosAGuardar, {
-    new: true, // devolver el documento actualizado, no el previo
-    runValidators: true, // correr las validaciones del esquema también en el update
-  });
+  try {
+    return await AdministradorModel.findByIdAndUpdate(id, cambiosAGuardar, {
+      new: true, // devolver el documento actualizado, no el previo
+      runValidators: true, // correr las validaciones del esquema también en el update
+    });
+  } catch (err) {
+    throw verSiErrorClaveDuplicada(err, MENSAJE_EMAIL_DUPLICADO);
+  }
 }
 
 export async function eliminar(

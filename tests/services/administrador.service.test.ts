@@ -14,6 +14,7 @@ import {
 } from '../../src/services/administrador.service.js';
 import type { Administrador } from '../../src/models/Administrador.js';
 import { crear as crearAlumno } from '../../src/services/alumno.service.js';
+import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
 setupTestDB();
@@ -27,6 +28,19 @@ const datosValidos: Administrador = {
 
 // Un ObjectId con forma válida pero que no existe en la base.
 const ID_INEXISTENTE = '64b7f0f0f0f0f0f0f0f0f0f0';
+
+const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
+
+// Crea un alumno con ese email (el email es único entre TODOS los
+// usuarios, no solo entre administradores).
+function crearAlumnoCon(email: string) {
+  return crearAlumno({
+    email,
+    password: 'unHashDeBcrypt',
+    nomApe: 'Alumno',
+    clasesPorReservar: 0,
+  });
+}
 
 describe('administrador.service', () => {
   // --------------------------------------------------------
@@ -77,10 +91,31 @@ describe('administrador.service', () => {
       );
     });
 
-    it('tira error de clave duplicada (11000) si el email ya existe', async () => {
+    it('tira ErrorClaveDuplicada (409) si el email ya existe', async () => {
       await crear(datosValidos);
 
-      await expect(crear(datosValidos)).rejects.toMatchObject({ code: 11000 });
+      // crear() atrapa el error de Mongo/Mongoose y lo relanza como
+      // ErrorClaveDuplicada (ver administrador.service.ts).
+      const promesa = crear(datosValidos);
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+      await expect(promesa).rejects.toMatchObject({ status: 409 });
+      await expect(promesa).rejects.toThrow(MENSAJE_EMAIL_DUPLICADO);
+    });
+
+    it('tira ErrorClaveDuplicada aunque el email cambie de mayúsculas', async () => {
+      await crear(datosValidos);
+
+      await expect(
+        crear({ ...datosValidos, email: 'ADMIN@Example.COM' }),
+      ).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+    });
+
+    it('tira ErrorClaveDuplicada si el email ya lo usa un alumno', async () => {
+      await crearAlumnoCon('alumno@example.com');
+
+      await expect(
+        crear({ ...datosValidos, email: 'alumno@example.com' }),
+      ).rejects.toBeInstanceOf(ErrorClaveDuplicada);
     });
   });
 
@@ -136,12 +171,7 @@ describe('administrador.service', () => {
     });
 
     it('devuelve false para el id de un alumno', async () => {
-      const alumno = await crearAlumno({
-        email: 'alumno@example.com',
-        password: 'unHashDeBcrypt',
-        nomApe: 'Alumno',
-        clasesPorReservar: 0,
-      });
+      const alumno = await crearAlumnoCon('alumno@example.com');
 
       expect(await existe(alumno._id.toString())).toBe(false);
     });
@@ -196,6 +226,25 @@ describe('administrador.service', () => {
       await expect(
         actualizar(creado._id.toString(), { email: '' }),
       ).rejects.toThrow(/email es obligatorio/);
+    });
+
+    it('tira ErrorClaveDuplicada (409) si el email ya lo usa otro administrador', async () => {
+      await crear(datosValidos);
+      const otro = await crear({ ...datosValidos, email: 'otro@example.com' });
+
+      const promesa = actualizar(otro._id.toString(), { email: datosValidos.email });
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+      await expect(promesa).rejects.toMatchObject({ status: 409 });
+      await expect(promesa).rejects.toThrow(MENSAJE_EMAIL_DUPLICADO);
+    });
+
+    it('tira ErrorClaveDuplicada si el email ya lo usa un alumno', async () => {
+      const creado = await crear(datosValidos);
+      await crearAlumnoCon('alumno@example.com');
+
+      await expect(
+        actualizar(creado._id.toString(), { email: 'alumno@example.com' }),
+      ).rejects.toBeInstanceOf(ErrorClaveDuplicada);
     });
   });
 });
