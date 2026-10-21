@@ -9,11 +9,12 @@
 import type { Request, Response } from 'express';
 import * as claseService from '../services/clase.service.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
 import type { ActorClase, DatosClase } from '../services/clase.service.js';
 
 function actorDe(req: Request): ActorClase {
   if (req.auth === undefined) {
-    throw new ErrorDeNegocio('Se requiere autenticación válida', 401);
+    throw new ErrorAutenticacion('Se requiere autenticación válida');
   }
   return req.auth;
 }
