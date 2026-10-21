@@ -97,32 +97,45 @@ async function ajustarClasesPorReservar(
 }
 
 // ============================================================
+//  validarCantidad — helper interno de sumar/restar
+// ============================================================
+// "cantidad" llega tal como la mandó el cliente (unknown). Tiene
+// que ser un número entero mayor que 0:
+//   - un texto como "2" se rechaza (en JSON los números van sin
+//     comillas), igual que 1.5, NaN o undefined (si no vino);
+//   - 0 se rechaza: sumar o restar 0 clases no hace nada.
+// Devuelve la cantidad ya tipada como number.
+function validarCantidad(cantidad: unknown, operacion: 'sumar' | 'restar'): number {
+  if (typeof cantidad !== 'number' || !Number.isInteger(cantidad)) {
+    throw new ErrorDeNegocio(`La cantidad a ${operacion} debe ser un número entero`);
+  }
+  if (cantidad <= 0) {
+    throw new ErrorDeNegocio(`La cantidad a ${operacion} debe ser mayor que 0`);
+  }
+  return cantidad;
+}
+
+// ============================================================
 //  sumarClasesPorReservar — le suma N clases al saldo
 // ============================================================
-// "cantidad" es un delta a sumar (no el valor final) y no puede
-// ser negativo.
+// "cantidad" es un delta a sumar (no el valor final): un entero
+// mayor que 0 (ver validarCantidad).
 export async function sumarClasesPorReservar(
   id: string,
-  cantidad: number,
+  cantidad: unknown,
 ): Promise<AlumnoDoc | null> {
-  if (cantidad < 0) {
-    throw new ErrorDeNegocio('La cantidad a sumar no puede ser negativa');
-  }
-  return ajustarClasesPorReservar(id, cantidad);
+  return ajustarClasesPorReservar(id, validarCantidad(cantidad, 'sumar'));
 }
 
 // ============================================================
 //  restarClasesPorReservar — le resta N clases al saldo
 // ============================================================
-// "cantidad" es un delta a restar (no el valor final) y no puede
-// ser negativo. Si el saldo quedara por debajo de 0, el validador
-// min:0 del esquema lo rechaza.
+// "cantidad" es un delta a restar (no el valor final): un entero
+// mayor que 0 (ver validarCantidad). Si el saldo quedara por debajo
+// de 0, el validador min:0 del esquema lo rechaza.
 export async function restarClasesPorReservar(
   id: string,
-  cantidad: number,
+  cantidad: unknown,
 ): Promise<AlumnoDoc | null> {
-  if (cantidad < 0) {
-    throw new ErrorDeNegocio('La cantidad a restar no puede ser negativa');
-  }
-  return ajustarClasesPorReservar(id, -cantidad);
+  return ajustarClasesPorReservar(id, -validarCantidad(cantidad, 'restar'));
 }
