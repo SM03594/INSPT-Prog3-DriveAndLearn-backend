@@ -115,35 +115,15 @@ tramo es lo que se usa para quitarlo.
 | Body | Respuesta |
 |---|---|
 | `dia: "feriado"` | 400 'Día inválido: "feriado". …' |
-| `hora: 24` | 400 "La hora debe estar entre 0 y 23" |
-| `tramo: "mañana"` (un texto) | 400 'Cast to ObjectId failed for value "mañana" (type string) at path "_id". La hora de fin es obligatoria. …' (un mensaje interno de Mongoose: I-36) |
+| Sin `tramo`, `tramo: null` o `tramo: "mañana"` | 400 con un error de negocio legible |
+| Hora fuera de rango | 400 con un mensaje claro (hora: 0–23, minutos: 0–59) |
+| Fin igual o anterior al inicio | 400 "La hora de fin debe ser posterior a la de inicio" |
 | Tramo superpuesto (10–16 sobre 08–12 y 14–20) | **200**: se acepta (I-37) |
-| **Sin `tramo`** (`{ "dia": "martes" }`) | **200, y guarda `null`** (ver abajo) |
 
-#### ⚠️ El bug del tramo vacío (I-32)
-
-A diferencia de `profesor.service`, este service **no comprueba** que `tramo`
-sea un objeto. Con `{ "dia": "martes" }` se hace `calendario.martes.push(undefined)`,
-y Mongoose lo guarda como `null`:
-
-```
-POST /api/horario-escuela/agregar { "dia": "martes" }   → 200 { ..., "martes": [ null ], ... }
-```
-
-Desde ese momento, **toda reserva para un martes** falla:
-
-```
-POST /api/clases { ...martes 10–11... }
-→ 500 "Error interno del servidor"
-   (en la consola: TypeError: Cannot read properties of null (reading 'horaInicio'))
-```
-
-`validarHorarioClase` recorre los tramos y lee `tramo.horaInicio` del `null`.
-`quitar` en ese día **también** falla con un 500 (comprobado: `TypeError:
-Cannot read properties of null (reading '_id')`), porque `quitarTramo` lee
-`t._id` de cada tramo. La única forma de arreglarlo es un `PUT` con la semana
-completa. La solución es validar `tramo` en el service, como hace
-`profesor.service` con `tramoComoDatos`.
+El service comprueba la estructura y coherencia del tramo antes de modificar o
+persistir el calendario. La misma validación se usa al agregar disponibilidad
+a un profesor; así, un tramo ausente o mal formado no puede causar errores
+posteriores al reservar o quitarlo (I-32, I-36).
 
 ### Paso 4. Quitar un tramo
 
@@ -226,8 +206,7 @@ saltea esos requests (`modoSeguro`).
 | Un alumno modifica el horario | 403 "Se requieren permisos de administrador" |
 | Día con mayúscula o inexistente | 400 'Día inválido: …' |
 | Hora 24 o minuto 60 | 400 "La hora debe estar entre 0 y 23" / "Los minutos deben estar entre 0 y 59" |
-| `agregar` sin `tramo` | **200, guarda `null` y rompe las reservas de ese día con un 500** (I-32) |
-| `agregar` con un tramo que no es un objeto | 400 con un mensaje interno de Mongoose (I-36) |
+| `agregar` sin tramo o con un tramo que no es objeto | 400 con un error de negocio; no se persiste (I-32, I-36) |
 | `quitar` un tramo que no existe | 404 "No se encontró el tramo solicitado en ese día" |
 | `PUT` sin los 7 días | 400 "El calendario debe incluir una lista para cada día" |
 | Reservar sin ningún horario cargado | 409 "Todavía no se configuró el horario de la escuela" |
@@ -241,8 +220,8 @@ saltea esos requests (`modoSeguro`).
   o `PUT` lo crea.
 - `PUT` reemplaza los 7 días (y regenera todos los `_id`). `agregar` y
   `quitar` cambian de a un tramo, y para quitar se usa el `_id` del tramo.
-- Los números de cada tramo los valida Mongoose al hacer `.save()`. El service
-  solo valida el día (y hoy no valida que el tramo exista: I-32).
+- El service valida la estructura, el rango de las horas y que el fin sea
+  posterior al inicio; Mongoose también aplica sus validaciones al guardar.
 - Cada reserva lo consulta en el momento, pero las clases ya reservadas no se
   revisan cuando cambia.
 

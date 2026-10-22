@@ -14,7 +14,7 @@ const MENSAJE_JSON_MAL_ESCRITO = 'El cuerpo de la petición no es un JSON válid
 // Un ObjectId con forma válida: el middleware corta antes de buscarlo.
 const ID = '64b7f0f0f0f0f0f0f0f0f0f0';
 
-type Metodo = 'post' | 'put' | 'patch' | 'delete';
+type Metodo = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
 // Todas las rutas que llevan validacionDeCuerpo. Si se agrega una
 // ruta con body, sumarla acá: el test controla que tenga el middleware.
@@ -89,6 +89,24 @@ describe('validacionDeCuerpo HTTP', () => {
       .expect(400);
 
     expect(respuesta.body.mensaje).toBe(MENSAJE_JSON_MAL_ESCRITO);
+  });
+
+  it.each([
+    [{ dia: 'lunes' }, /tramo debe ser un objeto/i],
+    [{ dia: 'lunes', tramo: null }, /tramo debe ser un objeto/i],
+    [{ dia: 'lunes', tramo: 'mañana' }, /tramo debe ser un objeto/i],
+    [
+      { dia: 'lunes', tramo: { horaInicio: { hora: 9, minuto: 0 } } },
+      /hora de fin/i,
+    ],
+  ])('agregar tramo inválido → 400 y no persiste datos (%s)', async (body, mensaje) => {
+    const respuesta = await pedir('post', '/api/horario-escuela/agregar')
+      .send(body)
+      .expect(400);
+
+    expect(respuesta.body.mensaje).toMatch(mensaje);
+    const calendario = await pedir('get', '/api/horario-escuela').expect(200);
+    expect(calendario.body.lunes).toEqual([]);
   });
 
   it('sin token y sin body → sigue respondiendo 401 (la autenticación va primero)', async () => {

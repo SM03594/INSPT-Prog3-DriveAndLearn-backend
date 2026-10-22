@@ -50,11 +50,11 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-29 | 💭 | El login sin email o password responde 401 en lugar de 400 | `auth.service.ts:26-33` |
 | I-30 | 🟡 | Mensajes de error sin tildes ("direccion", "esta") | `Usuario.ts:33`, services |
 | I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:345` |
-| I-32 | 🔴 | `agregar` sin tramo guarda `null` y rompe las reservas de ese día (500) | `horarioEscuela.service.ts:53` |
+| I-32 | ✅ | `agregar` sin tramo guarda `null` y rompe las reservas de ese día (500) | `horarioEscuela.service.ts` |
 | I-33 | 🟡 | Quitar un tramo inexistente responde "Profesor no encontrado" | `profesor.service.ts:156`, controller |
 | I-34 | 🔴 | `PATCH nom-ape` no valida: acepta números y un body sin `nomApe` | `profesor.service.ts:111` |
 | I-35 | 🟡 | Foto de perfil: base64 sin validar, se borra si falta, límite real de ~75 KB | `profesor.service.ts:70`, `Profesor.ts:12` |
-| I-36 | 🟡 | Un tramo que no es objeto devuelve un mensaje interno de Mongoose | `horarioEscuela.service.ts:53` |
+| I-36 | ✅ | Un tramo que no es objeto devuelve un mensaje interno de Mongoose | `horarioEscuela.service.ts` |
 | I-37 | 💭 | Se aceptan tramos superpuestos y días extra (estos se descartan) | `calendarioSemanal.service.ts`, `horarioEscuela.service.ts` |
 | I-38 | 💭 | No hay forma de dar de baja un profesor | `profesor.routes.ts` |
 | I-39 | 🟡 | La patente no tiene formato: `"AB 123 CD"` y `"AB123CD"` son autos distintos | `models/Auto.ts` |
@@ -82,12 +82,9 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-32 · `agregar` sin tramo guarda `null` y rompe las reservas de ese día
 - **Detectada:** 2026-10-22, flujo `configurar-horarios-de-la-escuela`.
-- **Dónde:** `src/services/horarioEscuela.service.ts:53`. El controller hace `const { dia, tramo } = req.body`, y el service no comprueba que `tramo` sea un objeto (`profesor.service` sí lo hace, con `tramoComoDatos`).
-- **Qué pasa (comprobado):** `POST /api/horario-escuela/agregar { "dia": "martes" }` responde **200** y guarda `martes: [null]`. Desde ese momento:
-  - toda reserva o modificación para un martes responde **500** (`TypeError: Cannot read properties of null (reading 'horaInicio')`, en `clase.service.validarHorarioClase`);
-  - `POST /quitar` en ese día también responde 500 (`reading '_id'`, en `calendarioSemanal.service.quitarTramo`).
-  Solo se arregla con un `PUT` de la semana completa.
-- **Propuesta:** validar `tramo` en `horarioEscuela.service.agregarTramo`, igual que en `profesor.service`. Mejor aún, mover la validación a `calendarioSemanal.service.agregarTramo`, para que la tengan los dos.
+- **Dónde:** `src/services/horarioEscuela.service.ts`, al agregar un tramo al calendario escolar.
+- **Qué pasaba:** el service no comprobaba que `tramo` existiera y Mongoose persistía el valor faltante como `null`, lo cual podía romper reservas y operaciones de quitar tramos.
+- **Resolución:** la validación de `unknown` quedó centralizada en `calendarioSemanal.service.validarTramo` y se ejecuta antes de mutar o persistir el calendario. Los cuerpos inválidos producen `ErrorDeNegocio` (400); se agregaron pruebas de servicio y HTTP que verifican que la entrada no se persiste.
 
 ### I-34 · `PATCH /profesores/:id/nom-ape` no valida
 - **Detectada:** 2026-10-22, flujo `alta-de-profesor-y-disponibilidad`.
@@ -187,8 +184,8 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-36 · Un tramo que no es objeto devuelve un mensaje interno de Mongoose
 - **Detectada:** 2026-10-22, flujo `configurar-horarios-de-la-escuela`.
-- **Qué pasa (comprobado):** `POST /api/horario-escuela/agregar { "dia": "martes", "tramo": "mañana" }` → 400 *'Cast to ObjectId failed for value "mañana" (type string) at path "_id". La hora de fin es obligatoria. La hora de inicio es obligatoria'*. El cliente recibe detalles internos (`ObjectId`, `_id`) que no tienen sentido para él.
-- **Propuesta:** se resuelve junto con I-32, validando que `tramo` sea un objeto antes de agregarlo.
+- **Qué pasaba:** un `tramo` de tipo incorrecto llegaba a Mongoose y exponía un mensaje de casteo interno al cliente.
+- **Resolución:** la misma validación centralizada de I-32 exige un objeto con horas válidas y responde con un error de negocio claro, antes de guardar.
 
 ### I-39 · La patente no tiene formato
 - **Detectada:** 2026-10-22, flujo `gestion-de-autos`.

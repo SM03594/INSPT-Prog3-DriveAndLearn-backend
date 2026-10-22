@@ -61,7 +61,10 @@ describe('calendarioSemanal.service', () => {
       agregarTramo(cal, 'lunes', tramo);
 
       expect(cal.lunes).toHaveLength(1);
-      expect(cal.lunes[0]).toBe(tramo);
+      expect(cal.lunes[0]).toMatchObject({
+        horaInicio: { hora: 9, minuto: 0 },
+        horaFin: { hora: 12, minuto: 0 },
+      });
     });
 
     it('acumula tramos en el mismo día sin pisar los previos', () => {
@@ -91,6 +94,30 @@ describe('calendarioSemanal.service', () => {
         agregarTramo(cal, DIA_INVALIDO, nuevoTramo(9, 12)),
       ).toThrow(/día/i);
       expect(cal.lunes).toHaveLength(0);
+    });
+
+    it.each([
+      [undefined, /tramo debe ser un objeto/i],
+      [null, /tramo debe ser un objeto/i],
+      ['mañana', /tramo debe ser un objeto/i],
+      [{ horaInicio: { hora: 9, minuto: 0 } }, /hora de fin/i],
+      [
+        { horaInicio: { hora: 9, minuto: 0 }, horaFin: { hora: 12, minuto: 60 } },
+        /minutos.*0 y 59/i,
+      ],
+      [
+        { horaInicio: { hora: 24, minuto: 0 }, horaFin: { hora: 25, minuto: 0 } },
+        /hora.*0 y 23/i,
+      ],
+      [
+        { horaInicio: { hora: 12, minuto: 0 }, horaFin: { hora: 9, minuto: 0 } },
+        /posterior a la de inicio/i,
+      ],
+    ])('rechaza un tramo inválido (%s) y deja el calendario intacto', (tramo, mensaje) => {
+      const cal = crearCalendarioSemanal();
+
+      expect(() => agregarTramo(cal, 'lunes', tramo)).toThrow(mensaje);
+      expect(cal.lunes).toEqual([]);
     });
   });
 

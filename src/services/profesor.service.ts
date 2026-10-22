@@ -6,7 +6,7 @@ import {
   ProfesorModel,
   type ProfesorDoc,
 } from '../models/Profesor.js';
-import type { Tramo, Dia } from '../models/CalendarioSemanal.js';
+import type { Dia } from '../models/CalendarioSemanal.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { agregarTramo, quitarTramo, validarDia } from './calendarioSemanal.service.js';
 
@@ -47,11 +47,6 @@ function diaObligatorio(valor: unknown): Dia {
   exigir(typeof valor === 'string', 'El día debe ser un texto');
   validarDia(valor);
   return valor;
-}
-
-function tramoComoDatos(valor: unknown): Tramo {
-  validarObjeto(valor, 'El tramo');
-  return valor as Tramo;
 }
 
 function esBufferSerializado(
@@ -145,8 +140,8 @@ export async function agregarDisponibilidad(
   if (profesor === null) return null;
 
   const dia = diaObligatorio(diaEntrada);
-  const tramo = tramoComoDatos(tramoEntrada);
-  agregarTramo(profesor.disponibilidad, dia, tramo);
+  // La operación compartida valida el tramo antes de cambiar disponibilidad.
+  agregarTramo(profesor.disponibilidad, dia, tramoEntrada);
   return profesor.save();
 }
 

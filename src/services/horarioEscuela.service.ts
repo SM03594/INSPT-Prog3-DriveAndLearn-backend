@@ -2,7 +2,6 @@ import {
   DIAS,
   type CalendarioSemanal,
   type Dia,
-  type Tramo,
 } from '../models/CalendarioSemanal.js';
 import { HorarioEscuelaModel } from '../models/HorarioEscuela.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
@@ -10,6 +9,7 @@ import {
   agregarTramo as agregarTramoCalendario,
   quitarTramo as quitarTramoCalendario,
   validarDia,
+  validarTramo,
 } from './calendarioSemanal.service.js';
 
 function diaValido(dia: string): Dia {
@@ -52,12 +52,16 @@ export async function reemplazar(
 
 export async function agregarTramo(
   dia: string,
-  tramo: Tramo,
+  tramo: unknown,
 ): Promise<CalendarioSemanal> {
+  // Comprobar la entrada antes de leer o modificar el documento persistido.
+  validarDia(dia);
+  const calendarioTramo = validarTramo(tramo);
   const horario =
     (await HorarioEscuelaModel.findById('escuela')) ??
     new HorarioEscuelaModel({ _id: 'escuela' });
-  agregarTramoCalendario(horario.calendario, diaValido(dia), tramo);
+  // El helper compartido vuelve a validar antes de mutar el calendario.
+  agregarTramoCalendario(horario.calendario, dia, calendarioTramo);
   await horario.save();
   return horario.calendario;
 }
