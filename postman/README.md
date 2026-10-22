@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 10 carpetas, 163 requests
+├── DriveAndLearn.postman_collection.json   # 10 carpetas, 159 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado
@@ -35,7 +35,7 @@ environment `remoto` (reemplazar `https://<servidor>/api`).
 | `baseUrl` | Prefijo de todas las URLs. |
 | `adminEmail` / `adminPassword` | Admin con el que arranca la corrida. |
 | `offsetZona` | Offset de la zona de la escuela (`-03:00`) para armar las fechas de las clases. |
-| `modoSeguro` | `true` en remoto: saltea los `PUT /horario`, que reemplazan el horario completo de la escuela. |
+| `modoSeguro` | `true` en remoto: saltea los `PUT /horario-escuela`, que reemplazan el horario completo de la escuela. |
 | `maxTiempoMs` | Tiempo máximo de respuesta aceptado (test global). |
 
 ## 3. Correr
@@ -51,7 +51,7 @@ Clic derecho en la colección → **Run collection** → dejar el orden por defe
 | `03 Administradores` | Alta, edición, baja y token de un admin borrado. |
 | `04 Autos` | CRUD y puesta fuera de servicio. |
 | `05 Profesores` | Alta, edición, foto y disponibilidad. |
-| `06 Horario de la escuela` | Horario semanal y el alias `/calendario-semanal`. |
+| `06 Horario de la escuela` | Horario semanal de la escuela: ver, reemplazar, agregar y quitar tramos. |
 | `07 Clases` | Reservas: fechas, horarios, solapamientos, saldo, permisos, cancelación. |
 | `08 Errores generales` | Ruta inexistente y bodies ilegibles. |
 | `99 Teardown` | Limpieza: deja el horario como estaba y borra los alumnos. |

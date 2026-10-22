@@ -181,7 +181,7 @@ describe('reservas HTTP de clases', () => {
 
   it('no permite al alumno administrar el horario general de la escuela', async () => {
     await request(app)
-      .put('/api/horario')
+      .put('/api/horario-escuela')
       .set('Authorization', `Bearer ${tokenAlumno}`)
       .send(crearCalendarioSemanal())
       .expect(403);
@@ -207,13 +207,13 @@ describe('reservas HTTP de clases', () => {
     });
 
     await request(app)
-      .put('/api/horario')
+      .put('/api/horario-escuela')
       .set('Authorization', `Bearer ${tokenAdmin}`)
       .send(calendario)
       .expect(200);
 
     const respuesta = await request(app)
-      .get('/api/horario')
+      .get('/api/horario-escuela')
       .set('Authorization', `Bearer ${tokenAlumno}`)
       .expect(200);
     expect(respuesta.body.martes).toHaveLength(1);

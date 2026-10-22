@@ -14,8 +14,7 @@ import alumnosRoutes from './routes/alumno.routes.js';
 import administradoresRoutes from './routes/administrador.routes.js';
 import profesoresRoutes from './routes/profesor.routes.js';
 import clasesRoutes from './routes/clase.routes.js';
-import calendarioSemanalRoutes from './routes/calendarioSemanal.routes.js';
-import horarioRoutes from './routes/horario.routes.js';
+import horarioEscuelaRoutes from './routes/horarioEscuela.routes.js';
 import { errorHandler } from './middlewares/errorHandler.middleware.js';
 
 const app = express();
@@ -29,8 +28,7 @@ app.use('/api/alumnos', alumnosRoutes);
 app.use('/api/administradores', administradoresRoutes);
 app.use('/api/profesores', profesoresRoutes);
 app.use('/api/clases', clasesRoutes);
-app.use('/api/calendario-semanal', calendarioSemanalRoutes);
-app.use('/api/horario', horarioRoutes);
+app.use('/api/horario-escuela', horarioEscuelaRoutes);
 
 // Ninguna ruta anterior matcheó.
 app.use((_req, res) => {

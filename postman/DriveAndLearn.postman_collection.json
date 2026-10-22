@@ -249,11 +249,6 @@
       "type": "string"
     },
     {
-      "key": "tramoAliasId",
-      "value": "",
-      "type": "string"
-    },
-    {
       "key": "claseId",
       "value": "",
       "type": "string"
@@ -393,12 +388,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             }
           }
@@ -427,12 +422,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario/agregar",
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "agregar"
               ]
             },
@@ -4670,7 +4665,7 @@
     },
     {
       "name": "06 Horario de la escuela",
-      "description": "GET/PUT del horario semanal de la escuela, agregar/quitar tramos y el alias /calendario-semanal. Los PUT reemplazan el horario completo: se saltean con modoSeguro = true y, si corren, el horario se restaura enseguida.",
+      "description": "GET/PUT del horario semanal de la escuela y agregar/quitar tramos. Los PUT reemplazan el horario completo: se saltean con modoSeguro = true y, si corren, el horario se restaura enseguida.",
       "item": [
         {
           "name": "[200] Alumno ve el horario: los 7 días",
@@ -4693,12 +4688,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             },
             "auth": {
@@ -4733,12 +4728,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario/validar/lunes",
+              "raw": "{{baseUrl}}/horario-escuela/validar/lunes",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "validar",
                 "lunes"
               ]
@@ -4772,12 +4767,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario/validar/feriado",
+              "raw": "{{baseUrl}}/horario-escuela/validar/feriado",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "validar",
                 "feriado"
               ]
@@ -4816,12 +4811,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             },
             "auth": {
@@ -4867,12 +4862,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario/agregar",
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "agregar"
               ]
             },
@@ -4919,12 +4914,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario/quitar",
+              "raw": "{{baseUrl}}/horario-escuela/quitar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "quitar"
               ]
             },
@@ -4971,12 +4966,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             },
             "body": {
@@ -5012,12 +5007,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario/agregar",
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "agregar"
               ]
             },
@@ -5054,12 +5049,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario/quitar",
+              "raw": "{{baseUrl}}/horario-escuela/quitar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "quitar"
               ]
             },
@@ -5091,12 +5086,12 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario/agregar",
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "agregar"
               ]
             },
@@ -5121,12 +5116,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             }
           }
@@ -5167,12 +5162,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             },
             "body": {
@@ -5221,176 +5216,17 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             },
             "body": {
               "mode": "raw",
               "raw": "{{horarioAntesDelPut}}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "[200] Alias: validar día por /calendario-semanal",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarStatus(pm, 200);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/calendario-semanal/validar/martes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "calendario-semanal",
-                "validar",
-                "martes"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAlumno}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "[200] Alias: agregar tramo por /calendario-semanal",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.collectionVariables.set('tramoAliasId', utils.ultimoTramoId(pm.response.json(), 'domingo'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/calendario-semanal/agregar",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "calendario-semanal",
-                "agregar"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"dia\": \"domingo\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 6,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 7,\n      \"minuto\": 0\n    }\n  }\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "[200] El tramo agregado por el alias aparece en /horario",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.test('Es el mismo horario', function () {",
-                  "  var ids = pm.response.json().domingo.map(function (t) { return t._id; });",
-                  "  pm.expect(ids).to.include(pm.collectionVariables.get('tramoAliasId'));",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/horario",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "horario"
-              ]
-            }
-          }
-        },
-        {
-          "name": "[200] Alias: quitar tramo por /calendario-semanal",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.test('Ya no está', function () {",
-                  "  var ids = pm.response.json().domingo.map(function (t) { return t._id; });",
-                  "  pm.expect(ids).to.not.include(pm.collectionVariables.get('tramoAliasId'));",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/calendario-semanal/quitar",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "calendario-semanal",
-                "quitar"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"dia\": \"domingo\",\n  \"tramoId\": \"{{tramoAliasId}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7402,12 +7238,12 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/horario/quitar",
+              "raw": "{{baseUrl}}/horario-escuela/quitar",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario",
+                "horario-escuela",
                 "quitar"
               ]
             },
@@ -7443,12 +7279,12 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/horario",
+              "raw": "{{baseUrl}}/horario-escuela",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
-                "horario"
+                "horario-escuela"
               ]
             }
           }

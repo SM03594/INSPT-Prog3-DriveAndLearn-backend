@@ -34,11 +34,9 @@ const RUTAS_CON_CUERPO: [Metodo, string][] = [
   ['patch', `/api/profesores/${ID}/foto-perfil`],
   ['post', `/api/profesores/${ID}/disponibilidad`],
   ['delete', `/api/profesores/${ID}/disponibilidad`],
-  ['put', '/api/horario'],
-  ['post', '/api/horario/agregar'],
-  ['post', '/api/horario/quitar'],
-  ['post', '/api/calendario-semanal/agregar'],
-  ['post', '/api/calendario-semanal/quitar'],
+  ['put', '/api/horario-escuela'],
+  ['post', '/api/horario-escuela/agregar'],
+  ['post', '/api/horario-escuela/quitar'],
   ['post', '/api/clases'],
   ['put', `/api/clases/${ID}`],
 ];
@@ -85,7 +83,7 @@ describe('validacionDeCuerpo HTTP', () => {
   });
 
   it('JSON mal escrito → 400', async () => {
-    const respuesta = await pedir('post', '/api/horario/agregar')
+    const respuesta = await pedir('post', '/api/horario-escuela/agregar')
       .set('Content-Type', 'application/json')
       .send('{"dia": "lunes",')
       .expect(400);
@@ -94,7 +92,7 @@ describe('validacionDeCuerpo HTTP', () => {
   });
 
   it('sin token y sin body → sigue respondiendo 401 (la autenticación va primero)', async () => {
-    await request(app).post('/api/horario/agregar').expect(401);
+    await request(app).post('/api/horario-escuela/agregar').expect(401);
   });
 
   it('PATCH /clases/:id/cancelar no lleva el middleware (no necesita body)', async () => {

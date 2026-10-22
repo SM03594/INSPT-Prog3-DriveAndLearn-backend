@@ -1,5 +1,5 @@
 // ============================================================
-//  horario.controller.ts — Controller HTTP de horarios
+//  horarioEscuela.controller.ts — Controller HTTP del horario de la escuela
 // ============================================================
 // Expone el calendario semanal persistido de la escuela. Las
 // modificaciones se guardan en horarioEscuela.service.ts.
