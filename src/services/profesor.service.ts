@@ -107,9 +107,12 @@ export async function cambiarNomApe(
   id: string,
   nomApe: unknown,
 ): Promise<ProfesorDoc | null> {
+  // El service valida el dato antes de que Mongoose pueda convertirlo o
+  // interpretar un valor ausente como una actualización sin cambios.
+  const nombreValidado = nombreObligatorio(nomApe);
   return ProfesorModel.findByIdAndUpdate(
     id,
-    { nomApe },
+    { nomApe: nombreValidado },
     { new: true, runValidators: true },
   );
 }

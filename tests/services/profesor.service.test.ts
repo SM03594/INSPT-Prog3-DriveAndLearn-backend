@@ -118,13 +118,27 @@ describe('profesor.service', () => {
       expect(await cambiarNomApe(ID_INEXISTENTE, 'Nadie')).toBeNull();
     });
 
-    it('tira ValidationError si el nombre y apellido es vacío (runValidators)', async () => {
+    it('rechaza un nombre y apellido vacío', async () => {
       const creado = await crearProfesor();
 
       await expect(
         cambiarNomApe(creado._id.toString(), ''),
-      ).rejects.toThrow(/nombre y apellido es obligatorio/);
+      ).rejects.toThrow(/nombre y apellido del profesor es obligatorio/);
     });
+
+    it.each([123, null, undefined, '   '])(
+      'rechaza un nombre inválido (%s) antes de actualizar',
+      async (nombre) => {
+        const creado = await crearProfesor();
+
+        await expect(
+          cambiarNomApe(creado._id.toString(), nombre),
+        ).rejects.toThrow(/nombre y apellido del profesor es obligatorio/);
+        expect((await ProfesorModel.findById(creado._id))?.nomApe).toBe(
+          'Juan Docente',
+        );
+      },
+    );
   });
 
   // --------------------------------------------------------

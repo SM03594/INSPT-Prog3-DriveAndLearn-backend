@@ -52,7 +52,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:345` |
 | I-32 | ✅ | `agregar` sin tramo guarda `null` y rompe las reservas de ese día (500) | `horarioEscuela.service.ts` |
 | I-33 | 🟡 | Quitar un tramo inexistente responde "Profesor no encontrado" | `profesor.service.ts:156`, controller |
-| I-34 | 🔴 | `PATCH nom-ape` no valida: acepta números y un body sin `nomApe` | `profesor.service.ts:111` |
+| I-34 | ✅ | `PATCH nom-ape` no valida: acepta números y un body sin `nomApe` | `profesor.service.ts` |
 | I-35 | 🟡 | Foto de perfil: base64 sin validar, se borra si falta, límite real de ~75 KB | `profesor.service.ts:70`, `Profesor.ts:12` |
 | I-36 | ✅ | Un tramo que no es objeto devuelve un mensaje interno de Mongoose | `horarioEscuela.service.ts` |
 | I-37 | 💭 | Se aceptan tramos superpuestos y días extra (estos se descartan) | `calendarioSemanal.service.ts`, `horarioEscuela.service.ts` |
@@ -88,9 +88,9 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-34 · `PATCH /profesores/:id/nom-ape` no valida
 - **Detectada:** 2026-10-22, flujo `alta-de-profesor-y-disponibilidad`.
-- **Dónde:** `src/services/profesor.service.ts:111`. Pasa `nomApe` (de tipo `unknown`) directo a `findByIdAndUpdate`.
-- **Qué pasa (comprobado):** `{ "nomApe": 123 }` → 200, y el nombre pasa a ser `"123"`. `{ "otro": "x" }` → 200 sin ningún cambio y sin avisar. `crear` sí valida, con `nombreObligatorio`.
-- **Propuesta:** usar `nombreObligatorio(nomApe)` también en `cambiarNomApe`.
+- **Dónde:** `src/services/profesor.service.ts`, en `cambiarNomApe`.
+- **Qué pasaba:** el valor `unknown` llegaba directamente a Mongoose, que convertía números a texto y trataba el campo ausente como una actualización vacía.
+- **Resolución:** el service reutiliza `nombreObligatorio` antes de llamar a Mongoose. Nombres ausentes, no textuales o compuestos por espacios generan `ErrorDeNegocio`; se agregaron pruebas de service y HTTP para confirmar que la petición falla con 400 sin alterar el nombre guardado.
 
 ### I-40 · `PUT /api/autos/:id` con `_id` en el body responde 500
 - **Detectada:** 2026-10-22, flujo `gestion-de-autos`.

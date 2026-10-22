@@ -98,6 +98,23 @@ describe('reservas HTTP de clases', () => {
     expect(respuesta.body.disponibilidad.lunes).toEqual([]);
   });
 
+  it('rechaza nombres inválidos al actualizar un profesor', async () => {
+    const nombreOriginal = (await ProfesorModel.findById(profesorId))?.nomApe;
+
+    for (const body of [{ nomApe: 123 }, {}]) {
+      const respuesta = await request(app)
+        .patch(`/api/profesores/${profesorId}/nom-ape`)
+        .set('Authorization', `Bearer ${tokenAdmin}`)
+        .send(body)
+        .expect(400);
+
+      expect(respuesta.body.mensaje).toBe(
+        'El nombre y apellido del profesor es obligatorio',
+      );
+      expect((await ProfesorModel.findById(profesorId))?.nomApe).toBe(nombreOriginal);
+    }
+  });
+
   it('fuerza la identidad del alumno y descuenta un crédito al reservar', async () => {
     await request(app)
       .post('/api/clases')

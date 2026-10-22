@@ -107,18 +107,19 @@ cuándo están disponibles para elegir al reservar. La respuesta incluye la
 return ProfesorModel.findByIdAndUpdate(id, { nomApe }, { new: true, runValidators: true });
 ```
 
-A diferencia de `crear`, este service **no valida** el valor: lo pasa directo
-a Mongoose. Comportamiento real:
+El service valida el valor con la misma regla de `crear` antes de llamar a
+Mongoose. Los valores ausentes, no textuales o vacíos se rechazan con 400:
 
 | Body | Respuesta |
 |---|---|
 | `{ "nomApe": "Juan A. Gómez" }` | 200, nombre cambiado |
-| `{ "nomApe": "" }` | 400 "El nombre y apellido es obligatorio" (lo frena el `required` del esquema) |
-| `{ "nomApe": 123 }` | **200**, el nombre pasa a ser `"123"` (Mongoose convierte el número a texto) |
-| `{ "otro": "x" }` (sin `nomApe`) | **200** sin ningún cambio: `{ nomApe: undefined }` no modifica nada |
+| `{ "nomApe": "" }` | 400 "El nombre y apellido del profesor es obligatorio" |
+| `{ "nomApe": 123 }` | 400 "El nombre y apellido del profesor es obligatorio" |
+| `{ "otro": "x" }` (sin `nomApe`) | 400 "El nombre y apellido del profesor es obligatorio" |
 | Profesor inexistente | 404 "Profesor no encontrado" |
 
-Los dos casos en negrita deberían ser errores 400. Está registrado como I-34.
+La validación pertenece al service; el controller solo extrae `nomApe`, delega
+la operación y traduce el resultado a una respuesta HTTP (I-34).
 
 ### Paso 4. La foto de perfil
 
@@ -247,7 +248,7 @@ Hay tres cosas que **no** se controlan al cargar la disponibilidad:
 | Crear con campos extra | 400 "Campos no permitidos: …" |
 | Crear sin nombre | 400 "El nombre y apellido del profesor es obligatorio" |
 | Un alumno crea o modifica | 403 "Se requieren permisos de administrador" |
-| Cambiar el nombre a un número | 200, se guarda como texto (I-34) |
+| Cambiar el nombre a un número o enviarlo vacío | 400 "El nombre y apellido del profesor es obligatorio" (I-34) |
 | Foto de más de ~75 KB | 413 "El cuerpo de la petición es demasiado grande" |
 | Foto como número | 400 "La foto debe enviarse en base64 o como bytes" |
 | Día `"Lunes"` (mayúscula) | 400 'Día inválido: "Lunes". Debe ser uno de: …' |
@@ -262,8 +263,8 @@ Hay tres cosas que **no** se controlan al cargar la disponibilidad:
 - **Alta:** solo `nomApe`. La disponibilidad arranca vacía.
 - **Consulta:** abierta a cualquier usuario con token. Trae la disponibilidad
   y la foto.
-- **Nombre y foto:** cambian por `PATCH`, con validaciones más débiles que el
-  alta (I-34, I-35).
+- **Nombre y foto:** cambian por `PATCH`. El service valida el nombre; la foto
+  tiene las limitaciones documentadas en I-35.
 - **Disponibilidad:** se agrega de a un tramo por día. El service valida el
   día y que el tramo sea un objeto, y Mongoose valida los números al hacer
   `.save()`. Cada tramo tiene un `_id`, que es lo que se usa para quitarlo.
