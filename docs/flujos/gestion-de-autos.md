@@ -87,7 +87,7 @@ guarda como `"MANUAL"`.
 | `cambios: "secuencial"` | 400 'Atributo "cambios" debe ser "AUTOMATICO" o "MANUAL" (recibido: "SECUENCIAL")' |
 | Solo `{ "marca": "Ford" }` | 400 "El tipo de cambios es obligatorio. La patente es obligatoria" (todos los errores juntos) |
 | Patente repetida, aunque cambien mayúsculas o espacios de los extremos | 409 "La patente ingresada ya está en uso" |
-| Con `"color": "rojo"` | 201: el campo se **descarta en silencio** (I-04) |
+| Con `"color": "rojo"` | 400 "Campos no permitidos: color" (I-04) |
 | Con `"activo": false` | 201: el auto **nace** fuera de servicio |
 | Con el token de un alumno | 403 "Se requieren permisos de administrador" |
 
@@ -138,12 +138,12 @@ aplican igual que al crear:
 | `{ "patente": "" }` | 400 "La patente es obligatoria" |
 | `{ "activo": false }` | 200: el `PUT` **también** saca de servicio, igual que el `PATCH` |
 | `{}` | 200, sin cambios |
-| `{ "_id": "<otro id>" }` | **500 "Error interno del servidor"** (I-40) |
+| `{ "_id": "<otro id>" }` | 400 "Campos no permitidos: _id" (I-40) |
 
-El último caso pasa porque el service le entrega a MongoDB el body tal cual, y
-MongoDB rechaza modificar `_id` (`ImmutableField`, código 66). Ese error no
-está entre los que reconoce el `errorHandler`, así que termina en un 500. Es
-la misma causa que I-04: el service no filtra los campos.
+El service valida los campos antes de llamar a MongoDB: los desconocidos,
+incluido `_id`, se rechazan con un 400 (I-04). `activo` también se admite en
+el `PUT` para conservar el comportamiento existente; para cambiar solo ese
+estado está disponible el `PATCH`.
 
 ### Paso 4. Sacar de servicio y volver a ponerlo
 
@@ -203,8 +203,8 @@ lugar de borrarlos.
 | Sin `patente` ni `cambios` | 400 con los dos mensajes juntos |
 | Patente repetida | 409 "La patente ingresada ya está en uso" |
 | La misma patente con otros espacios internos | **201**: se crea un duplicado (I-39) |
-| Campos desconocidos | 201/200: se descartan en silencio (I-04) |
-| `PUT` con `_id` | **500** (I-40) |
+| Campos desconocidos | 400 "Campos no permitidos: ..." (I-04) |
+| `PUT` con `_id` | 400 "Campos no permitidos: _id" (I-40) |
 | `PATCH activo` con `"false"` como texto | 400 "activo debe ser un valor booleano" |
 | Reservar con un auto inactivo | 409 "El auto no está disponible para reservas" |
 | `DELETE /api/autos/:id` | 404 "Ruta no encontrada" |
@@ -213,13 +213,13 @@ lugar de borrarlos.
 
 ## Resumen
 
-- **Crear:** el service confía en el esquema. Mongoose normaliza (`trim`,
-  `uppercase`) y valida (`required`, `enum`). La patente repetida se traduce
-  a 409.
+- **Crear:** el service rechaza campos desconocidos y valida los tipos;
+  Mongoose normaliza (`trim`, `uppercase`) y valida (`required`, `enum`). La
+  patente repetida se traduce a 409.
 - **Consultar:** abierto a cualquier usuario con token, e incluye los autos
   inactivos.
 - **Modificar:** `findByIdAndUpdate` con `runValidators`. Es un cambio
-  parcial, y no filtra los campos (I-04, I-40).
+  parcial que rechaza campos desconocidos (I-04, I-40).
 - **Fuera de servicio:** `PATCH .../activo` con un booleano estricto. No hay
   borrado, para conservar el historial de clases.
 - Cada reserva comprueba que el auto exista y esté activo. Las clases ya

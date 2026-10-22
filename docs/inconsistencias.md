@@ -22,7 +22,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-01 | ✅ | Alias `/api/calendario-semanal` duplicaba `/api/horario` | routes, controllers |
 | I-02 | ✅ | 27 tests fallaban en `alumnos.http` y `administradores.http` (los archivos se eliminaron) | `tests/` |
 | I-03 | ✅ | El email no validaba el formato | `models/Usuario.ts` |
-| I-04 | 🔴 | `auto` y `administrador` descartan campos desconocidos sin avisar | services |
+| I-04 | ✅ | `auto` y `administrador` descartan campos desconocidos sin avisar | services |
 | I-05 | 🟡 | Uso de la opción deprecada `new: true` de Mongoose | 4 services |
 | I-06 | 🟡 | La interfaz `Auto` no coincide con su esquema | `models/Auto.ts` |
 | I-07 | 🟡 | Uniones `'alumno' \| 'administrador'` repetidas en lugar de `Rol` | `types/express.d.ts`, `clase.service.ts` |
@@ -46,7 +46,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-25 | 🟡 | `globals: true` en Vitest, pero todos los tests importan `describe`/`it` | `vitest.config.ts` |
 | I-26 | 🔵 | El README de Postman dice que el Setup crea 4 alumnos (crea 3) | `postman/README.md:48` |
 | I-27 | 🔵 | El comentario de `utils` muestra una llamada incorrecta | colección Postman, pre-request |
-| I-28 | 🔴 | El tiempo del login revela si un email está registrado | `auth.service.ts:37` |
+| I-28 | ✅ | El tiempo del login revela si un email está registrado | `auth.service.ts` |
 | I-29 | 💭 | El login sin email o password responde 401 en lugar de 400 | `auth.service.ts:26-33` |
 | I-30 | 🟡 | Mensajes de error sin tildes ("direccion", "esta") | `Usuario.ts:33`, services |
 | I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:345` |
@@ -58,7 +58,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-37 | 💭 | Se aceptan tramos superpuestos y días extra (estos se descartan) | `calendarioSemanal.service.ts`, `horarioEscuela.service.ts` |
 | I-38 | 💭 | No hay forma de dar de baja un profesor | `profesor.routes.ts` |
 | I-39 | 🟡 | La patente no tiene formato: `"AB 123 CD"` y `"AB123CD"` son autos distintos | `models/Auto.ts` |
-| I-40 | 🔴 | `PUT /api/autos/:id` con `_id` en el body responde 500 | `auto.service.ts:45` |
+| I-40 | ✅ | `PUT /api/autos/:id` con `_id` en el body respondía 500 | `auto.service.ts` |
 | I-41 | 🟡 | `admin:bootstrap` sin terminal termina con código 0 sin crear nada | `scripts/bootstrapAdmin.ts` |
 | I-42 | 🔵 | Un comentario de `bootstrapAdminDesdeEnv.ts` dice que `create()` fallaría "con un error crudo" | `scripts/bootstrapAdminDesdeEnv.ts:31` |
 | I-43 | 💭 | Los scripts de admin dependen de `tsx` (devDependency) y no hay un script para `dist/` | `package.json` |
@@ -70,15 +70,15 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-04 · `auto` y `administrador` descartan campos desconocidos sin avisar
 - **Detectada:** 2026-10-22, al escribir la guía 07.
-- **Dónde:** `auto.service.ts` (`crear(datos: Auto)`, `actualizar`) y `administrador.service.ts` (`crear(datos: Administrador)`, `actualizar`).
-- **Qué pasa:** reciben `req.body` sin validar, pero el parámetro está tipado como si ya fuera válido. Mongoose descarta en silencio los campos que no están en el esquema (modo `strict`). Comprobado: un auto con `color` y `precio` se guarda sin error y sin esos campos. Los otros services (`alumno`, `profesor`, `clase`) rechazan los campos desconocidos con un 400.
-- **Propuesta:** que esos dos services reciban `unknown` y validen igual que `alumno.service` (lista de campos permitidos y `esDelTipo`).
+- **Dónde:** `auto.service.ts` y `administrador.service.ts`, en `crear` y `actualizar`.
+- **Qué pasaba:** recibían `req.body` sin validar. Mongoose descartaba en silencio los campos que no están en el esquema (modo `strict`).
+- **Resolución:** ambos services reciben `unknown`, exigen un objeto, rechazan campos no permitidos con `ErrorDeNegocio` y validan los tipos de los campos admitidos. `rol` no se acepta para administradores; el rol lo asigna el discriminator. Se agregaron pruebas de creación y actualización para campos desconocidos.
 
 ### I-28 · El tiempo del login revela si un email está registrado
 - **Detectada:** 2026-10-22, flujo `registro-y-login`.
-- **Dónde:** `src/services/auth.service.ts:37`: `if (usuario === null || !(await bcrypt.compare(...)))`.
-- **Qué pasa:** el mensaje es el mismo para un email inexistente y para una contraseña errónea, a propósito, para no revelar qué emails tienen cuenta. Pero si el usuario no existe, se saltea `bcrypt.compare`, que es la parte lenta. Medido con 5 intentos de cada uno: **~5 ms** con un email inexistente y **~68 ms** con una contraseña errónea. Midiendo el tiempo se puede averiguar qué emails están registrados (*user enumeration* por tiempo).
-- **Propuesta:** cuando el usuario no existe, comparar igual contra un hash fijo de relleno, por ejemplo `await bcrypt.compare(password, HASH_DE_RELLENO)`, para que los dos caminos tarden lo mismo. Complementar con un límite de intentos por IP.
+- **Dónde:** `src/services/auth.service.ts`, en `autenticar`.
+- **Qué pasaba:** cuando el usuario no existía, se omitía `bcrypt.compare`, a diferencia del caso de contraseña incorrecta; eso hacía mucho más rápida esa respuesta.
+- **Resolución:** el service compara siempre la contraseña: contra el hash del usuario encontrado o, si no existe, contra un hash fijo de relleno con el mismo costo bcrypt. Luego lanza el mismo `ErrorAutenticacion` para ambos casos. Se agregaron pruebas de servicio para verificar ambas rutas. Esto reduce la diferencia temporal asociada a bcrypt, pero no garantiza tiempo constante de toda la petición, ya que la consulta a la base y otras operaciones pueden variar.
 
 ### I-32 · `agregar` sin tramo guarda `null` y rompe las reservas de ese día
 - **Detectada:** 2026-10-22, flujo `configurar-horarios-de-la-escuela`.
@@ -97,9 +97,9 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-40 · `PUT /api/autos/:id` con `_id` en el body responde 500
 - **Detectada:** 2026-10-22, flujo `gestion-de-autos`.
-- **Dónde:** `src/services/auto.service.ts:45`. Pasa el body sin filtrar a `findByIdAndUpdate`.
-- **Qué pasa (comprobado):** `PUT /api/autos/<id> { "_id": "<otro id>" }` → MongoDB lanza `ImmutableField` (código 66), que el `errorHandler` no reconoce → **500** "Error interno del servidor", y el stack completo en la consola.
-- **Propuesta:** se resuelve con I-04: aceptar solo `marca`, `modelo`, `patente` y `cambios` en el `PUT`, y que `activo` se cambie únicamente por `PATCH`. Hoy el `PUT` también lo cambia.
+- **Dónde:** `src/services/auto.service.ts`, en `actualizar`.
+- **Qué pasaba:** el body se pasaba sin filtrar a `findByIdAndUpdate`; MongoDB rechazaba `_id` con `ImmutableField` y el middleware respondía 500.
+- **Resolución:** la validación de I-04 rechaza `_id` como campo no permitido antes de consultar MongoDB y responde 400. `activo` sigue admitido en la actualización para preservar el comportamiento previo; también puede cambiarse con `PATCH`.
 
 ---
 

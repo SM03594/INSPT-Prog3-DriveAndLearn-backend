@@ -41,6 +41,12 @@ describe('auto.service', () => {
       expect(auto.cambios).toBe('AUTOMATICO');
     });
 
+    it('rechaza campos desconocidos', async () => {
+      await expect(
+        crear({ ...datosValidos, color: 'rojo' }),
+      ).rejects.toThrow('Campos no permitidos: color');
+    });
+
     it('normaliza la patente a mayúsculas (uppercase del esquema)', async () => {
       const auto = await crear({ ...datosValidos, patente: 'xy999zz' });
       expect(auto.patente).toBe('XY999ZZ');
@@ -139,6 +145,22 @@ describe('auto.service', () => {
 
       expect(actualizado?.modelo).toBe('Yaris');
       expect(actualizado?.marca).toBe('Toyota'); // intacto
+    });
+
+    it('rechaza campos desconocidos', async () => {
+      const creado = await crear(datosValidos);
+
+      await expect(
+        actualizar(creado._id.toString(), { color: 'rojo' }),
+      ).rejects.toThrow('Campos no permitidos: color');
+    });
+
+    it('rechaza _id antes de intentar actualizar el documento', async () => {
+      const creado = await crear(datosValidos);
+
+      await expect(
+        actualizar(creado._id.toString(), { _id: ID_INEXISTENTE }),
+      ).rejects.toThrow('Campos no permitidos: _id');
     });
 
     it('devuelve null si el auto no existe', async () => {

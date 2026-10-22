@@ -13,6 +13,41 @@ import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 // Mensaje de respaldo si el Schema no definió uno propio para la
 // patente repetida (ver verSiErrorClaveDuplicada).
 const MENSAJE_PATENTE_DUPLICADA = 'La patente ya está en uso';
+const CAMPOS_AUTO = ['marca', 'modelo', 'patente', 'cambios', 'activo'] as const;
+
+type DatosAuto = Partial<Auto>;
+
+function validarDatosAuto(datosEntrada: unknown): DatosAuto {
+  if (
+    typeof datosEntrada !== 'object' ||
+    datosEntrada === null ||
+    Array.isArray(datosEntrada)
+  ) {
+    throw new ErrorDeNegocio('El cuerpo de la petición debe ser un objeto JSON');
+  }
+
+  const datos = datosEntrada as Record<string, unknown>;
+  const camposNoPermitidos = Object.keys(datos).filter(
+    (campo) => !CAMPOS_AUTO.includes(campo as (typeof CAMPOS_AUTO)[number]),
+  );
+  if (camposNoPermitidos.length > 0) {
+    throw new ErrorDeNegocio(
+      `Campos no permitidos: ${camposNoPermitidos.join(', ')}`,
+    );
+  }
+
+  for (const campo of CAMPOS_AUTO) {
+    const valor = datos[campo];
+    if (valor === undefined) continue;
+
+    const tipoEsperado = campo === 'activo' ? 'boolean' : 'string';
+    if (typeof valor !== tipoEsperado) {
+      throw new ErrorDeNegocio(`${campo} debe ser ${tipoEsperado === 'boolean' ? 'verdadero o falso' : 'un texto'}`);
+    }
+  }
+
+  return datos as DatosAuto;
+}
 
 
 export async function listar(): Promise<AutoDoc[]> {
@@ -28,7 +63,8 @@ export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
 // create() puede chocar contra el índice unique de patente: se atrapa
 // el error crudo de Mongo/Mongoose acá, no en el middleware, porque acá
 // es donde se sabe qué campo es y qué mensaje tiene sentido para Auto.
-export async function crear(datos: Auto): Promise<AutoDoc> {
+export async function crear(datosEntrada: unknown): Promise<AutoDoc> {
+  const datos = validarDatosAuto(datosEntrada);
   try {
     return await AutoModel.create(datos);
   } catch (err) {
@@ -44,8 +80,9 @@ export async function crear(datos: Auto): Promise<AutoDoc> {
 // o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<Auto>,
+  cambiosEntrada: unknown,
 ): Promise<AutoDoc | null> {
+  const cambios = validarDatosAuto(cambiosEntrada);
   try {
     return await AutoModel.findByIdAndUpdate(id, cambios, {
       new: true, // devolver el documento actualizado, no el previo

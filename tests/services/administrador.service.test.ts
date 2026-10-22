@@ -54,6 +54,12 @@ describe('administrador.service', () => {
       expect(admin.nomApe).toBe('Admin Root');
     });
 
+    it('rechaza campos desconocidos, incluido rol', async () => {
+      await expect(
+        crear({ ...datosValidos, rol: 'alumno' }),
+      ).rejects.toThrow('Campos no permitidos: rol');
+    });
+
     it('guarda la contraseña hasheada, no en texto plano', async () => {
       const admin = await crear(datosValidos);
 
@@ -198,6 +204,14 @@ describe('administrador.service', () => {
 
       expect(actualizado?.nomApe).toBe('Admin Editado');
       expect(actualizado?.email).toBe('admin@example.com'); // intacto
+    });
+
+    it('rechaza campos desconocidos, incluido rol', async () => {
+      const creado = await crear(datosValidos);
+
+      await expect(
+        actualizar(creado._id.toString(), { rol: 'alumno' }),
+      ).rejects.toThrow('Campos no permitidos: rol');
     });
 
     it('hashea la contraseña si se actualiza', async () => {

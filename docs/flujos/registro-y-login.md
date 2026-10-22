@@ -176,7 +176,8 @@ email, password  (unknown)
   │     normaliza: trim + toLowerCase → "ANA@example.com" encuentra a "ana@example.com"
   │     busca en UsuarioModel → encuentra alumnos Y administradores
   │
-  ├─ ¿no existe, o bcrypt.compare(password, hash) da false?
+  ├─ bcrypt.compare(password, usuario.password o hash de relleno)
+  ├─ ¿no existe, o la comparación da false?
   │                                                   sí → 401 "Email o contraseña incorrectos"
   ▼
 jwt.sign(...)
@@ -191,11 +192,10 @@ email inexistente    → 401 { "mensaje": "Email o contraseña incorrectos" }
 contraseña errónea   → 401 { "mensaje": "Email o contraseña incorrectos" }
 ```
 
-Pero hay un detalle: cuando el email no existe, el service **no ejecuta**
-`bcrypt.compare`, que es la parte lenta. Medido sobre 5 intentos de cada uno:
-**~5 ms** con un email inexistente y **~68 ms** con una contraseña errónea.
-Midiendo el tiempo de respuesta, igual se puede averiguar qué emails existen.
-Está registrado como I-28 en [`../inconsistencias.md`](../inconsistencias.md).
+El service también compara contra un hash fijo de relleno cuando el email no
+existe, para no omitir el costo de `bcrypt.compare`. Esto reduce esa diferencia
+temporal, aunque no garantiza que toda la petición tenga tiempo constante: la
+consulta a la base de datos y otras operaciones pueden variar.
 
 `usuario.service` busca en el modelo **base** `UsuarioModel`, y por eso el
 mismo login sirve para alumnos y para administradores. El rol se lee del
@@ -312,9 +312,10 @@ clases" → 403.
 - **Registro:** ruta pública → el service acepta **solo** `email`, `password`
   y `nomApe` → fija el saldo en 0 → hashea la contraseña → el model normaliza
   y guarda en `usuarios` → la respuesta sale **sin** `password`.
-- **Login:** busca por email (en todos los roles) → `bcrypt.compare` → firma
-  un JWT de 1 hora con `sub` = id y `role`. El error es el mismo para un email
-  inexistente y para una contraseña errónea.
+- **Login:** busca por email (en todos los roles) → compara con el hash del
+  usuario o, si no existe, con el hash de relleno → firma un JWT de 1 hora con
+  `sub` = id y `role`. El error es el mismo para un email inexistente y para
+  una contraseña errónea.
 - **Token:** `Authorization: Bearer <token>`. `requireAuthentication` lo
   verifica y carga `req.auth`. Se puede leer, pero no modificar.
 - No hay logout del lado del servidor: el token vale hasta que vence.

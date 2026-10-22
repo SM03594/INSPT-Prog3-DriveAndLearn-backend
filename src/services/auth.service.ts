@@ -18,6 +18,9 @@ export interface ResultadoAutenticacion {
 }
 
 const MENSAJE_CREDENCIALES_INVALIDAS = 'Email o contraseña incorrectos';
+// Mantener el costo (10) alineado con BCRYPT_ROUNDS en utils/password.ts.
+const HASH_RELLENO =
+  '$2b$10$i0iXBFkbnBL/NgkTXdPtrOIF3r6drWnxGLtK5oOJXajekALGPwFZ2';
 
 export async function autenticar(
   email: unknown,
@@ -33,8 +36,10 @@ export async function autenticar(
   }
 
   const usuario = await usuarioService.obtenerPorEmail(email);
+  const hash = usuario?.password ?? HASH_RELLENO;
+  const passwordValida = await bcrypt.compare(password, hash);
 
-  if (usuario === null || !(await bcrypt.compare(password, usuario.password))) {
+  if (usuario === null || !passwordValida) {
     throw new ErrorAutenticacion(MENSAJE_CREDENCIALES_INVALIDAS);
   }
 

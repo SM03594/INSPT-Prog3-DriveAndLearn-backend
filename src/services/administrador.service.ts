@@ -13,8 +13,44 @@ import {
 } from '../models/Administrador.js';
 import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import { conPasswordHasheada } from '../utils/password.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
+const CAMPOS_ADMINISTRADOR = ['email', 'password', 'nomApe'] as const;
+
+function validarDatosAdministrador(
+  datosEntrada: unknown,
+): Partial<Administrador> {
+  if (
+    typeof datosEntrada !== 'object' ||
+    datosEntrada === null ||
+    Array.isArray(datosEntrada)
+  ) {
+    throw new ErrorDeNegocio('El cuerpo de la petición debe ser un objeto JSON');
+  }
+
+  const datos = datosEntrada as Record<string, unknown>;
+  const camposNoPermitidos = Object.keys(datos).filter(
+    (campo) =>
+      !CAMPOS_ADMINISTRADOR.includes(
+        campo as (typeof CAMPOS_ADMINISTRADOR)[number],
+      ),
+  );
+  if (camposNoPermitidos.length > 0) {
+    throw new ErrorDeNegocio(
+      `Campos no permitidos: ${camposNoPermitidos.join(', ')}`,
+    );
+  }
+
+  for (const campo of CAMPOS_ADMINISTRADOR) {
+    const valor = datos[campo];
+    if (valor !== undefined && typeof valor !== 'string') {
+      throw new ErrorDeNegocio(`${campo} debe ser un texto`);
+    }
+  }
+
+  return datos as Partial<Administrador>;
+}
 
 // La forma del administrador (los campos que aceptamos al
 // crear/actualizar) vive en el model, como Administrador.
@@ -53,8 +89,9 @@ export async function existe(id: string): Promise<boolean> {
 // Si "password" no vino, el validador "required" del esquema
 // rechaza la creación con un ValidationError.
 export async function crear(
-  datos: Administrador,
+  datosEntrada: unknown,
 ): Promise<AdministradorDoc> {
+  const datos = validarDatosAdministrador(datosEntrada);
   const datosAGuardar = await conPasswordHasheada(datos);
 
   try {
@@ -73,8 +110,9 @@ export async function crear(
 // viene "password", se hashea igual que en crear.
 export async function actualizar(
   id: string,
-  cambios: Partial<Administrador>,
+  cambiosEntrada: unknown,
 ): Promise<AdministradorDoc | null> {
+  const cambios = validarDatosAdministrador(cambiosEntrada);
   const cambiosAGuardar = await conPasswordHasheada(cambios);
 
   try {

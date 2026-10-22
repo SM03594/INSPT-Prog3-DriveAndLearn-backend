@@ -90,13 +90,12 @@ decide el negocio, no el cliente.
 
 | Estilo | Services | Cómo funciona |
 |---|---|---|
-| **Explícito** | `alumno`, `profesor`, `clase`, `auth` | Reciben `unknown`, rechazan campos que no esperan y comprueban los tipos con `typeof` o con `esDelTipo`. |
-| **Confiar en el esquema** | `auto`, `administrador` | Declaran `crear(datos: Auto)`, pero en realidad reciben el `req.body` sin revisar. Las validaciones las hace Mongoose al guardar, y los campos desconocidos se descartan **en silencio** (modo `strict` de Mongoose). |
+| **Explícito** | `alumno`, `profesor`, `clase`, `auth`, `auto`, `administrador` | Reciben `unknown`, rechazan campos que no esperan y comprueban los tipos antes de guardar. Mongoose sigue aplicando las reglas de esquema, como campos obligatorios, formatos y valores permitidos. |
 
-El segundo estilo funciona, pero el tipo **miente**: `datos: Auto` promete algo
-que nadie comprobó. Como `req.body` es `any`, TypeScript no puede avisarlo. El
-estilo explícito es más largo, pero da mensajes claros y no descarta campos sin
-avisar.
+Los services de `auto` y `administrador` también validan explícitamente el
+cuerpo. Por ejemplo, `rol` no se acepta al crear o actualizar un administrador:
+lo determina el discriminator de Mongoose y no el cliente. Así se evita que
+Mongoose descarte campos desconocidos en silencio.
 
 ### 3. Romper una regla: `ErrorDeNegocio`
 
@@ -240,7 +239,7 @@ mantener la lógica fuera de los controllers.
 | Un update guarda un valor inválido | Falta `runValidators: true` en `findByIdAndUpdate`. |
 | La contraseña queda en texto plano | Se guardó sin pasar por `conPasswordHasheada`. |
 | Un email repetido responde 500 en lugar de 409 | Falta el `try/catch` con `verSiErrorClaveDuplicada` alrededor del `create` o `update`. |
-| Un campo enviado "no se guarda" y nadie avisa | El service confía en el esquema, y Mongoose descarta en silencio los campos que no conoce. |
+| Un campo enviado "no se guarda" y nadie avisa | Falta una lista explícita de campos permitidos en el service; Mongoose puede descartar en silencio los campos que no conoce. |
 | Dos reservas simultáneas dejan el saldo en negativo | Se usó buscar → modificar → guardar en lugar de una operación atómica con condición. |
 | Un service importa `Request` de Express | Se mezcló HTTP con negocio. El service tiene que recibir argumentos comunes. |
 
