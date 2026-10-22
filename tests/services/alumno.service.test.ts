@@ -20,12 +20,21 @@ import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
 setupTestDB();
 
 // Datos de ejemplo reutilizables.
-const datosValidos: Alumno = {
+const datosValidos: Omit<Alumno, 'clasesPorReservar'> = {
   email: 'ana@example.com',
   password: 'unHashDeBcrypt',
   nomApe: 'Ana Pérez',
-  clasesPorReservar: 3,
 };
+
+async function crearConSaldo(clasesPorReservar: number) {
+  const alumno = await crear(datosValidos);
+  const actualizado = await sumarClasesPorReservar(
+    alumno._id.toString(),
+    clasesPorReservar,
+  );
+  if (actualizado === null) throw new Error('El alumno de prueba no existe');
+  return actualizado;
+}
 
 // Un ObjectId con forma válida pero que no existe en la base.
 const ID_INEXISTENTE = '64b7f0f0f0f0f0f0f0f0f0f0';
@@ -56,32 +65,47 @@ describe('alumno.service', () => {
     });
 
     it('pone clasesPorReservar=0 por defecto si no se especifica', async () => {
-      const { clasesPorReservar: _omitido, ...sinClases } = datosValidos;
-      const alumno = await crear(sinClases as Alumno);
+      const alumno = await crear(datosValidos);
 
       expect(alumno.clasesPorReservar).toBe(0);
     });
 
-    it('tira ValidationError si falta el email', async () => {
+    it('rechaza que el cliente envíe clasesPorReservar', async () => {
+      await expect(
+        crear({ ...datosValidos, clasesPorReservar: 100 }),
+      ).rejects.toThrow(/clasesPorReservar/);
+    });
+
+    it.each([
+      [{ email: 123, password: 'clave', nomApe: 'Ana' }],
+      [{ email: 'ana@example.com', password: null, nomApe: 'Ana' }],
+      [{ email: 'ana@example.com', password: 'clave', nomApe: false }],
+    ])('rechaza tipos inválidos al crear (%j)', async (datos) => {
+      await expect(crear(datos)).rejects.toThrow(
+        'Email, contraseña y nombre y apellido son obligatorios',
+      );
+    });
+
+    it('rechaza si falta el email', async () => {
       const { email: _omitido, ...sinEmail } = datosValidos;
 
-      await expect(crear(sinEmail as Alumno)).rejects.toThrow(
-        /email es obligatorio/,
+      await expect(crear(sinEmail)).rejects.toThrow(
+        'Email, contraseña y nombre y apellido son obligatorios',
       );
     });
 
-    it('tira ValidationError si falta la password', async () => {
+    it('rechaza si falta la password', async () => {
       const { password: _omitido, ...sinPassword } = datosValidos;
 
-      await expect(crear(sinPassword as Alumno)).rejects.toThrow(
-        /contraseña es obligatoria/,
+      await expect(crear(sinPassword)).rejects.toThrow(
+        'Email, contraseña y nombre y apellido son obligatorios',
       );
     });
 
-    it('tira ValidationError si clasesPorReservar es negativo (min: 0)', async () => {
+    it('rechaza campos extra aunque su valor sea válido', async () => {
       await expect(
-        crear({ ...datosValidos, clasesPorReservar: -1 }),
-      ).rejects.toThrow(/clasesPorReservar/);
+        crear({ ...datosValidos, rol: 'administrador' }),
+      ).rejects.toThrow(/rol/);
     });
 
     it('tira ErrorClaveDuplicada (409) si el email ya existe', async () => {
@@ -242,7 +266,7 @@ describe('alumno.service', () => {
   // si el alumno tenía 3 y sumás 2, queda con 5.
   describe('sumarClasesPorReservar', () => {
     it('suma la cantidad al saldo y devuelve el doc actualizado', async () => {
-      const creado = await crear(datosValidos); // clasesPorReservar: 3
+      const creado = await crearConSaldo(3);
 
       const res = await sumarClasesPorReservar(creado._id.toString(), 2);
 
@@ -284,7 +308,7 @@ describe('alumno.service', () => {
   // --------------------------------------------------------
   describe('restarClasesPorReservar', () => {
     it('resta la cantidad al saldo y devuelve el doc actualizado', async () => {
-      const creado = await crear(datosValidos); // clasesPorReservar: 3
+      const creado = await crearConSaldo(3);
 
       const res = await restarClasesPorReservar(creado._id.toString(), 2);
 
@@ -296,7 +320,7 @@ describe('alumno.service', () => {
     });
 
     it('no deja el saldo por debajo de 0 (min: 0 del esquema)', async () => {
-      const creado = await crear(datosValidos); // clasesPorReservar: 3
+      const creado = await crearConSaldo(3);
 
       await expect(
         restarClasesPorReservar(creado._id.toString(), 5),

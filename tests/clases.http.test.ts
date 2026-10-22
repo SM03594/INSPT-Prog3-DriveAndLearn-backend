@@ -3,6 +3,7 @@ import request from 'supertest';
 import { Types } from 'mongoose';
 import app from '../src/app.js';
 import { crear as crearAlumno } from '../src/services/alumno.service.js';
+import { sumarClasesPorReservar } from '../src/services/alumno.service.js';
 import { crear as crearAdministrador } from '../src/services/administrador.service.js';
 import { crearCalendarioSemanal } from '../src/models/CalendarioSemanal.js';
 import { AutoModel } from '../src/models/Auto.js';
@@ -35,8 +36,8 @@ beforeEach(async () => {
     email: 'alumno@example.com',
     password: 'claveSegura123',
     nomApe: 'Alumno',
-    clasesPorReservar: 2,
   });
+  await sumarClasesPorReservar(alumno._id.toString(), 2);
   const administrador = await crearAdministrador({
     email: 'admin@example.com',
     password: 'claveAdmin123',
@@ -146,8 +147,8 @@ describe('reservas HTTP de clases', () => {
       email: 'otro@example.com',
       password: 'claveSegura123',
       nomApe: 'Otro alumno',
-      clasesPorReservar: 1,
     });
+    await sumarClasesPorReservar(otro._id.toString(), 1);
     await request(app)
       .post('/api/clases')
       .set('Authorization', `Bearer ${tokenAdmin}`)

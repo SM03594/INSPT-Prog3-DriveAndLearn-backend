@@ -13,6 +13,7 @@ import {
   obtenerPorEmail,
 } from '../../src/services/usuario.service.js';
 import { crear as crearAlumno } from '../../src/services/alumno.service.js';
+import { sumarClasesPorReservar } from '../../src/services/alumno.service.js';
 import { crear as crearAdministrador } from '../../src/services/administrador.service.js';
 import { AlumnoModel } from '../../src/models/Alumno.js';
 import { AdministradorModel } from '../../src/models/Administrador.js';
@@ -23,11 +24,10 @@ import type { Administrador } from '../../src/models/Administrador.js';
 setupTestDB();
 
 // Datos de ejemplo reutilizables.
-const datosAlumno: Alumno = {
+const datosAlumno: Omit<Alumno, 'clasesPorReservar'> = {
   email: 'ana@example.com',
   password: 'unHashDeBcrypt',
   nomApe: 'Ana Pérez',
-  clasesPorReservar: 3,
 };
 
 const datosAdministrador: Administrador = {
@@ -73,7 +73,8 @@ describe('usuario.service', () => {
     });
 
     it('trae los campos propios del alumno (clasesPorReservar)', async () => {
-      await crearAlumno(datosAlumno);
+      const alumnoCreado = await crearAlumno(datosAlumno);
+      await sumarClasesPorReservar(alumnoCreado._id.toString(), 3);
 
       const [usuario] = await listar();
 

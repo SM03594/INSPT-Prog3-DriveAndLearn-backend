@@ -39,6 +39,7 @@ describe('autenticación HTTP', () => {
       .expect(201);
 
     expect(registro.body.password).toBeUndefined();
+    expect(registro.body.clasesPorReservar).toBe(0);
 
     const login = await request(app)
       .post('/api/auth/login')
@@ -81,7 +82,6 @@ describe('autenticación HTTP', () => {
       email: 'ana@example.com',
       password: 'claveSegura123',
       nomApe: 'Ana Pérez',
-      clasesPorReservar: 0,
     });
 
     const respuesta = await request(app)
@@ -124,13 +124,11 @@ describe('autenticación HTTP', () => {
       email: 'ana@example.com',
       password: 'claveSegura123',
       nomApe: 'Ana Pérez',
-      clasesPorReservar: 0,
     });
     const otroAlumno = await crearAlumno({
       email: 'otro@example.com',
       password: 'claveSegura123',
       nomApe: 'Otro Alumno',
-      clasesPorReservar: 0,
     });
     const token = await iniciarSesion('ana@example.com', 'claveSegura123');
 
@@ -193,7 +191,6 @@ describe('autenticación HTTP', () => {
       email: 'alumno@example.com',
       password: 'claveSegura123',
       nomApe: 'Alumno',
-      clasesPorReservar: 0,
     });
     const token = await iniciarSesion('admin@example.com', 'claveAdmin123');
 

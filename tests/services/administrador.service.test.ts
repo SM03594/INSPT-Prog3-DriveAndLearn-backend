@@ -38,7 +38,6 @@ function crearAlumnoCon(email: string) {
     email,
     password: 'unHashDeBcrypt',
     nomApe: 'Alumno',
-    clasesPorReservar: 0,
   });
 }
 

@@ -26,33 +26,8 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 
 export async function crear(req: Request, res: Response) {
   const datos = cuerpoComoObjeto(req.body);
-
-  const camposPermitidos = ['email', 'password', 'nomApe'];
-  const camposNoPermitidos = Object.keys(datos).filter(
-    (campo) => !camposPermitidos.includes(campo),
-  );
-  if (camposNoPermitidos.length > 0) {
-    return res.status(400).json({
-      mensaje: `No se pueden enviar estos campos al registrarse: ${camposNoPermitidos.join(', ')}`,
-    });
-  }
-
-  if (
-    typeof datos.email !== 'string' ||
-    typeof datos.password !== 'string' ||
-    typeof datos.nomApe !== 'string'
-  ) {
-    return res.status(400).json({
-      mensaje: 'Email, contraseña y nombre y apellido son obligatorios',
-    });
-  }
-
-  const alumno = await alumnoService.crear({
-    email: datos.email,
-    password: datos.password,
-    nomApe: datos.nomApe,
-    clasesPorReservar: 0,
-  });
+  // El service valida los campos y define el saldo inicial, que no controla el cliente.
+  const alumno = await alumnoService.crear(datos);
   res.status(201).json(alumno);
 }
 

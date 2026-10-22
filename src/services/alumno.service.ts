@@ -17,6 +17,7 @@ import { DESCRIPCION_TIPO, esDelTipo } from '../utils/validacionTipos.js';
 // Mensaje de respaldo si el Schema no definió uno propio para el
 // email repetido (ver verSiErrorClaveDuplicada).
 const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
+const CAMPOS_CREACION = ['email', 'password', 'nomApe'] as const;
 
 // ============================================================
 //  listar — todos los alumnos
@@ -34,14 +35,51 @@ export async function obtenerPorId(id: string): Promise<AlumnoDoc | null> {
   return AlumnoModel.findById(id);
 }
 
-// ============================================================
-//  crear — alta de un alumno
-// ============================================================
-// Antes de guardar hasheamos la contraseña (ver utils/password.ts).
-// Si "password" no vino, el validador "required" del esquema
-// rechaza la creación con un ValidationError.
-export async function crear(datos: Alumno): Promise<AlumnoDoc> {
-  const datosAGuardar = await conPasswordHasheada(datos);
+// Solo el service acepta campos de registro y fija el saldo inicial;
+// así, una llamada que no venga del controller tampoco puede inyectar créditos.
+function validarDatosCreacion(datosEntrada: unknown): Alumno {
+  if (
+    typeof datosEntrada !== 'object' ||
+    datosEntrada === null ||
+    Array.isArray(datosEntrada)
+  ) {
+    throw new ErrorDeNegocio('El cuerpo de la petición debe ser un objeto JSON');
+  }
+
+  const datos = datosEntrada as Record<string, unknown>;
+  const camposNoPermitidos = Object.keys(datos).filter(
+    (campo) => !CAMPOS_CREACION.includes(campo as (typeof CAMPOS_CREACION)[number]),
+  );
+  if (camposNoPermitidos.length > 0) {
+    throw new ErrorDeNegocio(
+      `No se pueden enviar estos campos al registrarse: ${camposNoPermitidos.join(', ')}`,
+    );
+  }
+
+  if (
+    !esDelTipo(datos.email, 'string') ||
+    !esDelTipo(datos.password, 'string') ||
+    !esDelTipo(datos.nomApe, 'string')
+  ) {
+    throw new ErrorDeNegocio(
+      'Email, contraseña y nombre y apellido son obligatorios',
+    );
+  }
+
+  return {
+    email: datos.email,
+    password: datos.password,
+    nomApe: datos.nomApe,
+    clasesPorReservar: 0,
+  };
+}
+
+// Antes de guardar hasheamos la contraseña; los errores de email duplicado
+// se traducen acá porque el service conoce el contexto del modelo.
+export async function crear(datosEntrada: unknown): Promise<AlumnoDoc> {
+  const datosAGuardar = await conPasswordHasheada(
+    validarDatosCreacion(datosEntrada),
+  );
 
   try {
     return await AlumnoModel.create(datosAGuardar);
