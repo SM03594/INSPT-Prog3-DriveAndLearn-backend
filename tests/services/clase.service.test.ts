@@ -26,8 +26,8 @@ import {
 
 setupTestDB();
 
-const actor: ActorClase = { id: '', role: 'alumno' };
-const actorAdministrador: ActorClase = { id: '', role: 'administrador' };
+const actor: ActorClase = { id: '', rol: 'alumno' };
+const actorAdministrador: ActorClase = { id: '', rol: 'administrador' };
 let alumnoId: Types.ObjectId;
 let otroAlumnoId: Types.ObjectId;
 let profesorId: Types.ObjectId;
@@ -216,7 +216,7 @@ describe('clase.service', () => {
     expect(await listar(actor)).toHaveLength(1);
     const otroActor = {
       id: otroAlumnoId.toString(),
-      role: 'alumno',
+      rol: 'alumno',
     } as const;
     expect(await obtenerPorId(clase._id.toString(), otroActor)).toBeNull();
     expect(await actualizar(clase._id.toString(), { profesor: profesorAlternativoId.toString() }, otroActor)).toBeNull();

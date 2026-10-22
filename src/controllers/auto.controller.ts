@@ -43,7 +43,7 @@ export async function cambiarActivo(req: Request<{ id: string }>, res: Response)
     Array.isArray(req.body) ||
     typeof req.body.activo !== 'boolean'
   ) {
-    throw new ErrorDeNegocio('activo debe ser un valor booleano');
+    throw new ErrorDeNegocio('activo debe ser un valor booleano'); //responsabilidad del service
   }
   const auto = await autoService.cambiarEstado(req.params.id, req.body.activo);
   if (auto === null) {

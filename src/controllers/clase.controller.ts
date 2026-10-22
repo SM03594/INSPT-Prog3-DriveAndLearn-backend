@@ -10,15 +10,20 @@ import type { Request, Response } from 'express';
 import * as claseService from '../services/clase.service.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
-import type { ActorClase, DatosClase } from '../services/clase.service.js';
+import type { ActorClase } from '../services/clase.service.js';
 
+// Adapta el formato de autenticación al contrato del service; no decide permisos.
 function actorDe(req: Request): ActorClase {
   if (req.auth === undefined) {
     throw new ErrorAutenticacion('Se requiere autenticación válida');
   }
-  return req.auth;
+  return {
+    id: req.auth.id,
+    rol: req.auth.role,
+  };
 }
 
+// El controller verifica la estructura HTTP; las reglas sobre campos viven en el service.
 function bodyComoObjeto(req: Request): Record<string, unknown> {
   const body: unknown = req.body;
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
@@ -27,21 +32,7 @@ function bodyComoObjeto(req: Request): Record<string, unknown> {
   return body as Record<string, unknown>;
 }
 
-function rechazarCampos(body: Record<string, unknown>, permitidos: string[]): void {
-  const noPermitidos = Object.keys(body).filter((campo) => !permitidos.includes(campo));
-  if (noPermitidos.length > 0) {
-    throw new ErrorDeNegocio(`Campos no permitidos: ${noPermitidos.join(', ')}`);
-  }
-}
-
-function stringObligatorio(body: Record<string, unknown>, campo: string): string {
-  const valor = body[campo];
-  if (typeof valor !== 'string' || valor.trim() === '') {
-    throw new ErrorDeNegocio(`${campo} es obligatorio`);
-  }
-  return valor;
-}
-
+// Los handlers traducen los resultados del service a respuestas HTTP.
 export async function listar(req: Request, res: Response) {
   const clases = await claseService.listar(actorDe(req));
   res.json(clases);
@@ -59,51 +50,15 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 export async function crear(req: Request, res: Response) {
   const actor = actorDe(req);
   const body = bodyComoObjeto(req);
-  const permitidos = actor.role === 'administrador'
-    ? ['alumno', 'profesor', 'auto', 'inicio', 'fin']
-    : ['profesor', 'auto', 'inicio', 'fin'];
-  rechazarCampos(body, permitidos);
-
-  const datos: DatosClase = {
-    ...(actor.role === 'administrador'
-      ? { alumno: stringObligatorio(body, 'alumno') }
-      : {}),
-    profesor: stringObligatorio(body, 'profesor'),
-    auto: stringObligatorio(body, 'auto'),
-    inicio: stringObligatorio(body, 'inicio'),
-    fin: stringObligatorio(body, 'fin'),
-  };
-  const clase = await claseService.crear(datos, actor);
+  const clase = await claseService.crear(body, actor);
   res.status(201).json(clase);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
   const body = bodyComoObjeto(req);
-  rechazarCampos(body, ['profesor', 'auto', 'inicio', 'fin']);
-  if (Object.keys(body).length === 0) {
-    throw new ErrorDeNegocio('Debe indicarse al menos un campo para actualizar');
-  }
-  if (body.profesor !== undefined && typeof body.profesor !== 'string') {
-    throw new ErrorDeNegocio('profesor debe ser un identificador válido');
-  }
-  if (body.auto !== undefined && typeof body.auto !== 'string') {
-    throw new ErrorDeNegocio('auto debe ser un identificador válido');
-  }
-  if (body.inicio !== undefined && typeof body.inicio !== 'string') {
-    throw new ErrorDeNegocio('inicio debe ser una fecha ISO 8601');
-  }
-  if (body.fin !== undefined && typeof body.fin !== 'string') {
-    throw new ErrorDeNegocio('fin debe ser una fecha ISO 8601');
-  }
-  const cambios: Partial<DatosClase> = {
-    ...(typeof body.profesor === 'string' ? { profesor: body.profesor } : {}),
-    ...(typeof body.auto === 'string' ? { auto: body.auto } : {}),
-    ...(typeof body.inicio === 'string' ? { inicio: body.inicio } : {}),
-    ...(typeof body.fin === 'string' ? { fin: body.fin } : {}),
-  };
   const clase = await claseService.actualizar(
     req.params.id,
-    cambios,
+    body,
     actorDe(req),
   );
   if (clase === null) {
