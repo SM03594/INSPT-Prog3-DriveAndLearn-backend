@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { setupTestDB } from '../setupTestDB.js';
 import {
+  crear,
   listar,
   obtenerPorId,
   cambiarNomApe,
@@ -44,6 +45,26 @@ const crearProfesor = (disponibilidad: Partial<CalendarioSemanal> = {}) =>
   ProfesorModel.create({ nomApe: 'Juan Docente', disponibilidad });
 
 describe('profesor.service', () => {
+  // --------------------------------------------------------
+  //  crear
+  // --------------------------------------------------------
+  describe('crear', () => {
+    it('crea un profesor con nombre válido', async () => {
+      const profesor = await crear({ nomApe: 'Ana Instructora' });
+
+      expect(profesor.nomApe).toBe('Ana Instructora');
+    });
+
+    it('rechaza campos no permitidos y nombre vacío', async () => {
+      await expect(crear({ nomApe: 'Ana', disponibilidad: {} })).rejects.toThrow(
+        /Campos no permitidos/i,
+      );
+      await expect(crear({ nomApe: '   ' })).rejects.toThrow(
+        /nombre y apellido del profesor es obligatorio/i,
+      );
+    });
+  });
+
   // --------------------------------------------------------
   //  listar
   // --------------------------------------------------------
@@ -118,6 +139,16 @@ describe('profesor.service', () => {
 
       expect(res?.fotoPerfil).toBeInstanceOf(Buffer);
       expect(res?.fotoPerfil?.toString()).toBe('bytes-de-una-imagen');
+    });
+
+    it('convierte una foto base64 recibida en el service', async () => {
+      const creado = await crearProfesor();
+      const contenido = 'foto en base64';
+      const base64 = Buffer.from(contenido).toString('base64');
+
+      const res = await cambiarFotoPerfil(creado._id.toString(), base64);
+
+      expect(res?.fotoPerfil?.toString()).toBe(contenido);
     });
 
     it('devuelve null si el profesor no existe', async () => {
