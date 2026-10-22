@@ -8,6 +8,7 @@ import {
   type Auto,
 } from '../models/Auto.js';
 import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 // Mensaje de respaldo si el Schema no definió uno propio para la
 // patente repetida (ver verSiErrorClaveDuplicada).
@@ -62,8 +63,12 @@ export async function actualizar(
 // ============================================================
 export async function cambiarEstado(
   id: string,
-  estadoNuevo: boolean,
+  estadoNuevo: unknown,
 ): Promise<AutoDoc | null> {
+  if (typeof estadoNuevo !== 'boolean') {
+    throw new ErrorDeNegocio('activo debe ser un valor booleano');
+  }
+
   return AutoModel.findByIdAndUpdate(
     id,
     { activo: estadoNuevo },

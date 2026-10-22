@@ -8,7 +8,6 @@
 
 import type { Request, Response } from 'express';
 import * as autoService from '../services/auto.service.js';
-import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 
 export async function listar(_req: Request, res: Response) {
   const autos = await autoService.listar();
@@ -37,14 +36,6 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function cambiarActivo(req: Request<{ id: string }>, res: Response) {
-  if (
-    typeof req.body !== 'object' ||
-    req.body === null ||
-    Array.isArray(req.body) ||
-    typeof req.body.activo !== 'boolean'
-  ) {
-    throw new ErrorDeNegocio('activo debe ser un valor booleano'); //responsabilidad del service
-  }
   const auto = await autoService.cambiarEstado(req.params.id, req.body.activo);
   if (auto === null) {
     return res.status(404).json({ mensaje: 'Auto no encontrado' });

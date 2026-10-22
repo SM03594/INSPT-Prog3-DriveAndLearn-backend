@@ -179,5 +179,13 @@ describe('auto.service', () => {
     it('devuelve null si el auto no existe', async () => {
       expect(await cambiarEstado(ID_INEXISTENTE, false)).toBeNull();
     });
+
+    it('rechaza valores que no sean booleanos', async () => {
+      const creado = await crear(datosValidos);
+
+      await expect(
+        cambiarEstado(creado._id.toString(), 'false'),
+      ).rejects.toThrow('activo debe ser un valor booleano');
+    });
   });
 });
