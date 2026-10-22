@@ -8,28 +8,15 @@
 
 import type { Request, Response } from 'express';
 import * as claseService from '../services/clase.service.js';
-import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
-import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
 import type { ActorClase } from '../services/clase.service.js';
 
-// Adapta el formato de autenticación al contrato del service; no decide permisos.
+// La ruta garantiza la autenticación; acá se adapta req.auth al contrato del service.
 function actorDe(req: Request): ActorClase {
-  if (req.auth === undefined) {
-    throw new ErrorAutenticacion('Se requiere autenticación válida');
-  }
+  const auth = req.auth!;
   return {
-    id: req.auth.id,
-    rol: req.auth.role,
+    id: auth.id,
+    rol: auth.role,
   };
-}
-
-// El controller verifica la estructura HTTP; las reglas sobre campos viven en el service.
-function bodyComoObjeto(req: Request): Record<string, unknown> {
-  const body: unknown = req.body;
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new ErrorDeNegocio('El cuerpo de la petición debe ser un objeto JSON');
-  }
-  return body as Record<string, unknown>;
 }
 
 // Los handlers traducen los resultados del service a respuestas HTTP.
@@ -48,17 +35,15 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function crear(req: Request, res: Response) {
-  const actor = actorDe(req);
-  const body = bodyComoObjeto(req);
-  const clase = await claseService.crear(body, actor);
+  // La ruta valida que haya un objeto JSON; el service valida sus campos y reglas.
+  const clase = await claseService.crear(req.body, actorDe(req));
   res.status(201).json(clase);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
-  const body = bodyComoObjeto(req);
   const clase = await claseService.actualizar(
     req.params.id,
-    body,
+    req.body,
     actorDe(req),
   );
   if (clase === null) {
