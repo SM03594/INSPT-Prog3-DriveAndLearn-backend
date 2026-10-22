@@ -1568,6 +1568,50 @@
           }
         },
         {
+          "name": "[400] Registro con email sin formato válido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El email no tiene un formato válido\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sin-arroba.{{runId}}\",\n  \"password\": \"{{passwordPrueba}}\",\n  \"nomApe\": \"Sin Formato\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "[400] Registro con contraseña de menos de 8 caracteres",
           "event": [
             {

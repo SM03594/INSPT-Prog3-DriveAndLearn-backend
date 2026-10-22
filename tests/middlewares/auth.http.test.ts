@@ -61,6 +61,15 @@ describe('autenticación HTTP', () => {
       .expect(200);
   });
 
+  it('rechaza el registro con un email sin formato válido (400)', async () => {
+    const respuesta = await request(app)
+      .post('/api/alumnos')
+      .send({ email: 'hola', password: 'claveSegura123', nomApe: 'Sin Arroba' })
+      .expect(400);
+
+    expect(respuesta.body.mensaje).toBe('El email no tiene un formato válido');
+  });
+
   it('autentica administradores con rol identificado en el token', async () => {
     await crearAdministrador({
       email: 'admin@example.com',

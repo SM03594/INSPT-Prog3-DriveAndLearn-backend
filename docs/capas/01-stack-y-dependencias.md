@@ -304,7 +304,7 @@ datos sensibles. El flujo completo está en
 | `mongodb-memory-server` | Levanta un MongoDB temporal en memoria para cada archivo de test, así los tests no tocan la base real. |
 
 Así se combinan los tres paquetes de testing en un test HTTP
-(`tests/alumnos.http.test.ts` y `tests/setupTestDB.ts`):
+(`tests/middlewares/auth.http.test.ts` y `tests/setupTestDB.ts`):
 
 ```ts
 setupTestDB();   // beforeAll: MongoMemoryServer.create() + mongoose.connect()

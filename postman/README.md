@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 10 carpetas, 159 requests
+├── DriveAndLearn.postman_collection.json   # 10 carpetas, 160 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado

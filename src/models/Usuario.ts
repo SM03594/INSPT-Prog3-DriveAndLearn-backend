@@ -31,6 +31,11 @@ const usuarioSchema = new Schema(
       trim: true,
       lowercase: true,
       unique: [true, 'La direccion de email ya esta en uso.'],
+      // algo@algo.algo, sin espacios. Corre después de trim y
+      // lowercase, y también en los updates con runValidators.
+      // Ojo: .save() lo vuelve a validar aunque no cambie el email,
+      // así que un email inválido guardado de antes bloquea ese save().
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'El email no tiene un formato válido'],
     },
 
     password: {

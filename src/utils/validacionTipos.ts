@@ -1,5 +1,5 @@
 // ============================================================
-//  tipos.ts — Chequeo de tipos de valores recibidos (unknown)
+//  validacionTipos.ts — Chequeo de tipos de valores recibidos (unknown)
 // ============================================================
 // Para los services que validan campos que mandó el cliente. Cada
 // service arma su tabla de campos con un "tipo" por campo (el texto

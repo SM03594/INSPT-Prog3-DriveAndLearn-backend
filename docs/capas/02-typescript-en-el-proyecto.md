@@ -76,7 +76,7 @@ export interface Auto {
 ```
 
 Un `interface` puede **extender** a otro, igual que una clase hereda de otra.
-El proyecto lo aprovecha para los usuarios (`src/models/Usuario.ts:71` y
+El proyecto lo aprovecha para los usuarios (`src/models/Usuario.ts:76` y
 `src/models/Alumno.ts:29`):
 
 ```
@@ -91,7 +91,7 @@ DatosUsuario { email, password, nomApe }
 no puede, como uniones:
 
 ```ts
-export type UsuarioDoc = AlumnoDoc | AdministradorDoc;   // Usuario.ts:83
+export type UsuarioDoc = AlumnoDoc | AdministradorDoc;   // Usuario.ts:88
 ```
 
 La regla práctica del proyecto: `interface` para la forma de un objeto, y
@@ -352,7 +352,7 @@ import se borra por completo al compilar, así que no carga código en runtime.
 | Concepto | Para qué sirve | Ejemplo |
 |---|---|---|
 | Anotación `x: T` | Declarar el tipo de un parámetro o de un retorno | `auto.service.ts:45` |
-| `interface` / `extends` | La forma de un objeto, y heredar campos | `models/Usuario.ts:71` |
+| `interface` / `extends` | La forma de un objeto, y heredar campos | `models/Usuario.ts:76` |
 | Unión `A \| B` | "Una cosa o la otra" | `AutoDoc \| null` |
 | `as const` + `typeof X[number]` | Una sola lista, usable como valor y como tipo | `types/roles.ts:8` |
 | `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `services/clase.service.ts:26` |

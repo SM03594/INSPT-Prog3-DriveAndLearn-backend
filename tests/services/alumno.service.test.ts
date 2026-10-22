@@ -12,7 +12,7 @@ import {
   sumarClasesPorReservar,
   restarClasesPorReservar,
 } from '../../src/services/alumno.service.js';
-import type { Alumno } from '../../src/models/Alumno.js';
+import { AlumnoModel, type Alumno } from '../../src/models/Alumno.js';
 import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
 import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
 
@@ -63,6 +63,20 @@ describe('alumno.service', () => {
       const alumno = await crear({ ...datosValidos, email: 'ANA@Example.COM' });
       expect(alumno.email).toBe('ana@example.com');
     });
+
+    it('acepta el email con espacios y mayúsculas: trim y lowercase corren antes del match', async () => {
+      const alumno = await crear({ ...datosValidos, email: '  Ana@Example.COM ' });
+      expect(alumno.email).toBe('ana@example.com');
+    });
+
+    it.each(['hola', 'ana@example', 'ana perez@example.com', '@example.com', 'ana@@example.com'])(
+      'rechaza un email sin formato válido (%s)',
+      async (email) => {
+        await expect(crear({ ...datosValidos, email })).rejects.toThrow(
+          'El email no tiene un formato válido',
+        );
+      },
+    );
 
     it('pone clasesPorReservar=0 por defecto si no se especifica', async () => {
       const alumno = await crear(datosValidos);
@@ -240,6 +254,14 @@ describe('alumno.service', () => {
       await expect(actualizar(creado._id.toString(), cambios)).rejects.toThrow(mensaje);
     });
 
+    it('rechaza un email sin formato válido (runValidators)', async () => {
+      const creado = await crear(datosValidos);
+
+      await expect(actualizar(creado._id.toString(), { email: 'hola' })).rejects.toThrow(
+        'El email no tiene un formato válido',
+      );
+    });
+
     it('valida los cambios antes de buscar al alumno', async () => {
       await expect(actualizar(ID_INEXISTENTE, { color: 'rojo' })).rejects.toThrow(
         /No se pueden modificar/,
@@ -275,6 +297,23 @@ describe('alumno.service', () => {
 
     it('devuelve null si el alumno no existe', async () => {
       expect(await sumarClasesPorReservar(ID_INEXISTENTE, 1)).toBeNull();
+    });
+
+    // Un alumno guardado antes de que el esquema validara el formato
+    // del email: save() revalida el email aunque no cambie, así que
+    // no se le puede cargar saldo hasta corregirle el email.
+    it('falla si el alumno tiene un email inválido guardado de antes', async () => {
+      const { insertedId } = await AlumnoModel.collection.insertOne({
+        rol: 'alumno',
+        email: 'email-viejo-sin-formato',
+        password: 'unHashDeBcrypt',
+        nomApe: 'Alumno Viejo',
+        clasesPorReservar: 0,
+      });
+
+      await expect(sumarClasesPorReservar(insertedId.toString(), 1)).rejects.toThrow(
+        'El email no tiene un formato válido',
+      );
     });
 
     it.each([-2, 0])('rechaza una cantidad que no es mayor que 0 (%s)', async (cantidad) => {

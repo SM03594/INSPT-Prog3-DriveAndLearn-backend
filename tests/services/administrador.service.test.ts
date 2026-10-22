@@ -66,6 +66,15 @@ describe('administrador.service', () => {
       expect(admin.email).toBe('admin@example.com');
     });
 
+    it.each(['hola', 'admin@example', 'admin root@example.com'])(
+      'tira ValidationError si el email no tiene formato válido (%s)',
+      async (email) => {
+        await expect(crear({ ...datosValidos, email })).rejects.toThrow(
+          'El email no tiene un formato válido',
+        );
+      },
+    );
+
     it('tira ValidationError si falta el email', async () => {
       const { email: _omitido, ...sinEmail } = datosValidos;
 
@@ -225,6 +234,14 @@ describe('administrador.service', () => {
       await expect(
         actualizar(creado._id.toString(), { email: '' }),
       ).rejects.toThrow(/email es obligatorio/);
+    });
+
+    it('tira ValidationError si se manda un email sin formato válido (runValidators)', async () => {
+      const creado = await crear(datosValidos);
+
+      await expect(
+        actualizar(creado._id.toString(), { email: 'hola' }),
+      ).rejects.toThrow('El email no tiene un formato válido');
     });
 
     it('tira ErrorClaveDuplicada (409) si el email ya lo usa otro administrador', async () => {
