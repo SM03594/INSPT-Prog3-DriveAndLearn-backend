@@ -8,6 +8,7 @@
 
 import type { Request, Response } from 'express';
 import * as autoService from '../services/auto.service.js';
+import { aActualizarAutoDto, aCambiarActivoDto, aCrearAutoDto } from '../dtos/auto.dto.js';
 
 export async function listar(_req: Request, res: Response) {
   const autos = await autoService.listar();
@@ -23,12 +24,12 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function crear(req: Request, res: Response) {
-  const auto = await autoService.crear(req.body);
+  const auto = await autoService.crear(aCrearAutoDto(req.body));
   res.status(201).json(auto);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
-  const auto = await autoService.actualizar(req.params.id, req.body);
+  const auto = await autoService.actualizar(req.params.id, aActualizarAutoDto(req.body));
   if (auto === null) {
     return res.status(404).json({ mensaje: 'Auto no encontrado' });
   }
@@ -36,7 +37,7 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function cambiarActivo(req: Request<{ id: string }>, res: Response) {
-  const auto = await autoService.cambiarEstado(req.params.id, req.body.activo);
+  const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
   if (auto === null) {
     return res.status(404).json({ mensaje: 'Auto no encontrado' });
   }

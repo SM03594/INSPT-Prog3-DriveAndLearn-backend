@@ -5,10 +5,9 @@
 import {
   AutoModel,
   type AutoDoc,
-  type Auto,
 } from '../models/Auto.js';
 import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
-import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+import type { ActualizarAutoDto, CrearAutoDto } from '../dtos/auto.dto.js';
 
 // Mensaje de respaldo si el Schema no definió uno propio para la
 // patente repetida (ver verSiErrorClaveDuplicada).
@@ -25,10 +24,12 @@ export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
 }
 
 
-// create() puede chocar contra el índice unique de patente: se atrapa
-// el error crudo de Mongo/Mongoose acá, no en el middleware, porque acá
-// es donde se sabe qué campo es y qué mensaje tiene sentido para Auto.
-export async function crear(datos: Auto): Promise<AutoDoc> {
+// "datos" ya es un CrearAutoDto: la forma la validó el controller (ver
+// dtos/auto.dto.ts). create() puede chocar contra el índice unique de
+// patente: se atrapa el error crudo de Mongo/Mongoose acá, no en el
+// middleware, porque acá es donde se sabe qué campo es y qué mensaje
+// tiene sentido para Auto.
+export async function crear(datos: CrearAutoDto): Promise<AutoDoc> {
   try {
     return await AutoModel.create(datos);
   } catch (err) {
@@ -39,12 +40,12 @@ export async function crear(datos: Auto): Promise<AutoDoc> {
 // ============================================================
 //  actualizar — modifica un auto existente
 // ============================================================
-// "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<Auto>. Devuelve el auto YA actualizado,
-// o null si el id no existe.
+// "cambios" ya es un ActualizarAutoDto: solo los datos del auto que el
+// cliente quiere cambiar (sin "activo" ni operadores como $set).
+// Devuelve el auto YA actualizado, o null si el id no existe.
 export async function actualizar(
   id: string,
-  cambios: Partial<Auto>,
+  cambios: ActualizarAutoDto,
 ): Promise<AutoDoc | null> {
   try {
     return await AutoModel.findByIdAndUpdate(id, cambios, {
@@ -61,14 +62,11 @@ export async function actualizar(
 // ============================================================
 //  cambiarEstado — pone o saca un auto de servicio
 // ============================================================
+// "estadoNuevo" ya es un booleano: lo garantiza aCambiarActivoDto.
 export async function cambiarEstado(
   id: string,
-  estadoNuevo: unknown,
+  estadoNuevo: boolean,
 ): Promise<AutoDoc | null> {
-  if (typeof estadoNuevo !== 'boolean') {
-    throw new ErrorDeNegocio('activo debe ser un valor booleano');
-  }
-
   return AutoModel.findByIdAndUpdate(
     id,
     { activo: estadoNuevo },

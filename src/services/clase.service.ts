@@ -13,10 +13,9 @@ import { HorarioEscuelaModel } from '../models/HorarioEscuela.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { aMinutos } from '../models/Horario.js';
 import { aHoraLocal, parsearInstante } from '../utils/fechas.js';
+import type { ActualizarClaseDto, CrearClaseDto } from '../dtos/clase.dto.js';
 
 const DURACION_CLASE_MS = 60 * 60 * 1000;
-const CAMPOS_RESERVA = ['profesor', 'auto', 'inicio', 'fin'];
-const CAMPOS_ACTUALIZABLES = ['profesor', 'auto', 'inicio', 'fin'];
 
 export interface ActorClase {
   id: string;
@@ -34,8 +33,6 @@ export type DatosClase = Omit<
   fin: Date | string;
 };
 
-type DatosClaseValidos = Omit<DatosClase, 'alumno'> & { alumno: string };
-
 function errorConflicto(mensaje: string): ErrorDeNegocio {
   return new ErrorDeNegocio(mensaje, 409);
 }
@@ -46,108 +43,6 @@ function exigir(
   estado = 400,
 ): asserts condicion {
   if (!condicion) throw new ErrorDeNegocio(mensaje, estado);
-}
-
-function objetoComoRegistro(valor: unknown): Record<string, unknown> {
-  exigir(
-    typeof valor === 'object' && valor !== null && !Array.isArray(valor),
-    'El cuerpo de la petición debe ser un objeto JSON',
-  );
-  return valor as Record<string, unknown>;
-}
-
-function rechazarCampos(
-  datos: Record<string, unknown>,
-  permitidos: readonly string[],
-): void {
-  const noPermitidos = Object.keys(datos).filter((campo) => !permitidos.includes(campo));
-  exigir(
-    noPermitidos.length === 0,
-    `Campos no permitidos: ${noPermitidos.join(', ')}`,
-  );
-}
-
-function stringObligatorio(datos: Record<string, unknown>, campo: string): string {
-  const valor = datos[campo];
-  exigir(
-    typeof valor === 'string' && valor.trim() !== '',
-    `${campo} es obligatorio`,
-  );
-  return valor;
-}
-
-function instanteObligatorio(
-  datos: Record<string, unknown>,
-  campo: 'inicio' | 'fin',
-): Date | string {
-  const valor = datos[campo];
-  exigir(
-    valor instanceof Date || (typeof valor === 'string' && valor.trim() !== ''),
-    `${campo} es obligatorio`,
-  );
-  return valor;
-}
-
-// Las reglas de campos y de identidad dependen del rol: por eso se resuelven acá.
-function validarDatosCrear(
-  datosEntrada: unknown,
-  actor: ActorClase,
-): DatosClaseValidos {
-  const datos = objetoComoRegistro(datosEntrada);
-  const permitidos = actor.rol === 'administrador'
-    ? ['alumno', ...CAMPOS_RESERVA]
-    : CAMPOS_RESERVA;
-  rechazarCampos(datos, permitidos);
-
-  return {
-    alumno: actor.rol === 'alumno'
-      ? actor.id
-      : stringObligatorio(datos, 'alumno'),
-    profesor: stringObligatorio(datos, 'profesor'),
-    auto: stringObligatorio(datos, 'auto'),
-    inicio: instanteObligatorio(datos, 'inicio'),
-    fin: instanteObligatorio(datos, 'fin'),
-  };
-}
-
-// Valida el contrato de actualización antes de aplicar las reglas de agenda.
-function validarCambios(
-  cambiosEntrada: unknown,
-): Partial<DatosClase> {
-  const cambios = objetoComoRegistro(cambiosEntrada);
-  rechazarCampos(cambios, CAMPOS_ACTUALIZABLES);
-  exigir(
-    Object.keys(cambios).length > 0,
-    'Debe indicarse al menos un campo para actualizar',
-  );
-
-  const cambiosValidados: Partial<DatosClase> = {};
-  if (cambios.profesor !== undefined) {
-    exigir(
-      typeof cambios.profesor === 'string',
-      'profesor debe ser un identificador válido',
-    );
-    cambiosValidados.profesor = cambios.profesor;
-  }
-  if (cambios.auto !== undefined) {
-    exigir(typeof cambios.auto === 'string', 'auto debe ser un identificador válido');
-    cambiosValidados.auto = cambios.auto;
-  }
-  if (cambios.inicio !== undefined) {
-    exigir(
-      cambios.inicio instanceof Date || typeof cambios.inicio === 'string',
-      'inicio debe ser una fecha ISO 8601',
-    );
-    cambiosValidados.inicio = cambios.inicio;
-  }
-  if (cambios.fin !== undefined) {
-    exigir(
-      cambios.fin instanceof Date || typeof cambios.fin === 'string',
-      'fin debe ser una fecha ISO 8601',
-    );
-    cambiosValidados.fin = cambios.fin;
-  }
-  return cambiosValidados;
 }
 
 function objectId(valor: string, campo: string): Types.ObjectId {
@@ -315,15 +210,21 @@ export async function obtenerPorId(
   return claseAccesible(id, actor);
 }
 
+// "datos" ya es un CrearClaseDto: qué campos puede mandar cada rol y
+// de qué tipo los validó el controller (ver dtos/clase.dto.ts). Acá se
+// aplican las reglas de la reserva.
 export async function crear(
-  datosEntrada: unknown,
+  datos: CrearClaseDto,
   actor: ActorClase,
 ): Promise<ClaseDoc> {
-  const datos = validarDatosCrear(datosEntrada, actor);
   await validarActor(actor);
 
+  // Un alumno reserva para sí mismo; un admin, para el alumno que indicó.
+  const idAlumno = actor.rol === 'alumno' ? actor.id : datos.alumno;
+  exigir(idAlumno !== undefined, 'El alumno es obligatorio');
+
   const instantes = obtenerInstantes(datos);
-  const alumnoId = objectId(datos.alumno, 'alumno');
+  const alumnoId = objectId(idAlumno, 'alumno');
   const profesorId = objectId(datos.profesor, 'profesor');
   const autoId = objectId(datos.auto, 'auto');
   const datosClase = {
@@ -362,12 +263,12 @@ export async function crear(
   }
 }
 
+// "cambios" ya es un ActualizarClaseDto (ver dtos/clase.dto.ts).
 export async function actualizar(
   id: string,
-  cambiosEntrada: unknown,
+  cambios: ActualizarClaseDto,
   actor: ActorClase,
 ): Promise<ClaseDoc | null> {
-  const cambios = validarCambios(cambiosEntrada);
   await validarActor(actor);
   const clase = await claseAccesible(id, actor);
   if (clase === null) return null;

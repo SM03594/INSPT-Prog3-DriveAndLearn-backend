@@ -9,15 +9,20 @@
 import {
   AdministradorModel,
   type AdministradorDoc,
-  type Administrador,
 } from '../models/Administrador.js';
 import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import { conPasswordHasheada } from '../utils/password.js';
+import type {
+  ActualizarAdministradorDto,
+  CrearAdministradorDto,
+} from '../dtos/administrador.dto.js';
 
 const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
 
-// La forma del administrador (los campos que aceptamos al
-// crear/actualizar) vive en el model, como Administrador.
+// crear y actualizar reciben un DTO (ver dtos/administrador.dto.ts): la
+// forma del dato ya la validó el controller. Ojo: si alguien llama al
+// service sin pasar por el DTO, TypeScript lo frena al compilar, pero
+// en runtime el service no vuelve a revisar la forma.
 
 // ============================================================
 //  listar — todos los administradores
@@ -49,11 +54,11 @@ export async function existe(id: string): Promise<boolean> {
 // ============================================================
 //  crear — alta de un administrador
 // ============================================================
-// Antes de guardar hasheamos la contraseña (ver utils/password.ts).
-// Si "password" no vino, el validador "required" del esquema
-// rechaza la creación con un ValidationError.
+// Antes de guardar hasheamos la contraseña (ver utils/password.ts). El
+// esquema sigue validando lo que depende del dato: que no esté vacío,
+// el formato del email y que no esté repetido.
 export async function crear(
-  datos: Administrador,
+  datos: CrearAdministradorDto,
 ): Promise<AdministradorDoc> {
   const datosAGuardar = await conPasswordHasheada(datos);
 
@@ -67,13 +72,13 @@ export async function crear(
 // ============================================================
 //  actualizar — modifica un administrador existente
 // ============================================================
-// "cambios" trae solo los campos que el cliente quiere cambiar,
-// por eso es Partial<Administrador>. Devuelve el
-// administrador YA actualizado, o null si el id no existe. Si
-// viene "password", se hashea igual que en crear.
+// "cambios" trae solo los campos que el cliente quiere cambiar (el DTO
+// ya rechazó los demás, incluidos los operadores como $set). Devuelve
+// el administrador YA actualizado, o null si el id no existe. Si viene
+// "password", se hashea igual que en crear.
 export async function actualizar(
   id: string,
-  cambios: Partial<Administrador>,
+  cambios: ActualizarAdministradorDto,
 ): Promise<AdministradorDoc | null> {
   const cambiosAGuardar = await conPasswordHasheada(cambios);
 

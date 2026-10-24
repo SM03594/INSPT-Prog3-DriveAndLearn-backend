@@ -7,6 +7,11 @@
 import type { Request, Response } from 'express';
 import * as horarioService from '../services/horarioEscuela.service.js';
 import { validarDia } from '../services/calendarioSemanal.service.js';
+import {
+  aAgregarTramoDto,
+  aQuitarTramoDto,
+  aReemplazarCalendarioDto,
+} from '../dtos/calendarioSemanal.dto.js';
 
 export async function validar(req: Request<{ dia: string }>, res: Response) {
   validarDia(req.params.dia);
@@ -18,16 +23,16 @@ export async function obtener(_req: Request, res: Response) {
 }
 
 export async function reemplazar(req: Request, res: Response) {
-  res.json(await horarioService.reemplazar(req.body));
+  res.json(await horarioService.reemplazar(aReemplazarCalendarioDto(req.body)));
 }
 
 export async function agregar(req: Request, res: Response) {
-  const { dia, tramo } = req.body;
+  const { dia, tramo } = aAgregarTramoDto(req.body);
   res.json(await horarioService.agregarTramo(dia, tramo));
 }
 
 export async function quitar(req: Request, res: Response) {
-  const { dia, tramoId } = req.body;
+  const { dia, tramoId } = aQuitarTramoDto(req.body);
   const calendario = await horarioService.quitarTramo(dia, tramoId);
   if (calendario === null) {
     return res.status(404).json({ 

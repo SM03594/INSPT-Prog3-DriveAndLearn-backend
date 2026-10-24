@@ -3,7 +3,9 @@ import jwt from 'jsonwebtoken';
 import * as usuarioService from './usuario.service.js';
 import { obtenerJwtSecret } from '../config/env.js';
 import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import type { Rol } from '../types/roles.js';
+import type { LoginDto } from '../dtos/auth.dto.js';
 
 interface UsuarioAutenticado {
   id: string;
@@ -19,17 +21,12 @@ export interface ResultadoAutenticacion {
 
 const MENSAJE_CREDENCIALES_INVALIDAS = 'Email o contraseña incorrectos';
 
-export async function autenticar(
-  email: unknown,
-  password: unknown,
-): Promise<ResultadoAutenticacion> {
-  if (
-    typeof email !== 'string' ||
-    email.trim().length === 0 ||
-    typeof password !== 'string' ||
-    password.length === 0
-  ) {
-    throw new ErrorAutenticacion('Email y contraseña son obligatorios');
+// "datos" ya es un LoginDto: que lleguen email y contraseña como texto
+// lo validó el controller (ver dtos/auth.dto.ts). Un login mal armado
+// es un 400; el 401 queda para credenciales que no coinciden.
+export async function autenticar({ email, password }: LoginDto): Promise<ResultadoAutenticacion> {
+  if (email.trim().length === 0 || password.length === 0) {
+    throw new ErrorDeNegocio('Email y contraseña son obligatorios');
   }
 
   const usuario = await usuarioService.obtenerPorEmail(email);

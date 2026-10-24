@@ -8,6 +8,10 @@
 
 import type { Request, Response } from 'express';
 import * as administradorService from '../services/administrador.service.js';
+import {
+  aActualizarAdministradorDto,
+  aCrearAdministradorDto,
+} from '../dtos/administrador.dto.js';
 
 export async function listar(_req: Request, res: Response) {
   const administradores = await administradorService.listar();
@@ -23,15 +27,17 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
   res.json(administrador);
 }
 
+// El controller arma el DTO a partir del body (400 si no cumple el
+// contrato) y el service recibe datos ya validados.
 export async function crear(req: Request, res: Response) {
-  const administrador = await administradorService.crear(req.body);
+  const administrador = await administradorService.crear(aCrearAdministradorDto(req.body));
   res.status(201).json(administrador);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
   const administrador = await administradorService.actualizar(
     req.params.id,
-    req.body,
+    aActualizarAdministradorDto(req.body),
   );
 
   if (administrador === null) {

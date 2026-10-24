@@ -8,7 +8,11 @@
 
 import type { Request, Response } from 'express';
 import * as alumnoService from '../services/alumno.service.js';
-import { cuerpoComoObjeto } from '../utils/cuerpoPeticion.js';
+import {
+  aActualizarAlumnoDto,
+  aCantidadClasesDto,
+  aCrearAlumnoDto,
+} from '../dtos/alumno.dto.js';
 
 export async function listar(_req: Request, res: Response) {
   const alumnos = await alumnoService.listar();
@@ -25,18 +29,18 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function crear(req: Request, res: Response) {
-  const datos = cuerpoComoObjeto(req.body);
-  // El service valida los campos y define el saldo inicial, que no controla el cliente.
-  const alumno = await alumnoService.crear(datos);
+  // El DTO valida la forma del body; el service fija el saldo inicial,
+  // que no controla el cliente.
+  const alumno = await alumnoService.crear(aCrearAlumnoDto(req.body));
   res.status(201).json(alumno);
 }
 
-// cuerpoComoObjeto: 400 si el body no es un objeto JSON. Qué campos
-// se pueden modificar y de qué tipo lo valida el service.
+// aActualizarAlumnoDto: 400 si el body trae campos que no se pueden
+// modificar o de un tipo incorrecto.
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.actualizar(
     req.params.id,
-    cuerpoComoObjeto(req.body),
+    aActualizarAlumnoDto(req.body),
   );
   if (alumno === null) {
     return res.status(404).json({ mensaje: 'Alumno no encontrado' });
@@ -54,13 +58,13 @@ export async function eliminar(req: Request<{ id: string }>, res: Response) {
   res.status(204).end();
 }
 
-// cuerpoComoObjeto: si el pedido no trae un objeto JSON (sin body,
-// un array...), 400 acá. "cantidad" se pasa tal cual vino, sin
-// convertirla: qué valores se aceptan lo decide el service.
+// aCantidadClasesDto: 400 si "cantidad" falta, no es un número o
+// llega con otros campos. Que sea un entero mayor que 0 lo decide el
+// service.
 export async function sumarClases(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.sumarClasesPorReservar(
     req.params.id,
-    cuerpoComoObjeto(req.body).cantidad,
+    aCantidadClasesDto(req.body).cantidad,
   );
 
   if (alumno === null) {
@@ -73,7 +77,7 @@ export async function sumarClases(req: Request<{ id: string }>, res: Response) {
 export async function restarClases(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.restarClasesPorReservar(
     req.params.id,
-    cuerpoComoObjeto(req.body).cantidad,
+    aCantidadClasesDto(req.body).cantidad,
   );
 
   if (alumno === null) {

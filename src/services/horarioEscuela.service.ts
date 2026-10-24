@@ -1,11 +1,9 @@
 import {
-  DIAS,
   type CalendarioSemanal,
   type Dia,
   type Tramo,
 } from '../models/CalendarioSemanal.js';
 import { HorarioEscuelaModel } from '../models/HorarioEscuela.js';
-import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import {
   agregarTramo as agregarTramoCalendario,
   quitarTramo as quitarTramoCalendario,
@@ -30,18 +28,12 @@ export async function obtener(): Promise<CalendarioSemanal> {
   };
 }
 
+// "calendario" ya tiene los 7 días con su lista de tramos: lo garantiza
+// el DTO (ver dtos/calendarioSemanal.dto.ts). Las horas de cada tramo
+// las valida el esquema al hacer .save().
 export async function reemplazar(
-  valor: unknown,
+  calendario: CalendarioSemanal,
 ): Promise<CalendarioSemanal> {
-  if (
-    typeof valor !== 'object' ||
-    valor === null ||
-    Array.isArray(valor) ||
-    DIAS.some((dia) => !Array.isArray((valor as Record<string, unknown>)[dia]))
-  ) {
-    throw new ErrorDeNegocio('El calendario debe incluir una lista para cada día');
-  }
-  const calendario = valor as CalendarioSemanal;
   const horario =
     (await HorarioEscuelaModel.findById('escuela')) ??
     new HorarioEscuelaModel({ _id: 'escuela' });

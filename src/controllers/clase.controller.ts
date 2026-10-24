@@ -9,6 +9,7 @@
 import type { Request, Response } from 'express';
 import * as claseService from '../services/clase.service.js';
 import type { ActorClase } from '../services/clase.service.js';
+import { aActualizarClaseDto, aCrearClaseDto } from '../dtos/clase.dto.js';
 
 // La ruta garantiza la autenticación; acá se adapta req.auth al contrato del service.
 function actorDe(req: Request): ActorClase {
@@ -35,15 +36,17 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function crear(req: Request, res: Response) {
-  // La ruta valida que haya un objeto JSON; el service valida sus campos y reglas.
-  const clase = await claseService.crear(req.body, actorDe(req));
+  // El DTO valida la forma (qué campos puede mandar cada rol); el
+  // service, las reglas de la reserva.
+  const actor = actorDe(req);
+  const clase = await claseService.crear(aCrearClaseDto(req.body, actor.rol), actor);
   res.status(201).json(clase);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
   const clase = await claseService.actualizar(
     req.params.id,
-    req.body,
+    aActualizarClaseDto(req.body),
     actorDe(req),
   );
   if (clase === null) {

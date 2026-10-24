@@ -6,52 +6,21 @@ import {
   ProfesorModel,
   type ProfesorDoc,
 } from '../models/Profesor.js';
-import type { Tramo, Dia } from '../models/CalendarioSemanal.js';
+import type { Tramo } from '../models/CalendarioSemanal.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { agregarTramo, quitarTramo, validarDia } from './calendarioSemanal.service.js';
+import type { CrearProfesorDto } from '../dtos/profesor.dto.js';
 
-const CAMPOS_CREACION = ['nomApe'];
+// La forma de lo que manda el cliente la valida el DTO en el
+// controller (ver dtos/profesor.dto.ts): acá llegan valores con el
+// tipo correcto, y se aplican las reglas.
 
-function exigir(condicion: unknown, mensaje: string): asserts condicion {
-  if (!condicion) throw new ErrorDeNegocio(mensaje);
-}
-
-function validarObjeto(valor: unknown, nombre: string): Record<string, unknown> {
-  exigir(
-    typeof valor === 'object' && valor !== null && !Array.isArray(valor),
-    `${nombre} debe ser un objeto`,
-  );
-  return valor as Record<string, unknown>;
-}
-
-function rechazarCamposNoPermitidos(
-  datos: Record<string, unknown>,
-  permitidos: readonly string[],
-): void {
-  const noPermitidos = Object.keys(datos).filter((campo) => !permitidos.includes(campo));
-  exigir(
-    noPermitidos.length === 0,
-    `Campos no permitidos: ${noPermitidos.join(', ')}`,
-  );
-}
-
-function nombreObligatorio(valor: unknown): string {
-  exigir(
-    typeof valor === 'string' && valor.trim() !== '',
-    'El nombre y apellido del profesor es obligatorio',
-  );
-  return valor;
-}
-
-function diaObligatorio(valor: unknown): Dia {
-  exigir(typeof valor === 'string', 'El día debe ser un texto');
-  validarDia(valor);
-  return valor;
-}
-
-function tramoComoDatos(valor: unknown): Tramo {
-  validarObjeto(valor, 'El tramo');
-  return valor as Tramo;
+// Regla: el nombre no puede quedar vacío ("   " tampoco sirve).
+function nombreObligatorio(nomApe: string): string {
+  if (nomApe.trim() === '') {
+    throw new ErrorDeNegocio('El nombre y apellido del profesor es obligatorio');
+  }
+  return nomApe;
 }
 
 function esBufferSerializado(
@@ -90,9 +59,7 @@ export async function listar(): Promise<ProfesorDoc[]> {
   return ProfesorModel.find();
 }
 
-export async function crear(datosEntrada: unknown): Promise<ProfesorDoc> {
-  const datos = validarObjeto(datosEntrada, 'El cuerpo de la petición');
-  rechazarCamposNoPermitidos(datos, CAMPOS_CREACION);
+export async function crear(datos: CrearProfesorDto): Promise<ProfesorDoc> {
   return ProfesorModel.create({ nomApe: nombreObligatorio(datos.nomApe) });
 }
 
@@ -110,11 +77,11 @@ export async function obtenerPorId(id: string): Promise<ProfesorDoc | null> {
 // ============================================================
 export async function cambiarNomApe(
   id: string,
-  nomApe: unknown,
+  nomApe: string,
 ): Promise<ProfesorDoc | null> {
   return ProfesorModel.findByIdAndUpdate(
     id,
-    { nomApe },
+    { nomApe: nombreObligatorio(nomApe) },
     { new: true, runValidators: true },
   );
 }
@@ -138,14 +105,13 @@ export async function cambiarFotoPerfil(
 // ============================================================
 export async function agregarDisponibilidad(
   id: string,
-  diaEntrada: unknown,
-  tramoEntrada: unknown,
+  dia: string,
+  tramo: Tramo,
 ): Promise<ProfesorDoc | null> {
   const profesor = await ProfesorModel.findById(id);
   if (profesor === null) return null;
 
-  const dia = diaObligatorio(diaEntrada);
-  const tramo = tramoComoDatos(tramoEntrada);
+  validarDia(dia);
   agregarTramo(profesor.disponibilidad, dia, tramo);
   return profesor.save();
 }
@@ -155,15 +121,13 @@ export async function agregarDisponibilidad(
 // ============================================================
 export async function quitarDisponibilidad(
   id: string,
-  diaEntrada: unknown,
-  tramoIdEntrada: unknown,
+  dia: string,
+  tramoId: string,
 ): Promise<ProfesorDoc | null> {
   const profesor = await ProfesorModel.findById(id);
   if (profesor === null) return null;
 
-  const dia = diaObligatorio(diaEntrada);
-  exigir(typeof tramoIdEntrada === 'string', 'El identificador del tramo debe ser un texto');
-  const tramoId = tramoIdEntrada;
+  validarDia(dia);
   const quitado = quitarTramo(profesor.disponibilidad, dia, tramoId);
   if (!quitado) return null;
 

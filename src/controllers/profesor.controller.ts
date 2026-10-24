@@ -8,7 +8,8 @@
 
 import type { Request, Response } from 'express';
 import * as profesorService from '../services/profesor.service.js';
-import { cuerpoComoObjeto } from '../utils/cuerpoPeticion.js';
+import { aCambiarFotoDto, aCambiarNomApeDto, aCrearProfesorDto } from '../dtos/profesor.dto.js';
+import { aAgregarTramoDto, aQuitarTramoDto } from '../dtos/calendarioSemanal.dto.js';
 
 export async function listar(_req: Request, res: Response) {
   const profesores = await profesorService.listar();
@@ -16,7 +17,7 @@ export async function listar(_req: Request, res: Response) {
 }
 
 export async function crear(req: Request, res: Response) {
-  const profesor = await profesorService.crear(cuerpoComoObjeto(req.body));
+  const profesor = await profesorService.crear(aCrearProfesorDto(req.body));
   res.status(201).json(profesor);
 }
 
@@ -33,11 +34,8 @@ export async function cambiarNomApe(
   req: Request<{ id: string }>,
   res: Response,
 ) {
-  const body = cuerpoComoObjeto(req.body);
-  const profesor = await profesorService.cambiarNomApe(
-    req.params.id,
-    body.nomApe,
-  );
+  const { nomApe } = aCambiarNomApeDto(req.body);
+  const profesor = await profesorService.cambiarNomApe(req.params.id, nomApe);
 
   if (profesor === null) {
     return res.status(404).json({ mensaje: 'Profesor no encontrado' });
@@ -50,8 +48,8 @@ export async function cambiarFotoPerfil(
   req: Request<{ id: string }>,
   res: Response,
 ) {
-  const body = cuerpoComoObjeto(req.body);
-  const profesor = await profesorService.cambiarFotoPerfil(req.params.id, body.foto);
+  const { foto } = aCambiarFotoDto(req.body);
+  const profesor = await profesorService.cambiarFotoPerfil(req.params.id, foto);
 
   if (profesor === null) {
     return res.status(404).json({ mensaje: 'Profesor no encontrado' });
@@ -64,12 +62,8 @@ export async function agregarDisponibilidad(
   req: Request<{ id: string }>,
   res: Response,
 ) {
-  const body = cuerpoComoObjeto(req.body);
-  const profesor = await profesorService.agregarDisponibilidad(
-    req.params.id,
-    body.dia,
-    body.tramo,
-  );
+  const { dia, tramo } = aAgregarTramoDto(req.body);
+  const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia, tramo);
 
   if (profesor === null) {
     return res.status(404).json({ mensaje: 'Profesor no encontrado' });
@@ -82,12 +76,8 @@ export async function quitarDisponibilidad(
   req: Request<{ id: string }>,
   res: Response,
 ) {
-  const body = cuerpoComoObjeto(req.body);
-  const profesor = await profesorService.quitarDisponibilidad(
-    req.params.id,
-    body.dia,
-    body.tramoId,
-  );
+  const { dia, tramoId } = aQuitarTramoDto(req.body);
+  const profesor = await profesorService.quitarDisponibilidad(req.params.id, dia, tramoId);
 
   if (profesor === null) {
     return res.status(404).json({ mensaje: 'Profesor no encontrado' });

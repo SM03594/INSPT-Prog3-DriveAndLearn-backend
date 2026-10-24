@@ -6,18 +6,16 @@
 import {
   AlumnoModel,
   type AlumnoDoc,
-  type Alumno,
 } from '../models/Alumno.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import { conPasswordHasheada } from '../utils/password.js';
-import { DESCRIPCION_TIPO, esDelTipo } from '../utils/validacionTipos.js';
+import type { ActualizarAlumnoDto, CrearAlumnoDto } from '../dtos/alumno.dto.js';
 
 
 // Mensaje de respaldo si el Schema no definió uno propio para el
 // email repetido (ver verSiErrorClaveDuplicada).
 const MENSAJE_EMAIL_DUPLICADO = 'La direccion de email ya esta en uso.';
-const CAMPOS_CREACION = ['email', 'password', 'nomApe'] as const;
 
 // ============================================================
 //  listar — todos los alumnos
@@ -35,51 +33,13 @@ export async function obtenerPorId(id: string): Promise<AlumnoDoc | null> {
   return AlumnoModel.findById(id);
 }
 
-// Solo el service acepta campos de registro y fija el saldo inicial;
-// así, una llamada que no venga del controller tampoco puede inyectar créditos.
-function validarDatosCreacion(datosEntrada: unknown): Alumno {
-  if (
-    typeof datosEntrada !== 'object' ||
-    datosEntrada === null ||
-    Array.isArray(datosEntrada)
-  ) {
-    throw new ErrorDeNegocio('El cuerpo de la petición debe ser un objeto JSON');
-  }
-
-  const datos = datosEntrada as Record<string, unknown>;
-  const camposNoPermitidos = Object.keys(datos).filter(
-    (campo) => !CAMPOS_CREACION.includes(campo as (typeof CAMPOS_CREACION)[number]),
-  );
-  if (camposNoPermitidos.length > 0) {
-    throw new ErrorDeNegocio(
-      `No se pueden enviar estos campos al registrarse: ${camposNoPermitidos.join(', ')}`,
-    );
-  }
-
-  if (
-    !esDelTipo(datos.email, 'string') ||
-    !esDelTipo(datos.password, 'string') ||
-    !esDelTipo(datos.nomApe, 'string')
-  ) {
-    throw new ErrorDeNegocio(
-      'Email, contraseña y nombre y apellido son obligatorios',
-    );
-  }
-
-  return {
-    email: datos.email,
-    password: datos.password,
-    nomApe: datos.nomApe,
-    clasesPorReservar: 0,
-  };
-}
-
-// Antes de guardar hasheamos la contraseña; los errores de email duplicado
-// se traducen acá porque el service conoce el contexto del modelo.
-export async function crear(datosEntrada: unknown): Promise<AlumnoDoc> {
-  const datosAGuardar = await conPasswordHasheada(
-    validarDatosCreacion(datosEntrada),
-  );
+// "datos" ya es un CrearAlumnoDto: la forma la validó el controller
+// (ver dtos/alumno.dto.ts). Acá se aplican las reglas: el saldo
+// inicial lo fija el service, nunca el cliente, y la contraseña se
+// hashea antes de guardar. Los errores de email duplicado se traducen
+// acá porque el service conoce el contexto del modelo.
+export async function crear(datos: CrearAlumnoDto): Promise<AlumnoDoc> {
+  const datosAGuardar = await conPasswordHasheada({ ...datos, clasesPorReservar: 0 });
 
   try {
     return await AlumnoModel.create(datosAGuardar);
@@ -88,84 +48,18 @@ export async function crear(datosEntrada: unknown): Promise<AlumnoDoc> {
   }
 }
 
-const CAMPOS_ACTUALIZABLES = {
-  email: { tipo: 'string', nombre: 'El email' },
-  password: { tipo: 'string', nombre: 'La contraseña' },
-  nomApe: { tipo: 'string', nombre: 'El nombre y apellido' },
-} as const;
-
-// 'email' | 'password' | 'nomApe', derivado de las claves de arriba.
-type CampoActualizable = keyof typeof CAMPOS_ACTUALIZABLES;
-
-// Type guard: ¿"campo" es una de las claves de CAMPOS_ACTUALIZABLES?
-// Usa Object.hasOwn y no "campo in ...": "in" también mira las
-// propiedades heredadas, y aceptaría campos como "toString".
-function esCampoActualizable(campo: string): campo is CampoActualizable {
-  return Object.hasOwn(CAMPOS_ACTUALIZABLES, campo);
-}
-
-// ============================================================
-//  validarCambios — helper interno de actualizar
-// ============================================================
-// "cambios" es el objeto que mandó el cliente (el controller ya
-// comprobó que es un objeto), con campos sin revisar.
-// Devuelve un Partial<Alumno> armado solo con los campos validados.
-function validarCambios(cambios: Record<string, unknown>): Partial<Alumno> {
-  // Una sola pasada por las claves: cada una va a permitidos o a no
-  // permitidos. Como esCampoActualizable es un type guard, dentro del
-  // if "campo" ya es CampoActualizable y se puede guardar en
-  // camposPermitidos.
-  const camposPermitidos: CampoActualizable[] = [];
-  const camposNoPermitidos: string[] = [];
-  for (const campo of Object.keys(cambios)) {
-    if (esCampoActualizable(campo)) {
-      camposPermitidos.push(campo);
-    } else {
-      camposNoPermitidos.push(campo);
-    }
-  }
-
-  if (camposNoPermitidos.length > 0) {
-    const ayuda = camposNoPermitidos.includes('clasesPorReservar')
-      ? ' (el saldo de clases se cambia con sumar-clases / restar-clases)'
-      : '';
-    throw new ErrorDeNegocio(
-      `No se pueden modificar estos campos: ${camposNoPermitidos.join(', ')}${ayuda}`,
-    );
-  }
-
-  if (camposPermitidos.length === 0) {
-    throw new ErrorDeNegocio('Debe indicarse al menos un campo para actualizar');
-  }
-
-  const validados: Partial<Alumno> = {};
-
-  for (const campo of camposPermitidos) {
-    const { tipo, nombre } = CAMPOS_ACTUALIZABLES[campo];
-    const valor = cambios[campo];
-
-    if (!esDelTipo(valor, tipo)) {
-      throw new ErrorDeNegocio(`${nombre} debe ser ${DESCRIPCION_TIPO[tipo]}`);
-    }
-
-    validados[campo] = valor;
-  }
-
-  return validados;
-}
-
 // ============================================================
 //  actualizar — modifica un alumno existente
 // ============================================================
-// "cambios" es el objeto que mandó el cliente, con solo los campos
-// que quiere cambiar; se valida con validarCambios antes de tocar
-// la base. Devuelve el alumno YA actualizado, o null si el id no
-// existe. Si viene "password", se hashea igual que en crear.
+// "cambios" ya es un ActualizarAlumnoDto: trae solo los campos que el
+// cliente quiere cambiar (el DTO rechazó los demás). Devuelve el
+// alumno YA actualizado, o null si el id no existe. Si viene
+// "password", se hashea igual que en crear.
 export async function actualizar(
   id: string,
-  cambios: Record<string, unknown>,
+  cambios: ActualizarAlumnoDto,
 ): Promise<AlumnoDoc | null> {
-  const cambiosAGuardar = await conPasswordHasheada(validarCambios(cambios));
+  const cambiosAGuardar = await conPasswordHasheada(cambios);
 
   try {
     return await AlumnoModel.findByIdAndUpdate(id, cambiosAGuardar, {
@@ -204,14 +98,12 @@ async function ajustarClasesPorReservar(
 // ============================================================
 //  validarCantidad — helper interno de sumar/restar
 // ============================================================
-// "cantidad" llega tal como la mandó el cliente (unknown). Tiene
-// que ser un número entero mayor que 0:
-//   - un texto como "2" se rechaza (en JSON los números van sin
-//     comillas), igual que 1.5, NaN o undefined (si no vino);
-//   - 0 se rechaza: sumar o restar 0 clases no hace nada.
-// Devuelve la cantidad ya tipada como number.
-function validarCantidad(cantidad: unknown, operacion: 'sumar' | 'restar'): number {
-  if (typeof cantidad !== 'number' || !Number.isInteger(cantidad)) {
+// Que "cantidad" sea un número ya lo garantiza el DTO (un texto como
+// "2" lo rechaza aCantidadClasesDto). Acá se revisa la regla: tiene
+// que ser un entero mayor que 0. 1.5 o NaN no sirven, y 0 tampoco:
+// sumar o restar 0 clases no hace nada.
+function validarCantidad(cantidad: number, operacion: 'sumar' | 'restar'): number {
+  if (!Number.isInteger(cantidad)) {
     throw new ErrorDeNegocio(`La cantidad a ${operacion} debe ser un número entero`);
   }
   if (cantidad <= 0) {
@@ -227,7 +119,7 @@ function validarCantidad(cantidad: unknown, operacion: 'sumar' | 'restar'): numb
 // mayor que 0 (ver validarCantidad).
 export async function sumarClasesPorReservar(
   id: string,
-  cantidad: unknown,
+  cantidad: number,
 ): Promise<AlumnoDoc | null> {
   return ajustarClasesPorReservar(id, validarCantidad(cantidad, 'sumar'));
 }
@@ -240,7 +132,7 @@ export async function sumarClasesPorReservar(
 // de 0, el validador min:0 del esquema lo rechaza.
 export async function restarClasesPorReservar(
   id: string,
-  cantidad: unknown,
+  cantidad: number,
 ): Promise<AlumnoDoc | null> {
   return ajustarClasesPorReservar(id, -validarCantidad(cantidad, 'restar'));
 }
