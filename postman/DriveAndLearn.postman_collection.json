@@ -1183,14 +1183,14 @@
           }
         },
         {
-          "name": "[401] Falta la contraseña",
+          "name": "[400] Falta la contraseña",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 401, \"Email y contraseña son obligatorios\");"
+                  "utils.esperarError(pm, 400, \"La contraseña es obligatoria\");"
                 ]
               }
             }
@@ -1487,7 +1487,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"son obligatorios\");"
+                  "utils.esperarError(pm, 400, \"El nombre y apellido es obligatorio\");"
                 ]
               }
             }
@@ -1531,7 +1531,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"son obligatorios\");"
+                  "utils.esperarError(pm, 400, \"El email debe ser un texto\");"
                 ]
               }
             }
@@ -2545,7 +2545,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"debe ser un número entero\");"
+                  "utils.esperarError(pm, 400, \"La cantidad debe ser un número\");"
                 ]
               }
             }
@@ -3741,7 +3741,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"activo debe ser un valor booleano\");"
+                  "utils.esperarError(pm, 400, \"El campo activo debe ser verdadero o falso\");"
                 ]
               }
             }
@@ -3938,7 +3938,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"Campos no permitidos\");"
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: disponibilidad\");"
                 ]
               }
             }
@@ -4996,7 +4996,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"El calendario debe incluir una lista para cada día\");"
+                  "utils.esperarError(pm, 400, \"El martes es obligatorio\");"
                 ]
               }
             }
@@ -5303,7 +5303,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"Campos no permitidos: alumno\");"
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: alumno\");"
                 ]
               }
             }
@@ -6584,7 +6584,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"Campos no permitidos: estado\");"
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: estado\");"
                 ]
               }
             }
@@ -7123,6 +7123,1376 @@
               "type": "noauth"
             },
             "description": "Las rutas que necesitan body llevan el middleware validacionDeCuerpo, login incluido (antes respondía 401 \"Email y contraseña son obligatorios\")."
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Validación de campos y tipos",
+      "description": "Un pedido por endpoint con body JSON que manda un campo que no corresponde, un valor del tipo incorrecto o un operador de MongoDB ($set). Todos tienen que responder 400: los rechaza el DTO de cada endpoint (src/dtos/). Los pedidos de edición usan un id que no existe: el DTO valida antes de buscar el recurso, así que no tocan datos. Quedan afuera los casos que, si la validación fallara, modificarían el horario real de la escuela.",
+      "item": [
+        {
+          "name": "[400] Login con email numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El email debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": 123,\n  \"password\": \"{{passwordPrueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "[400] Registro con nomApe numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El nombre y apellido debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"numerico.{{runId}}@postman.test\",\n  \"password\": \"{{passwordPrueba}}\",\n  \"nomApe\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "[400] Admin edita un alumno con un operador ($set)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: $set\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"$set\": {\n    \"clasesPorReservar\": 99\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] restar-clases con cantidad en texto (\"1\")",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La cantidad debe ser un número\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/{{alumno3Id}}/restar-clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "{{alumno3Id}}",
+                "restar-clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": \"1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] sumar-clases con un campo de más",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: motivo\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/alumnos/000000000000000000000000/sumar-clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "alumnos",
+                "000000000000000000000000",
+                "sumar-clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 1,\n  \"motivo\": \"regalo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] DTO: crear admin con un campo de más (rol)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: rol\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dto-rol.{{runId}}@postman.test\",\n  \"password\": \"{{passwordPrueba}}\",\n  \"nomApe\": \"DTO\",\n  \"rol\": \"alumno\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] DTO: crear admin con nomApe numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El nombre y apellido debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dto-num.{{runId}}@postman.test\",\n  \"password\": \"{{passwordPrueba}}\",\n  \"nomApe\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] DTO: crear admin sin nomApe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El nombre y apellido es obligatorio\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dto-sin.{{runId}}@postman.test\",\n  \"password\": \"{{passwordPrueba}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] DTO: editar admin con un operador ($set)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: $set\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"$set\": {\n    \"password\": \"corta\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Regresión: antes guardaba la contraseña sin hashear. El DTO lo rechaza antes de buscar al admin, por eso alcanza con un id que no existe."
+          }
+        },
+        {
+          "name": "[400] DTO: editar admin con _id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: _id\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"_id\": \"000000000000000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] DTO: editar admin con nomApe numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El nombre y apellido debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomApe\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] DTO: editar admin con body vacío",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"Debe indicarse al menos un campo para actualizar\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/administradores/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "administradores",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Editar auto con un campo de más",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: color\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/autos/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "autos",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"color\": \"rojo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Editar auto con marca numérica",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La marca debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/autos/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "autos",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Editar auto con un operador ($set)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: $set\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/autos/000000000000000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "autos",
+                "000000000000000000000000"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"$set\": {\n    \"activo\": false\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Sacar de servicio con un campo de más",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: motivo\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/autos/000000000000000000000000/activo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "autos",
+                "000000000000000000000000",
+                "activo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false,\n  \"motivo\": \"x\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Crear profesor con nomApe numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El nombre y apellido debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomApe\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] nom-ape numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El nombre y apellido debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/nom-ape",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "nom-ape"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomApe\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] nom-ape con un campo de más",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: extra\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/nom-ape",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "nom-ape"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nomApe\": \"Otro\",\n  \"extra\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Foto numérica",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"base64 o como bytes\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/foto-perfil",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "foto-perfil"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"foto\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Foto con un campo de más",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: extra\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/foto-perfil",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "foto-perfil"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"foto\": \"UE5H\",\n  \"extra\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Disponibilidad con día numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El día debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": 1,\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 10,\n      \"minuto\": 0\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Disponibilidad con un tramo de texto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El tramo debe ser un objeto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"martes\",\n  \"tramo\": \"mañana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Disponibilidad con un campo de más",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: extra\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"martes\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 10,\n      \"minuto\": 0\n    }\n  },\n  \"extra\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Quitar disponibilidad con tramoId numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"martes\",\n  \"tramoId\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Reservar con profesor numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El profesor debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alumno\": \"{{alumno3Id}}\",\n  \"profesor\": 123,\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"2099-01-05T10:00:00-03:00\",\n  \"fin\": \"2099-01-05T11:00:00-03:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Modificar clase con inicio numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El inicio debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inicio\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Modificar clase con un operador ($set)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden modificar estos campos: $set\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"$set\": {\n    \"estado\": \"confirmada\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] PUT del horario con un día que no es una lista",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El lunes debe ser una lista\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/horario-escuela",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "horario-escuela"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lunes\": \"x\",\n  \"martes\": [],\n  \"miercoles\": [],\n  \"jueves\": [],\n  \"viernes\": [],\n  \"sabado\": [],\n  \"domingo\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Agregar un tramo al horario con día numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El día debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "horario-escuela",
+                "agregar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": 1,\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 10,\n      \"minuto\": 0\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Agregar un tramo de texto al horario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El tramo debe ser un objeto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "horario-escuela",
+                "agregar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"lunes\",\n  \"tramo\": \"mañana\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[400] Quitar un tramo del horario con tramoId numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El identificador del tramo debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/horario-escuela/quitar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "horario-escuela",
+                "quitar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"lunes\",\n  \"tramoId\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           }
         }
       ]

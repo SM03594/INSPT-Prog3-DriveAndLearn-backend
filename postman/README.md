@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 10 carpetas, 160 requests
+├── DriveAndLearn.postman_collection.json   # 11 carpetas, 192 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado
@@ -54,6 +54,7 @@ Clic derecho en la colección → **Run collection** → dejar el orden por defe
 | `06 Horario de la escuela` | Horario semanal de la escuela: ver, reemplazar, agregar y quitar tramos. |
 | `07 Clases` | Reservas: fechas, horarios, solapamientos, saldo, permisos, cancelación. |
 | `08 Errores generales` | Ruta inexistente y bodies ilegibles. |
+| `09 Validación de campos y tipos` | Un pedido por endpoint con body JSON que manda un campo de más, un tipo incorrecto o un operador (`$set`). Todos dan 400: los rechaza el DTO de cada endpoint. |
 | `99 Teardown` | Limpieza: deja el horario como estaba y borra los alumnos. |
 
 **Correr una carpeta suelta**: correr antes `00 Setup` (genera los tokens y los
@@ -62,10 +63,13 @@ para repetirla, volver a correr el Setup.
 
 ### Tests que fallan a propósito
 
-Hoy no hay ninguno: contra la API local pasan todos. Si se encuentra un problema
-nuevo en la API, la convención es escribir el test con el comportamiento
-correcto, poner "hallazgo" en el nombre del request y anotarlo en §7 del plan;
-cuando se corrija, el test pasa a verde solo.
+La convención: si se encuentra un problema en la API, se escribe el test con el
+comportamiento **correcto**, se pone "hallazgo (I-NN)" en el nombre del request
+y se registra en [`docs/inconsistencias.md`](../docs/inconsistencias.md). Cuando
+se corrija, el test pasa a verde solo.
+
+Hoy no hay ninguno. Los 12 hallazgos que tenía `09 Validación de campos y
+tipos` pasaron a verde cuando cada endpoint tuvo su DTO (`src/dtos/`).
 
 ## 4. Convenciones
 
