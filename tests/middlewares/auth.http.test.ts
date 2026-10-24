@@ -86,6 +86,31 @@ describe('autenticación HTTP', () => {
     expect(login.body.token).toEqual(expect.any(String));
   });
 
+  // Regresión: un { $set: { password } } guardaba la contraseña sin
+  // hashear y dejaba la cuenta sin poder entrar.
+  it('un PUT de administrador con $set responde 400 y la contraseña sigue sirviendo', async () => {
+    const otro = await crearAdministrador({
+      email: 'otro@example.com',
+      password: 'claveOtro123',
+      nomApe: 'Otro Admin',
+    });
+    await crearAdministrador({
+      email: 'admin@example.com',
+      password: 'claveAdmin123',
+      nomApe: 'Administradora',
+    });
+    const token = await iniciarSesion('admin@example.com', 'claveAdmin123');
+
+    const respuesta = await request(app)
+      .put(`/api/administradores/${otro._id.toString()}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ $set: { password: 'corta' } })
+      .expect(400);
+
+    expect(respuesta.body.mensaje).toBe('No se pueden modificar estos campos: $set');
+    await iniciarSesion('otro@example.com', 'claveOtro123');
+  });
+
   it('rechaza credenciales incorrectas con un mensaje genérico', async () => {
     await crearAlumno({
       email: 'ana@example.com',
@@ -119,13 +144,16 @@ describe('autenticación HTTP', () => {
       .expect(401);
   });
 
-  it('rechaza con error de autenticación si faltan email o contraseña', async () => {
-    const respuesta = await request(app)
-      .post('/api/auth/login')
-      .send({ email: '', password: '' })
-      .expect(401);
+  // Un login mal armado es un 400, como en el resto de la API (I-29):
+  // el 401 queda para credenciales que no coinciden.
+  it.each([
+    [{ email: '', password: '' }, 'Email y contraseña son obligatorios'],
+    [{ email: 'ana@example.com' }, 'La contraseña es obligatoria'],
+    [{ email: 123, password: 'claveSegura123' }, 'El email debe ser un texto'],
+  ])('rechaza un login mal armado con 400 (%j)', async (body, mensaje) => {
+    const respuesta = await request(app).post('/api/auth/login').send(body).expect(400);
 
-    expect(respuesta.body.mensaje).toBe('Email y contraseña son obligatorios');
+    expect(respuesta.body.mensaje).toBe(mensaje);
   });
 
   it('permite a un alumno gestionar su perfil, pero no el de otros usuarios', async () => {

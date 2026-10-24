@@ -19,7 +19,10 @@ tests/
 ├── utils/                             FUNCIONES PURAS: sin base y sin HTTP
 │   ├── fechas.test.ts
 │   ├── password.test.ts
+│   ├── validacionCampos.test.ts
 │   └── validacionTipos.test.ts
+├── dtos/                              DTOs: también funciones puras
+│   ├── alumno.dto.test.ts  auto.dto.test.ts  clase.dto.test.ts ...
 ├── services/                          SERVICES: con base en memoria y sin HTTP
 │   ├── alumno.service.test.ts  auto.service.test.ts  clase.service.test.ts ...
 ├── middlewares/
@@ -34,7 +37,7 @@ Hay cuatro tipos de test, del más simple al más completo:
 
 | Tipo | Qué ejecuta | ¿Base? | ¿HTTP? | Velocidad |
 |---|---|---|---|---|
-| Función pura | Una función de `utils/` | No | No | Instantáneo |
+| Función pura | Una función de `utils/` o un DTO | No | No | Instantáneo |
 | Middleware a mano | El middleware con un `req` armado a mano | No | No | Instantáneo |
 | Service | Una función del service | En memoria | No | Rápido |
 | HTTP | `app` completa: rutas → middlewares → controller → service | En memoria | Supertest | Más lento |
@@ -157,6 +160,26 @@ await expect(crear(datosValidos)).rejects.toThrow(ErrorClaveDuplicada);
 //  ↑ el await es OBLIGATORIO: sin él, el test termina antes de comprobar nada
 ```
 
+Un test de DTO es todavía más simple: no necesita base ni `setupTestDB()`,
+porque un DTO es una función pura (`tests/dtos/auto.dto.test.ts`):
+
+```ts
+it('rechaza activo, con la pista de dónde se cambia el estado', () => {
+  expect(() => aActualizarAutoDto({ activo: false })).toThrow(
+    'No se pueden modificar estos campos: activo (el estado se cambia con PATCH /autos/:id/activo)',
+  );
+});
+```
+
+Es `expect(() => ...)`, con una **función** adentro: si se pasara
+`aActualizarAutoDto(...)` directamente, el error se lanzaría antes de que
+`expect` pudiera atraparlo. Como el DTO es síncrono, no hace falta `await`.
+
+Desde que existen los DTO, los tests de los services prueban **reglas**: que
+el saldo inicial sea 0, que la cantidad sea entera, que el horario esté libre.
+Los casos de **forma** (un campo de más, un número en lugar de un texto) están
+en `tests/dtos/`.
+
 ### 4. Tests HTTP con supertest
 
 Supertest le manda pedidos **directamente** a `app`, sin abrir un puerto. Por
@@ -235,7 +258,7 @@ Hay dos detalles que evitan tests que fallan "de repente":
 - **Zona UTC.** `vitest.config.ts` fija `TZ: 'UTC'`, como en un servidor
   real. Si alguien usa `getHours()` en lugar de `aHoraLocal`, el test falla en
   **todas** las máquinas, no solo en producción. Más detalles en
-  [`10-utils-y-fechas.md`](10-utils-y-fechas.md#45-por-qué-los-tests-corren-en-utc).
+  [`10-utils-y-fechas.md`](10-utils-y-fechas.md#55-por-qué-los-tests-corren-en-utc).
 
 ### 7. Aislamiento: cada test empieza de cero
 
@@ -254,6 +277,7 @@ Hay dos detalles que evitan tests que fallan "de repente":
 | Cambiaste... | Escribí un test de... | Ejemplo |
 |---|---|---|
 | Una función de `utils/` | Función pura (`tests/utils/`) | Nuevo formato de fecha aceptado |
+| Qué campos acepta un endpoint | DTO (`tests/dtos/`) | "Al editar un auto no se puede mandar `activo`" → lanza el error |
 | Una regla de un service | Service (`tests/services/`) | "No se puede reservar con menos de 24 h" |
 | Una ruta, un permiso o un middleware | HTTP (`*.http.test.ts`) | "Un alumno no puede ver a otro" → 403 |
 | Un mensaje o status de error | HTTP, o el test del middleware | JSON mal escrito → 400 |

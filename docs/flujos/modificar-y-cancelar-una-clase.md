@@ -23,7 +23,7 @@ el horario queda libre para otro.
                             │                                       │
                             ▼                                       ▼
               ┌──── clase.service.actualizar ────┐     ┌──── clase.service.cancelar ────┐
-              │ campos permitidos                │     │ cuenta activa                  │
+              │ (DTO: campos permitidos)         │     │ cuenta activa                  │
               │ cuenta activa                    │     │ ¿es suya? (si no → 404)        │
               │ ¿es suya? (si no → 404)          │     │ ¿ya cancelada? → la devuelve   │
               │ ¿cancelada o ya empezó? → 409    │     │ ¿ya empezó? → 409              │
@@ -53,33 +53,34 @@ El ciclo de vida de una clase:
 
 ### Paso 1. Ruta y controller
 
-`src/routes/clase.routes.ts:19` → `src/controllers/clase.controller.ts:43`:
+`src/routes/clase.routes.ts:19` → `src/controllers/clase.controller.ts:46`:
 
 ```ts
 router.put('/:id', validacionDeCuerpo, claseController.actualizar);
 
-const clase = await claseService.actualizar(req.params.id, req.body, actorDe(req));
+const clase = await claseService.actualizar(req.params.id, aActualizarClaseDto(req.body), actorDe(req));
 if (clase === null) return res.status(404).json({ mensaje: 'Clase no encontrada' });
 res.json(clase);
 ```
 
 ### Paso 2. Qué se puede cambiar
 
-`validarCambios` (`src/services/clase.service.ts:114`) acepta **solo**
-`profesor`, `auto`, `inicio` y `fin`, y al menos uno de ellos:
+`aActualizarClaseDto` (`src/dtos/clase.dto.ts:71`) acepta **solo**
+`profesor`, `auto`, `inicio` y `fin`, como texto, y al menos uno de ellos:
 
 | Body | Respuesta |
 |---|---|
 | `{}` | 400 "Debe indicarse al menos un campo para actualizar" |
-| `{ "alumno": "..." }` | 400 "Campos no permitidos: alumno" |
-| `{ "estado": "confirmada" }` | 400 "Campos no permitidos: estado" |
+| `{ "alumno": "..." }` | 400 "No se pueden modificar estos campos: alumno" |
+| `{ "estado": "confirmada" }` | 400 "No se pueden modificar estos campos: estado" |
+| `{ "inicio": 123 }` | 400 "El inicio debe ser un texto" |
 
 El alumno de una clase no se puede cambiar, y el estado tampoco se cambia por
 `PUT`: para cancelar está el endpoint propio.
 
 ### Paso 3. ¿Es una clase suya?
 
-`claseAccesible` (`:167`) busca la clase. Si quien pide es un **alumno** y la
+`claseAccesible` (`:62`) busca la clase. Si quien pide es un **alumno** y la
 clase es de **otro**, devuelve `null`, igual que si no existiera:
 
 ```
@@ -92,7 +93,7 @@ cualquier clase.
 
 ### Paso 4. ¿Todavía se puede modificar?
 
-`validarClaseModificable` (`:272`):
+`validarClaseModificable` (`:167`):
 
 | Estado de la clase | Respuesta |
 |---|---|
@@ -101,7 +102,7 @@ cualquier clase.
 
 ### Paso 5. Calcular el nuevo horario
 
-`obtenerInstantesActualizados` (`:281`) completa lo que no vino, manteniendo
+`obtenerInstantesActualizados` (`:176`) completa lo que no vino, manteniendo
 siempre la duración de **1 hora**:
 
 | Se manda | `inicio` resultante | `fin` resultante |
@@ -178,7 +179,7 @@ No hay `validacionDeCuerpo`: cancelar no necesita datos, la URL dice todo.
 
 ### Paso 9. El service
 
-`clase.service.ts:394`:
+`clase.service.ts:295`:
 
 ```
 validarActor ─► claseAccesible (de otro → 404)
@@ -240,7 +241,7 @@ sigue viendo en `GET /api/clases` con `estado: "cancelada"`.
 | Pedido | Respuesta real |
 |---|---|
 | `PUT` con `{}` | 400 "Debe indicarse al menos un campo para actualizar" |
-| `PUT` con `alumno` o `estado` | 400 "Campos no permitidos: alumno" / "…: estado" |
+| `PUT` con `alumno` o `estado` | 400 "No se pueden modificar estos campos: alumno" / "…: estado" |
 | `PUT /api/clases/abc` | 400 "Id inválido" |
 | `PUT` o `PATCH` sobre una clase de otro alumno | 404 "Clase no encontrada" |
 | `PUT` sobre una clase cancelada | 409 "No se puede modificar una clase cancelada" |

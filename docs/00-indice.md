@@ -45,9 +45,9 @@ enlazan a las de capas.
                                                         │
       ┌─────────────────────────────────────────────────┘
       ▼
-04 Routes ─► 05 Middlewares ─► 06 Controllers ─► 07 Services ─► 08 Models ─► 09 Errores
-                                                                                 │
-      ┌──────────────────────────────────────────────────────────────────────────┘
+04 Routes ─► 05 Middlewares ─► 06 Controllers ─► 06b DTOs ─► 07 Services ─► 08 Models ─► 09 Errores
+                                                                                              │
+      ┌───────────────────────────────────────────────────────────────────────────────────────┘
       ▼
 temas/horarios-y-agendamiento ─► flujos/agendar-una-clase ─► el resto de los flujos
 ```
@@ -59,9 +59,10 @@ completa funcionando antes de entrar al detalle de cada capa.
 
 | Vas a… | Leé primero |
 |---|---|
-| Agregar un endpoint | [04 Routes](capas/04-routes.md) → [06 Controllers](capas/06-controllers.md) → [07 Services](capas/07-services.md) |
+| Agregar un endpoint | [04 Routes](capas/04-routes.md) → [06 Controllers](capas/06-controllers.md) → [06b DTOs](capas/06b-dtos.md) (receta al final) → [07 Services](capas/07-services.md) |
+| Cambiar qué campos acepta un endpoint | [06b DTOs](capas/06b-dtos.md) → [12 Postman](capas/12-tests-postman.md) (carpeta `09`) |
 | Agregar una regla de negocio | [07 Services](capas/07-services.md) → [09 Errores](capas/09-errores.md) |
-| Agregar o cambiar un campo de la base | [08 Models](capas/08-models.md) → [02 TypeScript](capas/02-typescript-en-el-proyecto.md) (tipos escritos a mano) |
+| Agregar o cambiar un campo de la base | [08 Models](capas/08-models.md) → [06b DTOs](capas/06b-dtos.md) (si el cliente lo puede mandar) → [02 TypeScript](capas/02-typescript-en-el-proyecto.md) (tipos escritos a mano) |
 | Cambiar permisos | [05 Middlewares](capas/05-middlewares.md) → [04 Routes](capas/04-routes.md) (tabla de endpoints) |
 | Tocar algo de horarios o reservas | [temas/horarios-y-agendamiento](temas/horarios-y-agendamiento.md) → [10 Fechas](capas/10-utils-y-fechas.md) |
 | Escribir tests | [11 Vitest](capas/11-tests-vitest.md) → [12 Postman](capas/12-tests-postman.md) |
@@ -84,16 +85,17 @@ tienen ejemplos más avanzados.
 | # | Guía | De qué trata |
 |---|---|---|
 | 01 | [Stack tecnológico y dependencias](capas/01-stack-y-dependencias.md) | Node/ESM, TypeScript, Express 5, MongoDB/Mongoose, bcrypt, JWT, dotenv, cors; los scripts de `package.json` y las dependencias de desarrollo. |
-| 02 | [TypeScript en el proyecto](capas/02-typescript-en-el-proyecto.md) | Las diferencias con JavaScript, con ejemplos del código: uniones, `as const`, tipos utilitarios, genéricos, `unknown` y type guards, `satisfies`. |
+| 02 | [TypeScript en el proyecto](capas/02-typescript-en-el-proyecto.md) | Las diferencias con JavaScript, con ejemplos del código: uniones, `as const`, tipos utilitarios, genéricos y *mapped types*, `unknown` y type guards, `satisfies`. |
 | 03 | [Arquitectura](capas/03-arquitectura.md) | Cómo se encadenan las capas, la regla de dependencias, cómo arranca el servidor y el camino de un pedido y de un error. |
 | 04 | [Routes](capas/04-routes.md) | Routers, prefijos, `:id`, `router.use`, el orden de la cadena. **Tabla de todos los endpoints con sus permisos.** |
 | 05 | [Middlewares](capas/05-middlewares.md) | `requireAuthentication`, `requireAdministrator`, `requireSelfOrAdministrator()`, `validacionDeCuerpo`, el 404 y el `errorHandler`. |
-| 06 | [Controllers](capas/06-controllers.md) | De `req` a argumentos y de resultados a status: 200, 201, 204 y 404. |
-| 07 | [Services](capas/07-services.md) | Validar lo que llega como `unknown`, reglas de negocio, claves duplicadas, operaciones atómicas y compensación. |
+| 06 | [Controllers](capas/06-controllers.md) | De `req` a DTO y de resultados a status: 200, 201, 204 y 404. |
+| 06b | [DTOs](capas/06b-dtos.md) | El contrato de cada operación: `validarCampos`, `exigido`, crear vs. actualizar, el DTO según el rol, forma vs. reglas. Receta para agregar uno. |
+| 07 | [Services](capas/07-services.md) | Reglas de negocio sobre un DTO ya validado, claves duplicadas, operaciones atómicas y compensación. |
 | 08 | [Models](capas/08-models.md) | Esquemas, validadores, `unique`, `pre('validate')`, `toJSON`, sub-esquemas y discriminators. |
 | 09 | [Errores](capas/09-errores.md) | La jerarquía de errores, los traductores, y cómo un `throw` termina siendo `{ mensaje }`. |
-| 10 | [Utils y fechas](capas/10-utils-y-fechas.md) | `cuerpoComoObjeto`, `esDelTipo`, `conPasswordHasheada`, y fechas sin errores de zona horaria. |
-| 11 | [Tests con Vitest](capas/11-tests-vitest.md) | Los 4 tipos de test, MongoDB en memoria, supertest, `vi.fn()`, y fechas en los tests. |
+| 10 | [Utils y fechas](capas/10-utils-y-fechas.md) | `cuerpoComoObjeto`, `esDelTipo`, `validarCampos`, `conPasswordHasheada`, y fechas sin errores de zona horaria. |
+| 11 | [Tests con Vitest](capas/11-tests-vitest.md) | Los 4 tipos de test (los DTO son funciones puras), MongoDB en memoria, supertest, `vi.fn()`, y fechas en los tests. |
 | 12 | [Tests con Postman](capas/12-tests-postman.md) | La colección de punta a punta: carpetas, variables, helpers, tests globales y Teardown. |
 
 ### `flujos/`: cómo se hace

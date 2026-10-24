@@ -212,7 +212,7 @@ pasa por `validacionDeCuerpo`.
 \* En **clases**, el router solo exige el token. Los permisos finos (un alumno
 solo ve y modifica **sus** clases, y un admin ve todas) los decide el
 **service**, que recibe quién hace el pedido. Por ejemplo,
-`clase.service.ts:303` filtra con `{ alumno: actor.id }` si el usuario no es
+`clase.service.ts:198` (`listar`) filtra con `{ alumno: actor.id }` si el usuario no es
 admin. Se explica en [`../flujos/agendar-una-clase.md`](../flujos/agendar-una-clase.md).
 
 Hasta octubre de 2026 existía también `/api/calendario-semanal`, un alias que

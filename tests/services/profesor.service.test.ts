@@ -55,10 +55,8 @@ describe('profesor.service', () => {
       expect(profesor.nomApe).toBe('Ana Instructora');
     });
 
-    it('rechaza campos no permitidos y nombre vacío', async () => {
-      await expect(crear({ nomApe: 'Ana', disponibilidad: {} })).rejects.toThrow(
-        /Campos no permitidos/i,
-      );
+    // Los campos de más los rechaza el DTO (ver tests/dtos/profesor.dto.test.ts).
+    it('rechaza un nombre vacío', async () => {
       await expect(crear({ nomApe: '   ' })).rejects.toThrow(
         /nombre y apellido del profesor es obligatorio/i,
       );
@@ -118,12 +116,14 @@ describe('profesor.service', () => {
       expect(await cambiarNomApe(ID_INEXISTENTE, 'Nadie')).toBeNull();
     });
 
-    it('tira ValidationError si el nombre y apellido es vacío (runValidators)', async () => {
+    // Misma regla que al crear (antes lo frenaba recién el esquema, y un
+    // nomApe que no era texto se guardaba convertido: I-34).
+    it.each(['', '   '])('rechaza un nombre vacío (%j)', async (nomApe) => {
       const creado = await crearProfesor();
 
-      await expect(
-        cambiarNomApe(creado._id.toString(), ''),
-      ).rejects.toThrow(/nombre y apellido es obligatorio/);
+      await expect(cambiarNomApe(creado._id.toString(), nomApe)).rejects.toThrow(
+        'El nombre y apellido del profesor es obligatorio',
+      );
     });
   });
 

@@ -21,8 +21,8 @@ import {
   actualizar,
   cancelar,
   type ActorClase,
-  type DatosClase,
 } from '../../src/services/clase.service.js';
+import type { CrearClaseDto } from '../../src/dtos/clase.dto.js';
 
 setupTestDB();
 
@@ -36,7 +36,7 @@ let autoId: Types.ObjectId;
 let autoAlternativoId: Types.ObjectId;
 let administradorId: Types.ObjectId;
 let inicioBase: Date;
-let datosValidos: DatosClase;
+let datosValidos: CrearClaseDto;
 
 function proximoLunes(): Date {
   const fecha = new Date();

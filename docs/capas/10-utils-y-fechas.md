@@ -13,8 +13,9 @@ equivocarse de zona horaria**.
 
 | Archivo | Exporta | Lo usan |
 |---|---|---|
-| `cuerpoPeticion.ts` | `cuerpoComoObjeto` | `alumno.controller`, `profesor.controller` |
-| `validacionTipos.ts` | `esDelTipo`, `DESCRIPCION_TIPO`, `NombreTipo` | `alumno.service` |
+| `cuerpoPeticion.ts` | `cuerpoComoObjeto`, `esObjetoJson` | `validacionCampos`, `calendarioSemanal.dto` |
+| `validacionTipos.ts` | `esDelTipo`, `DESCRIPCION_TIPO`, `NombreTipo`, `TipoSegunNombre` | `validacionCampos` |
+| `validacionCampos.ts` | `validarCampos`, `exigido` y sus tipos | todos los DTO (`src/dtos/`) |
 | `password.ts` | `conPasswordHasheada` | `alumno.service`, `administrador.service` |
 | `fechas.ts` | `parsearInstante`, `aHoraLocal`, `HoraLocal` | `clase.service` |
 
@@ -27,19 +28,31 @@ son lo más fácil de testear del proyecto.
 
 ### 1. `cuerpoPeticion.ts`: ¿el body es un objeto?
 
+`src/utils/cuerpoPeticion.ts:22`:
+
 ```ts
+export function esObjetoJson(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
+}
+
 export function cuerpoComoObjeto(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+  if (!esObjetoJson(body)) {
     throw new ErrorPeticionInvalida('El cuerpo de la petición debe ser un objeto JSON');
   }
-  return body as Record<string, unknown>;
+  return body;
 }
 ```
 
-Hace dos cosas: rechaza lo que no es un objeto, y convierte `req.body` (que es
-`any`) en un tipo seguro. Por qué existe si `validacionDeCuerpo` ya hace ese
-chequeo se explica en
-[`06-controllers.md`](06-controllers.md#2-leer-la-entrada).
+`esObjetoJson` es un **type guard**: responde `true` o `false` y, si es `true`,
+TypeScript trata el valor como un objeto. Descarta `null` (porque
+`typeof null` también es `'object'`) y los arrays. Lo usa también el DTO del
+calendario, para comprobar que cada tramo de la lista sea un objeto.
+
+`cuerpoComoObjeto` usa ese guard para **lanzar** un error 400 si el body no es
+un objeto. Es el primer paso de `validarCampos` (sección 3). Por qué existe si
+`validacionDeCuerpo` ya hace ese chequeo en la ruta se explica en
+[`06-controllers.md`](06-controllers.md#2-leer-la-entrada). (El middleware
+tiene su propia copia de `esObjetoJson`: ver I-48.)
 
 ### 2. `validacionTipos.ts`: comprobar tipos usando un texto
 
@@ -50,7 +63,7 @@ variable. Lo que sí existe es el **texto** que devuelve `typeof`: `'string'`,
 `'number'`, `'boolean'`.
 
 **La solución** es un mapa que une cada texto con su tipo
-(`src/utils/validacionTipos.ts:17`):
+(`src/utils/validacionTipos.ts:18`):
 
 ```ts
 type TipoSegunNombre = {
@@ -73,21 +86,19 @@ export function esDelTipo<T extends NombreTipo>(
 `string`. El tipo `TipoSegunNombre[T]` es "buscar en el mapa el tipo que
 corresponde a ese texto".
 
-Lo usa `alumno.service` al validar una edición:
+Lo usa `validarCampos` (sección 3) para recorrer la tabla de campos de un DTO:
 
 ```ts
-const CAMPOS_ACTUALIZABLES = {
+const CAMPOS_ALUMNO = {                                   // src/dtos/alumno.dto.ts:25
   email:  { tipo: 'string', nombre: 'El email' },
   nomApe: { tipo: 'string', nombre: 'El nombre y apellido' },
   // ...
 } as const;
 
-for (const campo of camposPermitidos) {
-  const { tipo, nombre } = CAMPOS_ACTUALIZABLES[campo];
-  if (!esDelTipo(cambios[campo], tipo)) {
-    throw new ErrorDeNegocio(`${nombre} debe ser ${DESCRIPCION_TIPO[tipo]}`);
-    //                          "El email debe ser un texto"
-  }
+// dentro de validarCampos, por cada campo que llegó:
+if (!cumpleTipo(valor, tipo)) {                            // → esDelTipo(valor, 'string')
+  throw new ErrorDeNegocio(`${nombre} debe ser ${DESCRIPCION_CAMPO[tipo]}`);
+  //                          "El email debe ser un texto"
 }
 ```
 
@@ -97,7 +108,47 @@ agrega un tipo al mapa y no se agrega su descripción, no compila. Los
 conceptos de TypeScript que aparecen acá se explican en
 [`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md).
 
-### 3. `password.ts`: hashear antes de guardar
+### 3. `validacionCampos.ts`: el helper de los DTO
+
+`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:81`)
+junta las dos piezas anteriores y agrega lo que hace falta para validar un
+body completo:
+
+```
+body
+ ├─ cuerpoComoObjeto ............................ 400 si no es un objeto
+ ├─ ¿cada clave está en la tabla? (Object.hasOwn) 400 "No se pueden enviar estos campos: color"
+ ├─ ¿alMenosUno y vino vacío? ................... 400 "Debe indicarse al menos un campo para actualizar"
+ ├─ ¿cada valor cumple su tipo? (cumpleTipo) .... 400 "La marca debe ser un texto"
+ ▼
+un objeto NUEVO, solo con los campos de la tabla
+```
+
+A los tres tipos de `typeof` les suma tres que aparecen en un JSON
+(`validacionCampos.ts:29`):
+
+```ts
+type TipoSegunCampo = TipoSegunNombre & {
+  objeto: object;          // un {...}: un tramo          → esObjetoJson
+  lista: unknown[];        // un [...]: los tramos de un día → Array.isArray
+  cualquiera: unknown;     // no se revisa: la foto la convierte el service
+};
+```
+
+Dos detalles de la implementación que vale la pena mirar:
+
+- **`Object.hasOwn(campos, campo)` y no `campo in campos`.** `in` también
+  encuentra las propiedades **heredadas** de todos los objetos, así que un
+  body `{ "toString": 1 }` pasaría el filtro.
+- **Devuelve un objeto nuevo**, armado campo por campo. Por eso un `_id`, un
+  `createdAt` o un `$set` nunca llegan al service.
+
+`exigido(valor, mensaje)` (`:124`) completa el helper: los DTO lo usan para los
+campos obligatorios. Cómo se usan los dos dentro de un DTO se explica en
+[`06b-dtos.md`](06b-dtos.md), y cómo funcionan sus tipos genéricos, en
+[`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md#6-genéricos-tipos-con-parámetro).
+
+### 4. `password.ts`: hashear antes de guardar
 
 ```
 datos { email, password: "claveSegura123", nomApe }
@@ -131,9 +182,9 @@ Para el login no se usa esta función: `auth.service` compara con
 `bcrypt.compare(password, usuario.password)`. Cómo funciona bcrypt se explica
 en [`01-stack-y-dependencias.md`](01-stack-y-dependencias.md#8-bcrypt-contraseñas-que-no-se-pueden-leer).
 
-### 4. `fechas.ts`: el instante y la hora de la escuela
+### 5. `fechas.ts`: el instante y la hora de la escuela
 
-#### 4.1 El problema: `Date` es un instante, no una hora de reloj
+#### 5.1 El problema: `Date` es un instante, no una hora de reloj
 
 Un `Date` de JavaScript representa **un instante absoluto**, el mismo en todo
 el mundo. "Las 9 de la mañana" depende de **dónde** estás. Hay dos trampas
@@ -157,7 +208,7 @@ eso `fechas.ts` sigue cuatro reglas (están en su cabecera):
 4. SALIDA    res.json lo serializa en ISO UTC; el frontend lo muestra en su zona
 ```
 
-#### 4.2 `parsearInstante`: aceptar solo fechas sin ambigüedad
+#### 5.2 `parsearInstante`: aceptar solo fechas sin ambigüedad
 
 `src/utils/fechas.ts:37` recibe lo que mandó el cliente (`unknown`) y devuelve
 un `Date`, o lanza un error 400. Usa una regex
@@ -193,7 +244,7 @@ cambiado.
 
 Todos estos casos están en `tests/utils/fechas.test.ts`.
 
-#### 4.3 `aHoraLocal`: ¿qué día y qué hora es en la escuela?
+#### 5.3 `aHoraLocal`: ¿qué día y qué hora es en la escuela?
 
 `fechas.ts:89` convierte un instante en `{ dia, hora, minuto }` **tal como lo
 vería un reloj en la escuela**, sin depender de la zona del servidor. Usa
@@ -233,7 +284,7 @@ Cada opción tiene su motivo:
 - El formateador se crea **una sola vez**, cuando se carga el módulo, y no en
   cada llamada, porque crearlo es relativamente caro.
 
-#### 4.4 Cómo se combinan en una reserva
+#### 5.4 Cómo se combinan en una reserva
 
 ```
 body.inicio "2026-11-02T10:00:00-03:00"
@@ -249,7 +300,7 @@ Date 2026-11-02T13:00:00Z  ──────────────► se guar
 El recorrido completo está en
 [`../temas/horarios-y-agendamiento.md`](../temas/horarios-y-agendamiento.md#parte-3-del-instante-a-la-hora-local).
 
-#### 4.5 Por qué los tests corren en UTC
+#### 5.5 Por qué los tests corren en UTC
 
 `vitest.config.ts` fija `env: { TZ: 'UTC' }`. Si alguien usara `getHours()`
 en lugar de `aHoraLocal`, en una máquina en Argentina el test podría **pasar
@@ -273,8 +324,10 @@ máquinas. Así se simula el servidor real y el error no llega a producción.
 
 ## Resumen
 
-- `cuerpoComoObjeto` comprueba que el body sea un objeto y le da un tipo
-  seguro.
+- `esObjetoJson` y `cuerpoComoObjeto` comprueban que el body sea un objeto y
+  le dan un tipo seguro.
+- `validarCampos` + `exigido` son la base de todos los DTO: rechazan campos de
+  más, tipos incorrectos y faltantes, y devuelven un objeto nuevo.
 - `esDelTipo` + `DESCRIPCION_TIPO` validan tipos a partir del **texto** de
   `typeof`, porque los tipos de TypeScript no existen al ejecutar.
 - `conPasswordHasheada` valida y hashea el password solo si viene, y devuelve

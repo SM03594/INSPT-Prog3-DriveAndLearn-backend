@@ -84,44 +84,6 @@ describe('alumno.service', () => {
       expect(alumno.clasesPorReservar).toBe(0);
     });
 
-    it('rechaza que el cliente envíe clasesPorReservar', async () => {
-      await expect(
-        crear({ ...datosValidos, clasesPorReservar: 100 }),
-      ).rejects.toThrow(/clasesPorReservar/);
-    });
-
-    it.each([
-      [{ email: 123, password: 'clave', nomApe: 'Ana' }],
-      [{ email: 'ana@example.com', password: null, nomApe: 'Ana' }],
-      [{ email: 'ana@example.com', password: 'clave', nomApe: false }],
-    ])('rechaza tipos inválidos al crear (%j)', async (datos) => {
-      await expect(crear(datos)).rejects.toThrow(
-        'Email, contraseña y nombre y apellido son obligatorios',
-      );
-    });
-
-    it('rechaza si falta el email', async () => {
-      const { email: _omitido, ...sinEmail } = datosValidos;
-
-      await expect(crear(sinEmail)).rejects.toThrow(
-        'Email, contraseña y nombre y apellido son obligatorios',
-      );
-    });
-
-    it('rechaza si falta la password', async () => {
-      const { password: _omitido, ...sinPassword } = datosValidos;
-
-      await expect(crear(sinPassword)).rejects.toThrow(
-        'Email, contraseña y nombre y apellido son obligatorios',
-      );
-    });
-
-    it('rechaza campos extra aunque su valor sea válido', async () => {
-      await expect(
-        crear({ ...datosValidos, rol: 'administrador' }),
-      ).rejects.toThrow(/rol/);
-    });
-
     it('tira ErrorClaveDuplicada (409) si el email ya existe', async () => {
       await crear(datosValidos);
 
@@ -213,58 +175,11 @@ describe('alumno.service', () => {
       expect(actualizado?.password).toBe(creado.password);
     });
 
-    it('rechaza clasesPorReservar: el saldo se cambia con sumar/restar', async () => {
-      const creado = await crear(datosValidos);
-
-      const promesa = actualizar(creado._id.toString(), { clasesPorReservar: 5 });
-      await expect(promesa).rejects.toBeInstanceOf(ErrorDeNegocio);
-      await expect(promesa).rejects.toThrow(
-        'No se pueden modificar estos campos: clasesPorReservar (el saldo de clases se cambia con sumar-clases / restar-clases)',
-      );
-    });
-
-    it.each([
-      [{ rol: 'administrador' }, 'rol'],
-      [{ _id: ID_INEXISTENTE }, '_id'],
-      [{ nomApe: 'X', color: 'rojo' }, 'color'],
-    ])('rechaza campos que no se pueden modificar (%j)', async (cambios, campo) => {
-      const creado = await crear(datosValidos);
-
-      await expect(actualizar(creado._id.toString(), cambios)).rejects.toThrow(
-        `No se pueden modificar estos campos: ${campo}`,
-      );
-    });
-
-    it('rechaza un objeto vacío', async () => {
-      const creado = await crear(datosValidos);
-
-      await expect(actualizar(creado._id.toString(), {})).rejects.toThrow(
-        'Debe indicarse al menos un campo para actualizar',
-      );
-    });
-
-    it.each([
-      [{ email: 123 }, 'El email debe ser un texto'],
-      [{ nomApe: 123 }, 'El nombre y apellido debe ser un texto'],
-      [{ nomApe: null }, 'El nombre y apellido debe ser un texto'],
-      [{ password: 12345678 }, 'La contraseña debe ser un texto'],
-    ])('rechaza tipos incorrectos (%j)', async (cambios, mensaje) => {
-      const creado = await crear(datosValidos);
-
-      await expect(actualizar(creado._id.toString(), cambios)).rejects.toThrow(mensaje);
-    });
-
     it('rechaza un email sin formato válido (runValidators)', async () => {
       const creado = await crear(datosValidos);
 
       await expect(actualizar(creado._id.toString(), { email: 'hola' })).rejects.toThrow(
         'El email no tiene un formato válido',
-      );
-    });
-
-    it('valida los cambios antes de buscar al alumno', async () => {
-      await expect(actualizar(ID_INEXISTENTE, { color: 'rojo' })).rejects.toThrow(
-        /No se pueden modificar/,
       );
     });
 
@@ -324,7 +239,8 @@ describe('alumno.service', () => {
       await expect(promesa).rejects.toThrow('La cantidad a sumar debe ser mayor que 0');
     });
 
-    it.each([undefined, null, '2', 1.5, Number.NaN])(
+    // Que sea un número lo garantiza el DTO: acá queda la regla.
+    it.each([1.5, Number.NaN])(
       'rechaza una cantidad que no es un número entero (%s)',
       async (cantidad) => {
         const creado = await crear(datosValidos);
@@ -336,7 +252,7 @@ describe('alumno.service', () => {
     );
 
     it('valida la cantidad antes de buscar al alumno', async () => {
-      await expect(sumarClasesPorReservar(ID_INEXISTENTE, '2')).rejects.toThrow(
+      await expect(sumarClasesPorReservar(ID_INEXISTENTE, 1.5)).rejects.toThrow(
         /número entero/,
       );
     });
@@ -374,7 +290,7 @@ describe('alumno.service', () => {
       ).rejects.toThrow('La cantidad a restar debe ser mayor que 0');
     });
 
-    it.each([undefined, '1', 0.5])(
+    it.each([0.5])(
       'rechaza una cantidad que no es un número entero (%s)',
       async (cantidad) => {
         const creado = await crear(datosValidos);

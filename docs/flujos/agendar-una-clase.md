@@ -45,8 +45,8 @@ POST /api/clases   Authorization: Bearer <token de Ana>
  │
  ▼ clase.routes        requireAuthentication → validacionDeCuerpo
  ▼ clase.controller    actorDe(req) → { id: Ana, rol: 'alumno' }
+ │   ① aCrearClaseDto           ¿campos permitidos para su rol? ¿texto? ¿todos?      400
  ▼ clase.service.crear
- │   ① validarDatosCrear        ¿campos permitidos para su rol? ¿están todos?        400
  │   ② validarActor             ¿la cuenta del token sigue existiendo?               403
  │   ③ obtenerInstantes         ISO con zona · 1 h exacta · sin segundos · futura     400
  │   ④ objectId                 ¿los ids tienen formato válido?                       400
@@ -76,27 +76,29 @@ router.post('/', validacionDeCuerpo, claseController.crear);
 ```
 
 A diferencia de autos o profesores, **no** hay `requireAdministrator`:
-pueden reservar tanto los alumnos como los admins. Qué puede hacer cada uno lo
-decide el **service** según el rol.
+pueden reservar tanto los alumnos como los admins. Qué puede mandar cada uno lo
+decide el **DTO** según el rol, y qué puede hacer, el **service**.
 
 ### Paso 2. El controller: quién reserva
 
-`src/controllers/clase.controller.ts:37`:
+`src/controllers/clase.controller.ts:38`:
 
 ```ts
 export async function crear(req: Request, res: Response) {
-  const clase = await claseService.crear(req.body, actorDe(req));
+  const actor = actorDe(req);
+  const clase = await claseService.crear(aCrearClaseDto(req.body, actor.rol), actor);
   res.status(201).json(clase);
 }
 ```
 
-`actorDe` (`:14`) convierte `req.auth` en un `ActorClase { id, rol }`, que es
+`actorDe` (`:15`) convierte `req.auth` en un `ActorClase { id, rol }`, que es
 lo que entiende el service. Ver
 [`../capas/06-controllers.md`](../capas/06-controllers.md#2-leer-la-entrada).
 
-### Paso 3. ① Campos según el rol
+### Paso 3. ① Campos según el rol: el DTO
 
-`src/services/clase.service.ts:92` (`validarDatosCrear`):
+`aCrearClaseDto` (`src/dtos/clase.dto.ts:44`) recibe el rol, porque el
+**contrato** de la reserva depende de quién reserva:
 
 | Quién reserva | Campos permitidos | De quién es la clase |
 |---|---|---|
@@ -106,20 +108,24 @@ lo que entiende el service. Ver
 Un alumno **no puede** reservar a nombre de otro:
 
 ```
-Ana manda { ..., "alumno": "<id de Beto>" }  → 400 "Campos no permitidos: alumno"
-Admin sin "alumno"                           → 400 "alumno es obligatorio"
+Ana manda { ..., "alumno": "<id de Beto>" }  → 400 "No se pueden enviar estos campos: alumno"
+Admin sin "alumno"                           → 400 "El alumno es obligatorio"
 Admin con "alumno": "<id de Beto>"           → 201 (la clase es de Beto y se descuenta del saldo de Beto)
 ```
+El DTO revisa la **forma**: qué campos, y que cada uno sea un texto. Que el
+texto sea un id válido o una fecha con zona horaria lo revisa el service, en
+los pasos 5 y 6.
+
 
 ### Paso 4. ② La cuenta sigue activa
 
-`validarActor` (`:158`) busca al alumno o al admin del token. Si lo borraron
+`validarActor` (`:53`) busca al alumno o al admin del token. Si lo borraron
 mientras el token seguía vigente, responde 403 "La cuenta autenticada ya no
 está activa".
 
 ### Paso 5. ③ Las fechas
 
-`obtenerInstantes` (`:175`) usa `parsearInstante` y comprueba:
+`obtenerInstantes` (`:70`) usa `parsearInstante` y comprueba:
 
 | Regla | Pedido que la rompe | Respuesta |
 |---|---|---|
@@ -129,17 +135,17 @@ está activa".
 | En el futuro | `2025-01-06T12:00:00-03:00` | 400 "La clase debe reservarse para una fecha futura" |
 
 Por qué se exige la zona se explica en
-[`../capas/10-utils-y-fechas.md`](../capas/10-utils-y-fechas.md#41-el-problema-date-es-un-instante-no-una-hora-de-reloj).
+[`../capas/10-utils-y-fechas.md`](../capas/10-utils-y-fechas.md#51-el-problema-date-es-un-instante-no-una-hora-de-reloj).
 
 ### Paso 6. ④ Formato de los ids
 
-`objectId` (`:153`): `"profesor": "abc"` → 400 "profesor debe ser un
+`objectId` (`:48`): `"profesor": "abc"` → 400 "profesor debe ser un
 identificador válido". Un id con formato válido que no existe pasa este paso
 y lo frena el siguiente.
 
 ### Paso 7. ⑤ ¿Es posible esta clase?
 
-`validarDisponibilidad` (`:197`) carga en paralelo el profesor, el auto y el
+`validarDisponibilidad` (`:92`) carga en paralelo el profesor, el auto y el
 horario de la escuela, y comprueba:
 
 ```
@@ -175,7 +181,7 @@ superposición se calcula con `inicio < otro.fin && fin > otro.inicio`, y
 
 ### Paso 8. ⑥ Descontar el crédito
 
-`clase.service.ts:337`:
+`clase.service.ts:238`:
 
 ```ts
 const alumno = await AlumnoModel.findOneAndUpdate(
@@ -233,7 +239,7 @@ problemas, que termina en un 500.
 
 ### Paso 11. Consultar las reservas
 
-`GET /api/clases` (`clase.service.ts:303`):
+`GET /api/clases` (`clase.service.ts:198`):
 
 - Un **alumno** recibe solo **sus** clases, ordenadas por `inicio`. Ana ve 2.
 - Un **admin** recibe **todas**: en el ejemplo, 3.
@@ -247,12 +253,14 @@ Ordenado según el paso que lo detecta:
 | Pedido | Respuesta real |
 |---|---|
 | Sin token | 401 "Se requiere autenticación válida" |
-| Alumno manda `alumno` | 400 "Campos no permitidos: alumno" |
-| Falta `auto` | 400 "auto es obligatorio" |
+| Alumno manda `alumno` | 400 "No se pueden enviar estos campos: alumno" |
+| Manda `estado` | 400 "No se pueden enviar estos campos: estado" |
+| Falta `auto` | 400 "El auto es obligatorio" |
+| `profesor: 123` | 400 "El profesor debe ser un texto" |
 | Fecha sin zona | 400 "inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
 | 2 horas | 400 "La duración de la clase debe ser exactamente una hora" |
 | Fecha pasada | 400 "La clase debe reservarse para una fecha futura" |
-| `profesor: "abc"` | 400 "profesor debe ser un identificador válido" |
+| `profesor: "abc"` | 400 "profesor debe ser un identificador válido" (el formato del mensaje está en I-51) |
 | Profesor inexistente | 404 "Profesor no encontrado" |
 | Auto fuera de servicio | 409 "El auto no está disponible para reservas" |
 | Horario de la escuela sin cargar | 409 "Todavía no se configuró el horario de la escuela" |

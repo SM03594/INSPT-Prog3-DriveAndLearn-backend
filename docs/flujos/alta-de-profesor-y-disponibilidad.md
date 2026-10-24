@@ -56,21 +56,21 @@ Ruta → controller → service:
 ```ts
 router.post('/', requireAdministrator, validacionDeCuerpo, profesorController.crear);   // routes :19
 
-const profesor = await profesorService.crear(cuerpoComoObjeto(req.body));             // controller :18
+const profesor = await profesorService.crear(aCrearProfesorDto(req.body));            // controller :20
 res.status(201).json(profesor);
 ```
 
-`src/services/profesor.service.ts:93`:
+`aCrearProfesorDto` (`src/dtos/profesor.dto.ts:38`) acepta **solo** `nomApe`,
+como texto y obligatorio. El service (`src/services/profesor.service.ts:62`)
+aplica la regla que falta: que el nombre no quede vacío.
 
 ```ts
-export async function crear(datosEntrada: unknown): Promise<ProfesorDoc> {
-  const datos = validarObjeto(datosEntrada, 'El cuerpo de la petición');
-  rechazarCamposNoPermitidos(datos, CAMPOS_CREACION);          // solo ['nomApe']
+export async function crear(datos: CrearProfesorDto): Promise<ProfesorDoc> {
   return ProfesorModel.create({ nomApe: nombreObligatorio(datos.nomApe) });
 }
 ```
 
-El service acepta **solo** `nomApe`, y arma el objeto a guardar él mismo. La
+`nombreObligatorio` (`:19`) rechaza un nombre que solo tiene espacios. La
 disponibilidad no se puede mandar al crear: arranca vacía por el `default`
 del modelo (`crearCalendarioSemanal`, una función, para que cada profesor
 tenga su propio calendario).
@@ -88,8 +88,14 @@ POST /api/profesores
 
 | Body | Respuesta |
 |---|---|
-| `{ "nomApe": "X", "disponibilidad": {} }` | 400 "Campos no permitidos: disponibilidad" |
-| `{}` o `{ "nomApe": "  " }` | 400 "El nombre y apellido del profesor es obligatorio" |
+| `{ "nomApe": "X", "disponibilidad": {} }` | 400 "No se pueden enviar estos campos: disponibilidad" (DTO) |
+| `{}` | 400 "El nombre y apellido es obligatorio" (DTO) |
+| `{ "nomApe": 123 }` | 400 "El nombre y apellido debe ser un texto" (DTO) |
+| `{ "nomApe": "  " }` | 400 "El nombre y apellido del profesor es obligatorio" (service) |
+
+Los dos mensajes de "obligatorio" no coinciden porque vienen de capas
+distintas: el DTO dice que **falta** el campo, y el service, que llegó
+**vacío**. Está registrado como I-51.
 | Con el token de un alumno | 403 "Se requieren permisos de administrador" |
 
 ### Paso 2. Consultar
@@ -101,37 +107,47 @@ cuándo están disponibles para elegir al reservar. La respuesta incluye la
 
 ### Paso 3. Cambiar el nombre
 
-`src/services/profesor.service.ts:111`:
+Controller (`profesor.controller.ts:33`) → service (`profesor.service.ts:78`):
 
 ```ts
-return ProfesorModel.findByIdAndUpdate(id, { nomApe }, { new: true, runValidators: true });
+const { nomApe } = aCambiarNomApeDto(req.body);                       // controller
+const profesor = await profesorService.cambiarNomApe(req.params.id, nomApe);
+
+return ProfesorModel.findByIdAndUpdate(                                // service
+  id, { nomApe: nombreObligatorio(nomApe) }, { new: true, runValidators: true },
+);
 ```
 
-A diferencia de `crear`, este service **no valida** el valor: lo pasa directo
-a Mongoose. Comportamiento real:
+Tiene las mismas validaciones que el alta: el DTO exige `nomApe` como texto, y
+el service, que no quede vacío. Comportamiento real:
 
 | Body | Respuesta |
 |---|---|
 | `{ "nomApe": "Juan A. Gómez" }` | 200, nombre cambiado |
-| `{ "nomApe": "" }` | 400 "El nombre y apellido es obligatorio" (lo frena el `required` del esquema) |
-| `{ "nomApe": 123 }` | **200**, el nombre pasa a ser `"123"` (Mongoose convierte el número a texto) |
-| `{ "otro": "x" }` (sin `nomApe`) | **200** sin ningún cambio: `{ nomApe: undefined }` no modifica nada |
+| `{ "nomApe": "" }` o `"  "` | 400 "El nombre y apellido del profesor es obligatorio" |
+| `{ "nomApe": 123 }` | 400 "El nombre y apellido debe ser un texto" |
+| `{}` | 400 "El nombre y apellido es obligatorio" |
+| `{ "otro": "x" }` | 400 "No se pueden enviar estos campos: otro" |
 | Profesor inexistente | 404 "Profesor no encontrado" |
 
-Los dos casos en negrita deberían ser errores 400. Está registrado como I-34.
+Antes de los DTO, `123` se guardaba como `"123"` y un body sin `nomApe`
+respondía 200 sin cambiar nada (I-34, ya resuelta).
 
 ### Paso 4. La foto de perfil
 
-`fotoComoBuffer` (`profesor.service.ts:70`) convierte lo que llegue en bytes
-(`Buffer`):
+`aCambiarFotoDto` (`src/dtos/profesor.dto.ts:55`) exige que el body traiga
+`foto`, y nada más. El **tipo** no lo revisa: la foto puede llegar en varios
+formatos, y la que los convierte es `fotoComoBuffer`
+(`profesor.service.ts:39`), que pasa lo que llegue a bytes (`Buffer`):
 
 | `foto` recibida | Se guarda |
 |---|---|
 | Un texto | Se interpreta como **base64** |
 | Un array de números entre 0 y 255 | Esos bytes |
 | `{ "type": "Buffer", "data": [...] }` | Esos bytes (el formato en que la API devuelve un `Buffer`) |
-| `undefined` o `null` | Un buffer **vacío**, o sea que borra la foto |
+| `null` | Un buffer **vacío**, o sea que borra la foto |
 | Otra cosa (un número, por ejemplo) | 400 "La foto debe enviarse en base64 o como bytes" |
+| Body sin `foto` (`{}`) | 400 "La foto es obligatoria" (DTO) |
 
 En la respuesta, la foto viene como un **array de números**:
 
@@ -143,7 +159,9 @@ Hay varios detalles a tener en cuenta, todos comprobados (I-35):
 
 - **Cualquier texto se acepta como base64.** `"esto no es base64 !!!"` se
   guarda como 10 bytes sin sentido. No se comprueba que sea una imagen.
-- **Mandar el body sin `foto` borra la foto actual.**
+- **`{ "foto": null }` borra la foto actual.** Antes la borraba también un
+  body sin `foto`; ahora eso responde 400. Falta decidir si `null` es la forma
+  de borrar la foto o si también se rechaza.
 - **El límite real es ~75 KB, no 2 MiB.** El modelo permite hasta 2 MiB
   (`Profesor.ts:12`), pero `express.json()` corta cualquier body de más de
   100 KB **antes** de llegar al service: una foto de 3 MB responde 413 "El
@@ -159,17 +177,21 @@ Hay varios detalles a tener en cuenta, todos comprobados (I-35):
 router.post('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo,
             profesorController.agregarDisponibilidad);                        // routes :24
 
-const body = cuerpoComoObjeto(req.body);                                      // controller :63
-const profesor = await profesorService.agregarDisponibilidad(req.params.id, body.dia, body.tramo);
+const { dia, tramo } = aAgregarTramoDto(req.body);                             // controller :65
+const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia, tramo);
 ```
 
-`src/services/profesor.service.ts:139`:
+`aAgregarTramoDto` es el **mismo DTO** que usa el horario de la escuela
+(`src/dtos/calendarioSemanal.dto.ts:63`). Después, el service
+(`src/services/profesor.service.ts:106`):
 
 ```
+aAgregarTramoDto ─────── (en el controller)
+                         falta dia o tramo → 400 "El día es obligatorio" / "El tramo es obligatorio"
+                         dia no es texto → 400 "El día debe ser un texto"
+                         tramo no es objeto → 400 "El tramo debe ser un objeto"
 findById(id) ─────────── null → controller responde 404 "Profesor no encontrado"
-diaObligatorio(dia) ──── no es texto → 400 "El día debe ser un texto"
-                         no es un día válido → 400 'Día inválido: "Lunes". Debe ser uno de: lunes, ...'
-tramoComoDatos(tramo) ── no es un objeto → 400 "El tramo debe ser un objeto"
+validarDia(dia) ──────── no es un día válido → 400 'Día inválido: "Lunes". Debe ser uno de: lunes, ...'
 agregarTramo(profesor.disponibilidad, dia, tramo)   ← calendarioSemanal.service: solo hace push
 profesor.save() ──────── acá valida el ESQUEMA del tramo:
                            hora 0–23, minuto 0–59, enteros, horaInicio y horaFin obligatorias
@@ -197,7 +219,9 @@ POST /api/profesores/6ada695b.../disponibilidad
 
 | Tramo enviado | Respuesta |
 |---|---|
-| Sin `tramo` | 400 "El tramo debe ser un objeto" |
+| Sin `tramo` | 400 "El tramo es obligatorio" |
+| `tramo: "mañana"` | 400 "El tramo debe ser un objeto" |
+| `hora: "x"` | 400 'Cast to Number failed for value "x" (type string) at path "hora"' (un mensaje interno de Mongoose: I-47) |
 | Fin antes que el inicio (13 → 9) | 400 "La hora de fin debe ser posterior a la de inicio" |
 | `minuto: 60` | 400 "Los minutos deben estar entre 0 y 59" |
 | Sin `horaFin` | 400 "La hora de fin es obligatoria" |
@@ -210,7 +234,9 @@ DELETE /api/profesores/6ada695b.../disponibilidad
 { "dia": "lunes", "tramoId": "6ada695c...285" }
 ```
 
-Es un `DELETE` **con body** (ver I-24). El service (`:156`) busca el tramo por
+Es un `DELETE` **con body** (ver I-24). El controller usa `aQuitarTramoDto`,
+compartido con el horario: `tramoId` tiene que ser un texto (`123` responde
+400 "El identificador del tramo debe ser un texto"). El service (`:122`) busca el tramo por
 `_id` **en ese día** y lo saca con `quitarTramo`, que devuelve `true` o
 `false`.
 
@@ -244,10 +270,12 @@ Hay tres cosas que **no** se controlan al cargar la disponibilidad:
 
 | Pedido | Respuesta real |
 |---|---|
-| Crear con campos extra | 400 "Campos no permitidos: …" |
-| Crear sin nombre | 400 "El nombre y apellido del profesor es obligatorio" |
+| Crear con campos extra | 400 "No se pueden enviar estos campos: …" |
+| Crear sin nombre | 400 "El nombre y apellido es obligatorio" |
+| Crear con el nombre vacío (`"  "`) | 400 "El nombre y apellido del profesor es obligatorio" (I-51) |
 | Un alumno crea o modifica | 403 "Se requieren permisos de administrador" |
-| Cambiar el nombre a un número | 200, se guarda como texto (I-34) |
+| Cambiar el nombre a un número | 400 "El nombre y apellido debe ser un texto" |
+| Cambiar la foto sin mandar `foto` | 400 "La foto es obligatoria" |
 | Foto de más de ~75 KB | 413 "El cuerpo de la petición es demasiado grande" |
 | Foto como número | 400 "La foto debe enviarse en base64 o como bytes" |
 | Día `"Lunes"` (mayúscula) | 400 'Día inválido: "Lunes". Debe ser uno de: …' |
@@ -262,11 +290,12 @@ Hay tres cosas que **no** se controlan al cargar la disponibilidad:
 - **Alta:** solo `nomApe`. La disponibilidad arranca vacía.
 - **Consulta:** abierta a cualquier usuario con token. Trae la disponibilidad
   y la foto.
-- **Nombre y foto:** cambian por `PATCH`, con validaciones más débiles que el
-  alta (I-34, I-35).
-- **Disponibilidad:** se agrega de a un tramo por día. El service valida el
-  día y que el tramo sea un objeto, y Mongoose valida los números al hacer
-  `.save()`. Cada tramo tiene un `_id`, que es lo que se usa para quitarlo.
+- **Nombre y foto:** cambian por `PATCH`. El nombre tiene las mismas
+  validaciones que el alta. La foto se exige, pero su contenido se valida poco
+  (I-35).
+- **Disponibilidad:** se agrega de a un tramo por día. El DTO, compartido con
+  el horario de la escuela, valida la forma; el service, que el día exista; y
+  Mongoose valida los números al hacer `.save()`. Cada tramo tiene un `_id`, que es lo que se usa para quitarlo.
 - La disponibilidad solo se cruza con el horario de la escuela **al
   reservar**.
 

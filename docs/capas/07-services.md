@@ -2,10 +2,10 @@
 
 ## Qué es esto, en una frase
 
-Un service es donde se decide **qué se puede hacer y qué no**: valida los datos
-que llegan, aplica las reglas de negocio ("un alumno sin saldo no puede
-reservar") y lee o escribe en la base a través de los models. No sabe que
-existe HTTP: recibe argumentos comunes y devuelve datos, o lanza un error.
+Un service es donde se decide **qué se puede hacer y qué no**: aplica las
+reglas de negocio ("un alumno sin saldo no puede reservar") y lee o escribe en
+la base a través de los models. No sabe que existe HTTP: recibe un DTO ya
+validado (o argumentos comunes) y devuelve datos, o lanza un error.
 
 ---
 
@@ -59,44 +59,38 @@ El tipo de retorno es el **contrato** con quien las llama:
 `null` no es un error: que un id no exista es un resultado esperado. Lanzar
 queda reservado para cuando el pedido **no se puede cumplir**.
 
-### 2. Validar lo que llega: `unknown` hasta demostrar lo contrario
+### 2. Recibe un DTO: la forma ya viene validada
 
-El service es la **última puerta** antes de la base, así que valida todo lo que
-viene del cliente. Un buen ejemplo es el registro de alumnos
-(`src/services/alumno.service.ts:40`):
+El service **no** comprueba qué campos mandó el cliente ni de qué tipo son: de
+eso se encarga el **DTO**, que arma el controller antes de llamarlo (ver
+[`06b-dtos.md`](06b-dtos.md)). El service recibe el DTO tipado y se queda con
+las **reglas** (`src/services/alumno.service.ts:41`):
 
 ```ts
-const CAMPOS_CREACION = ['email', 'password', 'nomApe'] as const;
-
-function validarDatosCreacion(datosEntrada: unknown): Alumno {
-  // 1. ¿es un objeto?                              si no → 400
-  // 2. ¿trae solo email, password y nomApe?        si no → 400 "No se pueden enviar estos campos..."
-  // 3. ¿los tres son texto?                        si no → 400
-  return {
-    email: datos.email,
-    password: datos.password,
-    nomApe: datos.nomApe,
-    clasesPorReservar: 0,      // ← lo fija el service, nunca el cliente
-  };
+export async function crear(datos: CrearAlumnoDto): Promise<AlumnoDoc> {
+  // regla: el saldo inicial lo fija el service, nunca el cliente
+  const datosAGuardar = await conPasswordHasheada({ ...datos, clasesPorReservar: 0 });
+  ...
 }
 ```
 
-El paso 2 y la última línea son **reglas de seguridad**. Si el service
-aceptara cualquier campo, alguien podría registrarse con
-`{ "clasesPorReservar": 100 }` y obtener clases gratis. El saldo inicial lo
-decide el negocio, no el cliente.
+Esa línea es una **regla de seguridad** en dos partes. El DTO no deja pasar un
+`clasesPorReservar` mandado por el cliente: responde 400. Y el service fija el
+saldo en 0 él mismo. Si se aceptara cualquier campo, alguien podría
+registrarse con `{ "clasesPorReservar": 100 }` y obtener clases gratis.
 
-**En el proyecto conviven dos estilos de validación:**
+Algunos ejemplos de lo que queda en cada lugar:
 
-| Estilo | Services | Cómo funciona |
-|---|---|---|
-| **Explícito** | `alumno`, `profesor`, `clase`, `auth` | Reciben `unknown`, rechazan campos que no esperan y comprueban los tipos con `typeof` o con `esDelTipo`. |
-| **Confiar en el esquema** | `auto`, `administrador` | Declaran `crear(datos: Auto)`, pero en realidad reciben el `req.body` sin revisar. Las validaciones las hace Mongoose al guardar, y los campos desconocidos se descartan **en silencio** (modo `strict` de Mongoose). |
+| En el DTO (forma) | En el service (reglas) |
+|---|---|
+| `cantidad` es un número | `cantidad` es entera y mayor que 0 |
+| `nomApe` es un texto | El nombre no puede quedar vacío (`"   "`) |
+| `dia` es un texto, `tramo` es un objeto | El día existe (`validarDia`) |
+| La reserva trae `profesor`, `auto`, `inicio`, `fin` | Ids válidos, fecha ISO, 1 hora, horario, saldo |
 
-El segundo estilo funciona, pero el tipo **miente**: `datos: Auto` promete algo
-que nadie comprobó. Como `req.body` es `any`, TypeScript no puede avisarlo. El
-estilo explícito es más largo, pero da mensajes claros y no descarta campos sin
-avisar.
+El service confía en el tipo del DTO. Esa confianza solo existe al compilar:
+si alguien le pasara `req.body` directamente, compilaría igual, porque es
+`any`. Por eso todo body tiene que pasar por su DTO en el controller.
 
 ### 3. Romper una regla: `ErrorDeNegocio`
 
@@ -119,7 +113,7 @@ function errorConflicto(mensaje: string): ErrorDeNegocio {
 }
 ```
 
-`profesor.service` y `clase.service` tienen además un helper `exigir`, que
+`clase.service` tiene además un helper `exigir`, que
 convierte una condición en un error y le avisa a TypeScript que, si no lanzó,
 la condición se cumple (`asserts condicion`):
 
@@ -132,7 +126,7 @@ exigir(auto.activo, 'El auto no está disponible para reservas', 409);
 
 El email de un usuario y la patente de un auto son `unique` en el esquema. Si
 se repiten, MongoDB lanza un error **crudo** (`code: 11000`). El service lo
-atrapa y lo convierte en un error del proyecto (`auto.service.ts:31`):
+atrapa y lo convierte en un error del proyecto (`auto.service.ts:32`):
 
 ```ts
 try {
@@ -154,7 +148,7 @@ cambios y sigue su camino.
 **actualizar**:
 
 ```ts
-const datosAGuardar = await conPasswordHasheada(validarDatosCreacion(datosEntrada));
+const datosAGuardar = await conPasswordHasheada({ ...datos, clasesPorReservar: 0 });
 ```
 
 Si los datos traen `password`, la función comprueba que tenga al menos 8
@@ -163,7 +157,7 @@ una edición que solo cambia el nombre, devuelve los datos sin tocarlos.
 
 ### 6. Dos formas de modificar un documento
 
-**A. `findByIdAndUpdate`, en un solo paso** (`auto.service.ts:50`):
+**A. `findByIdAndUpdate`, en un solo paso** (`auto.service.ts:51`):
 
 ```ts
 AutoModel.findByIdAndUpdate(id, cambios, { new: true, runValidators: true });
@@ -193,7 +187,7 @@ La forma B tiene un punto débil. Entre el `findById` y el `.save()` pasa
 tiempo: si dos pedidos llegan a la vez, los dos leen el mismo saldo. Para
 operaciones administrativas poco frecuentes, como sumar clases, no es un
 problema. Para **reservar**, donde muchos alumnos compiten, `clase.service`
-usa una operación **condicional y atómica** (`clase.service.ts:337`):
+usa una operación **condicional y atómica** (`clase.service.ts:238`):
 
 ```ts
 AlumnoModel.findOneAndUpdate(
@@ -240,7 +234,7 @@ mantener la lógica fuera de los controllers.
 | Un update guarda un valor inválido | Falta `runValidators: true` en `findByIdAndUpdate`. |
 | La contraseña queda en texto plano | Se guardó sin pasar por `conPasswordHasheada`. |
 | Un email repetido responde 500 en lugar de 409 | Falta el `try/catch` con `verSiErrorClaveDuplicada` alrededor del `create` o `update`. |
-| Un campo enviado "no se guarda" y nadie avisa | El service confía en el esquema, y Mongoose descarta en silencio los campos que no conoce. |
+| Un campo enviado "no se guarda" y nadie avisa | El controller no pasó el body por el DTO, y Mongoose descarta en silencio los campos que no conoce. |
 | Dos reservas simultáneas dejan el saldo en negativo | Se usó buscar → modificar → guardar en lugar de una operación atómica con condición. |
 | Un service importa `Request` de Express | Se mezcló HTTP con negocio. El service tiene que recibir argumentos comunes. |
 
@@ -248,12 +242,11 @@ mantener la lógica fuera de los controllers.
 
 ## Resumen
 
-- Un service **valida**, **aplica reglas** y **persiste**. No conoce HTTP.
+- Un service **aplica reglas** y **persiste**. No conoce HTTP.
 - Contrato: devuelve un valor, devuelve `null` (no existe) o lanza un error (no
   se puede).
-- Trata lo que llega como `unknown`: acepta solo los campos esperados y los
-  valores que **no debe** elegir el cliente (como el saldo inicial) los fija
-  él mismo.
+- Recibe un DTO con la forma ya validada. Los valores que **no debe** elegir
+  el cliente (como el saldo inicial) los fija él mismo.
 - Traduce los errores crudos de MongoDB (`11000`) a errores del proyecto con
   mensaje propio.
 - Para modificar, usa `findByIdAndUpdate` con `runValidators`, o buscar →

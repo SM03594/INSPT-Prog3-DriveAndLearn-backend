@@ -20,7 +20,8 @@ src/
 ├── routes/          URL + verbo  →  qué middlewares y qué controller
 ├── middlewares/     filtros que corren antes del controller (auth, body)
 │                    y el manejador central de errores
-├── controllers/     traducen HTTP ↔ service (req → argumentos, resultado → res)
+├── controllers/     traducen HTTP ↔ service (req → DTO, resultado → res)
+├── dtos/            el contrato de cada operación: qué campos puede mandar el cliente
 ├── services/        reglas de negocio: qué se puede hacer y qué no
 ├── models/          esquemas de Mongoose: forma y validación de los datos
 │
@@ -31,7 +32,7 @@ src/
 └── scripts/         tareas sueltas por consola (crear el primer admin)
 ```
 
-Las seis primeras forman la **cadena del pedido**. Las demás son **de apoyo**:
+Las siete primeras forman la **cadena del pedido**. Las demás son **de apoyo**:
 cualquier capa las puede usar.
 
 ---
@@ -44,10 +45,11 @@ Cada capa importa solo a la que tiene **debajo**, nunca a la de arriba:
  routes ──────► middlewares ──► services (solo auth: ¿el admin existe?)
    │
    ▼
- controllers
+ controllers ─► dtos ────────► utils (validarCampos) · errors · types
    │
    ▼
  services ────► errors · utils · config · types
+   │             (y los TIPOS de los dtos: CrearAutoDto, ...)
    │
    ▼
  models ──────► types
@@ -57,6 +59,8 @@ Algunas consecuencias que podés verificar en el código:
 
 - Ningún service toca `req` ni `res`: no sabe que existe HTTP.
 - Ningún controller importa un `Model`: siempre pasa por un service.
+- Ningún service llama a una función `aXDto`: solo importa los **tipos** de los
+  DTO. La conversión del body la hace el controller.
 - `models/` no importa services ni controllers.
 
 Esto permite testear un service con un objeto común (sin simular un pedido
@@ -149,11 +153,11 @@ función". Los middlewares se explican en detalle en
 
 ### 4. El controller: de HTTP a función
 
-`src/controllers/auto.controller.ts:38`:
+`src/controllers/auto.controller.ts:39`:
 
 ```ts
 export async function cambiarActivo(req: Request<{ id: string }>, res: Response) {
-  const auto = await autoService.cambiarEstado(req.params.id, req.body.activo);
+  const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
   if (auto === null) {
     return res.status(404).json({ mensaje: 'Auto no encontrado' });
   }
@@ -161,27 +165,31 @@ export async function cambiarActivo(req: Request<{ id: string }>, res: Response)
 }
 ```
 
-El controller **no decide nada del negocio**. Saca los datos de `req`, llama
-al service con argumentos comunes (`string`, `unknown`) y convierte el
-resultado en una respuesta HTTP. `null` se traduce en 404, y un auto en 200.
+El controller **no decide nada del negocio**. Saca los datos de `req`,
+convierte el body en un DTO y llama al service. Después convierte el resultado
+en una respuesta HTTP: `null` se traduce en 404, y un auto en 200.
+
+`aCambiarActivoDto` (`src/dtos/auto.dto.ts:73`) comprueba la **forma** del
+body: que traiga `activo`, que sea un booleano de verdad (`"false"` como texto
+no sirve) y que no traiga otros campos. Si algo no cumple, lanza un error 400
+y el service ni se entera. Ver [`06b-dtos.md`](06b-dtos.md).
 
 ### 5. El service: las reglas
 
-`src/services/auto.service.ts:64`:
+`src/services/auto.service.ts:66`:
 
 ```ts
-export async function cambiarEstado(id: string, estadoNuevo: unknown): Promise<AutoDoc | null> {
-  if (typeof estadoNuevo !== 'boolean') {
-    throw new ErrorDeNegocio('activo debe ser un valor booleano');
-  }
+export async function cambiarEstado(id: string, estadoNuevo: boolean): Promise<AutoDoc | null> {
   return AutoModel.findByIdAndUpdate(id, { activo: estadoNuevo },
                                      { new: true, runValidators: true });
 }
 ```
 
-Acá se decide **qué es válido**. Si la regla no se cumple, el service lanza un
-error **del dominio** (`ErrorDeNegocio`), no una respuesta HTTP: cómo se
-convierte en 400 lo decide otra capa.
+Este service no tiene reglas propias: recibe un `boolean` ya validado y lo
+guarda. En otros casos acá se decide **qué está permitido**: por ejemplo, que
+un alumno sin saldo no pueda reservar. Si una regla no se cumple, el service
+lanza un error **del dominio** (`ErrorDeNegocio`), no una respuesta HTTP. Cómo
+se convierte en 400 o 409 lo decide otra capa.
 
 ### 6. El model: la base
 
@@ -209,7 +217,7 @@ Así se comporta el mismo endpoint con distintos pedidos:
 sin header Authorization ───────────► requireAuthentication ──► 401
 token de alumno ─────────────────────► requireAdministrator ───► 403
 sin body ────────────────────────────► validacionDeCuerpo ─────► 400
-{ "activo": "si" } ──────────────────► service (ErrorDeNegocio) ► 400
+{ "activo": "si" } ──────────────────► DTO, en el controller ───► 400 "El campo activo debe ser verdadero o falso"
 id "abc" ────────────────────────────► Mongoose (CastError) ────► 400 "Id inválido"
 id válido pero inexistente ──────────► controller (null) ───────► 404
 PATCH /api/autoss/... ───────────────► ningún router ───────────► 404 "Ruta no encontrada"
@@ -244,6 +252,7 @@ solo lo lanza. Las clases de error se explican en [`09-errores.md`](09-errores.m
 | routes | Solo como "cadena de funciones" | No | No |
 | middlewares | Sí | Solo permisos y forma del body | Solo `requireAdministrator`, a través de un service |
 | controllers | **Sí** | No | No |
+| dtos | No | Solo la forma: qué campos, de qué tipo, cuáles obligatorios | No |
 | services | No | **Sí** | Sí, a través de los models |
 | models | No | Solo las validaciones del esquema | **Sí** |
 
@@ -251,6 +260,7 @@ Si te preguntás dónde va algo nuevo, esta tabla te lo responde:
 
 - "Un alumno no puede reservar con menos de 24 h" es una regla → **service**.
 - "Responder 201 al crear" es HTTP → **controller**.
+- "Al crear un auto se puede mandar `activo`, pero no un `color`" es el contrato → **DTO**.
 - "La patente es obligatoria y única" es la forma del dato → **model**.
 - "Esta ruta solo la usan administradores" es permiso → **routes + middleware**.
 
@@ -262,7 +272,7 @@ Si te preguntás dónde va algo nuevo, esta tabla te lo responde:
 |---|---|---|
 | `config/` | `env.ts` (variables de entorno) y `db.ts` (conexión) | server, services, middlewares, scripts |
 | `errors/` | Clases como `ErrorDeNegocio` y `ErrorAutenticacion` | services, middlewares, errorHandler |
-| `utils/` | `fechas`, `password`, `validacionTipos`, `cuerpoPeticion` | services, algunos controllers |
+| `utils/` | `fechas`, `password`, `validacionTipos`, `validacionCampos`, `cuerpoPeticion` | services, DTOs, el middleware de body |
 | `types/` | `Rol` y la ampliación `req.auth` | todas |
 | `scripts/` | `bootstrapAdmin*.ts`: se ejecutan aparte con `npm run admin:*` | — (no forman parte del servidor) |
 
@@ -275,7 +285,7 @@ Si te preguntás dónde va algo nuevo, esta tabla te lo responde:
 | `req.body` es `undefined` en todos los pedidos | `express.json()` se montó **después** de los routers. |
 | Los errores responden HTML en lugar de JSON | `errorHandler` no está al final o no tiene los **4** parámetros `(err, req, res, next)`. |
 | Una ruta nueva responde sin pedir token | Se declaró **antes** de `router.use(requireAuthentication)`, o en `auth.routes.ts`, que no lo usa. Hay solo dos rutas públicas a propósito: `POST /api/auth/login` y `POST /api/alumnos` (el registro), que en `alumno.routes.ts:18` está antes del `router.use`. |
-| Un controller se llena de `if` | Se metió lógica de negocio en el controller: pasala al service. |
+| Un controller se llena de `if` | Se metió lógica en el controller. Si es de forma, va en el DTO; si es una regla, en el service. |
 | Un service importa `Request` de Express | Se está mezclando HTTP con negocio: el controller tiene que extraer los datos y pasarlos como argumentos. |
 
 ---
@@ -291,7 +301,8 @@ app.ts ─ cors ─ json ─ routers ─ 404 ─ errorHandler
                           │                │
                      middlewares ──────────┤
                           │                │
-                     controller ───────────┤   req/res ↔ argumentos/resultado
+                     controller ───────────┤   req/res ↔ DTO/resultado
+                          │  └─ DTO ───────┤   forma: campos y tipos
                           │                │
                        service ────────────┤   reglas de negocio
                           │                │

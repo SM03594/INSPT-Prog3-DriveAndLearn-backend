@@ -237,10 +237,11 @@ también `requireSelfOrAdministrator`).
 | Body vacío con `Content-Type: application/json` | `verificarCuerpo` (`content-length: 0`) | 400 |
 | `[1, 2]` o `"hola"` | `verificarCuerpo` (no es un objeto) | 400 |
 | `{ "activo": fal` (JSON mal escrito) | `express.json()`, antes de llegar acá | 400 |
-| `{ "activo": "si" }` | **Pasa**: qué campos trae y de qué tipo son lo valida el **service** | — |
+| `{ "activo": "si" }` | **Pasa**: qué campos trae y de qué tipo son lo valida el **DTO**, en el controller | — |
 
 Este middleware **solo** comprueba que haya un objeto. No sabe qué campos
-necesita cada recurso: eso es responsabilidad del service.
+necesita cada recurso: eso es responsabilidad del DTO de cada operación (ver
+[`06b-dtos.md`](06b-dtos.md)).
 
 ### 7. El 404 y el `errorHandler`: el final de la cadena
 

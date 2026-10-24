@@ -180,12 +180,6 @@ describe('auto.service', () => {
       expect(await cambiarEstado(ID_INEXISTENTE, false)).toBeNull();
     });
 
-    it('rechaza valores que no sean booleanos', async () => {
-      const creado = await crear(datosValidos);
-
-      await expect(
-        cambiarEstado(creado._id.toString(), 'false'),
-      ).rejects.toThrow('activo debe ser un valor booleano');
-    });
+    // Que "activo" sea un booleano lo garantiza aCambiarActivoDto (ver tests/dtos/auto.dto.test.ts).
   });
 });

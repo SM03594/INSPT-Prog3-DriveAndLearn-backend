@@ -90,7 +90,7 @@ patente: {
 
 | Opción | Qué hace | Dónde se usa |
 |---|---|---|
-| `type` | Tipo del dato (`String`, `Number`, `Boolean`, `Date`, `Buffer`, `ObjectId`). Mongoose **convierte** si puede: `"8"` → `8`. | todos |
+| `type` | Tipo del dato (`String`, `Number`, `Boolean`, `Date`, `Buffer`, `ObjectId`). Mongoose **convierte** si puede: `"8"` → `8`. Por eso los DTO comprueban el tipo **antes** (ver [`06b-dtos.md`](06b-dtos.md)). | todos |
 | `required` | El campo no puede faltar. | casi todos |
 | `trim` / `lowercase` / `uppercase` | Limpian el texto **antes** de guardar. | email, patente, nomApe |
 | `enum` | Lista cerrada de valores. | `Auto.cambios`, `Clase.estado`, `Usuario.rol` |

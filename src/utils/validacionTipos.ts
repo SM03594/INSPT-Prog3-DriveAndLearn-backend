@@ -1,9 +1,10 @@
 // ============================================================
 //  validacionTipos.ts — Chequeo de tipos de valores recibidos (unknown)
 // ============================================================
-// Para los services que validan campos que mandó el cliente. Cada
-// service arma su tabla de campos con un "tipo" por campo (el texto
-// que devuelve typeof: 'string', 'number', 'boolean') y usa:
+// Para validar los campos que mandó el cliente. Lo usa
+// utils/validacionCampos.ts: cada DTO arma su tabla de campos con un
+// "tipo" por campo (el texto que devuelve typeof: 'string', 'number',
+// 'boolean'), y validarCampos usa:
 //   - esDelTipo(valor, tipo): comprueba el valor y, si pasa,
 //     TypeScript lo trata como el tipo que corresponde, sin "as";
 //   - DESCRIPCION_TIPO[tipo]: cómo nombrar el tipo en el mensaje
@@ -14,14 +15,15 @@
 // tipos de TypeScript no existen cuando corre la app: la
 // comparación se hace con texto, y este mapa le dice a TypeScript
 // qué tipo representa cada texto.
-type TipoSegunNombre = {
+export type TipoSegunNombre = {
   string: string;
   number: number;
   boolean: boolean;
 };
 
 // 'string' | 'number' | 'boolean': lo que puede ir en el "tipo" de
-// la tabla de campos de un service.
+// la tabla de campos de un DTO (validacionCampos suma objeto, lista y
+// cualquiera).
 export type NombreTipo = keyof TipoSegunNombre;
 
 // Cómo se nombra cada tipo en los mensajes de error. "satisfies"

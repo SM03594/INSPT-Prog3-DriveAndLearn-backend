@@ -43,14 +43,28 @@ POST /api/autos                     PATCH .../activo { "activo": false }
 
 ## El recorrido
 
-### Paso 1. Crear: el modelo normaliza y valida
+### Paso 1. Crear: el DTO filtra, el modelo normaliza y valida
 
-El controller pasa el body **sin revisar** (`auto.controller.ts:25`), y el
-service lo guarda dentro de un `try/catch` para traducir una patente repetida
-(`auto.service.ts:31`):
+El controller convierte el body en un `CrearAutoDto` (`auto.controller.ts:26`):
 
 ```ts
-export async function crear(datos: Auto): Promise<AutoDoc> {
+const auto = await autoService.crear(aCrearAutoDto(req.body));
+```
+
+`aCrearAutoDto` (`src/dtos/auto.dto.ts:45`) define el **contrato** del alta:
+
+| Campo | En el DTO |
+|---|---|
+| `patente`, `cambios` | Obligatorios, texto |
+| `marca`, `modelo` | Opcionales, texto |
+| `activo` | Opcional, booleano: un auto puede **nacer** fuera de servicio |
+| Cualquier otro (`color`, `_id`, `createdAt`...) | 400 "No se pueden enviar estos campos: …" |
+
+El service guarda el DTO dentro de un `try/catch` para traducir una patente
+repetida (`auto.service.ts:32`):
+
+```ts
+export async function crear(datos: CrearAutoDto): Promise<AutoDoc> {
   try {
     return await AutoModel.create(datos);
   } catch (err) {
@@ -59,7 +73,7 @@ export async function crear(datos: Auto): Promise<AutoDoc> {
 }
 ```
 
-Todas las reglas están en el **esquema** (`src/models/Auto.ts`):
+Las reglas sobre los **valores** están en el **esquema** (`src/models/Auto.ts`):
 
 | Campo | Reglas |
 |---|---|
@@ -85,9 +99,11 @@ guarda como `"MANUAL"`.
 | Body | Respuesta |
 |---|---|
 | `cambios: "secuencial"` | 400 'Atributo "cambios" debe ser "AUTOMATICO" o "MANUAL" (recibido: "SECUENCIAL")' |
-| Solo `{ "marca": "Ford" }` | 400 "El tipo de cambios es obligatorio. La patente es obligatoria" (todos los errores juntos) |
+| Solo `{ "marca": "Ford" }` | 400 "La patente es obligatoria" (lo frena el DTO, con el primer faltante) |
+| `{ ..., "marca": 123 }` | 400 "La marca debe ser un texto" (antes se guardaba `"123"`) |
 | Patente repetida, aunque cambien mayúsculas o espacios de los extremos | 409 "La patente ingresada ya está en uso" |
-| Con `"color": "rojo"` | 201: el campo se **descarta en silencio** (I-04) |
+| Con `"color": "rojo"` | 400 "No se pueden enviar estos campos: color" |
+| Con `"_id"` y `"createdAt"` elegidos por el cliente | 400 "No se pueden enviar estos campos: _id, createdAt" |
 | Con `"activo": false` | 201: el auto **nace** fuera de servicio |
 | Con el token de un alumno | 403 "Se requieren permisos de administrador" |
 
@@ -117,7 +133,9 @@ filtrar los inactivos para no ofrecerlos.
 
 ### Paso 3. Modificar con `PUT`
 
-`auto.service.ts:45`:
+El controller usa otro DTO, `aActualizarAutoDto` (`src/dtos/auto.dto.ts:61`):
+los mismos datos del auto, todos opcionales, pero **al menos uno**, y **sin**
+`activo`. El service (`auto.service.ts:46`) los guarda:
 
 ```ts
 return await AutoModel.findByIdAndUpdate(id, cambios, {
@@ -135,37 +153,46 @@ aplican igual que al crear:
 | `{ "modelo": "Cronos Drive" }` | 200, solo cambia el modelo |
 | `{ "cambios": "x" }` | 400 'Atributo "cambios" debe ser …' |
 | `{ "patente": "ae456fg" }` (la de otro auto) | 409 "La patente ingresada ya está en uso" |
-| `{ "patente": "" }` | 400 "La patente es obligatoria" |
-| `{ "activo": false }` | 200: el `PUT` **también** saca de servicio, igual que el `PATCH` |
-| `{}` | 200, sin cambios |
-| `{ "_id": "<otro id>" }` | **500 "Error interno del servidor"** (I-40) |
+| `{ "patente": "" }` | 400 "La patente es obligatoria" (el `required` del esquema) |
+| `{ "activo": false }` | 400 "No se pueden modificar estos campos: activo (el estado se cambia con PATCH /autos/:id/activo)" |
+| `{}` | 400 "Debe indicarse al menos un campo para actualizar" |
+| `{ "_id": "<otro id>" }` | 400 "No se pueden modificar estos campos: _id" |
+| `{ "$set": { "activo": false } }` | 400 "No se pueden modificar estos campos: $set" |
 
-El último caso pasa porque el service le entrega a MongoDB el body tal cual, y
-MongoDB rechaza modificar `_id` (`ImmutableField`, código 66). Ese error no
-está entre los que reconoce el `errorHandler`, así que termina en un 500. Es
-la misma causa que I-04: el service no filtra los campos.
+Los tres últimos casos, antes de los DTO, llegaban a MongoDB tal cual: un
+`_id` terminaba en un **500** (I-40), y un `$set` sacaba el auto de servicio
+saltándose el `PATCH` (I-45). Ahora el service solo recibe los campos del
+contrato. Por qué `activo` tiene su propia ruta se ve en el paso 4.
 
 ### Paso 4. Sacar de servicio y volver a ponerlo
 
-`auto.service.ts:64`:
+`auto.controller.ts:39` → `auto.service.ts:66`:
 
 ```ts
-export async function cambiarEstado(id: string, estadoNuevo: unknown) {
-  if (typeof estadoNuevo !== 'boolean') {
-    throw new ErrorDeNegocio('activo debe ser un valor booleano');
-  }
+// controller: el DTO garantiza que "activo" es un booleano de verdad
+const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
+
+// service
+export async function cambiarEstado(id: string, estadoNuevo: boolean) {
   return AutoModel.findByIdAndUpdate(id, { activo: estadoNuevo }, { new: true, runValidators: true });
 }
 ```
 
-Este service **sí** valida el tipo: no acepta `"false"` como texto (que
-Mongoose convertiría a `false`).
+`aCambiarActivoDto` (`src/dtos/auto.dto.ts:73`) exige `activo` como booleano:
+no acepta `"false"` como texto (que Mongoose convertiría a `false`). El
+service recibe un `boolean` y solo lo guarda.
+
+¿Por qué una ruta aparte, si el `PUT` podría cambiar `activo`? Porque sacar un
+auto de servicio es una **acción** con consecuencias (deja de poder
+reservarse), no un dato más del auto. Con una ruta propia, el frontend y los
+permisos la pueden tratar por separado, y el `PUT` no la dispara sin querer.
 
 | Body | Respuesta |
 |---|---|
 | `{ "activo": false }` / `{ "activo": true }` | 200 con el auto actualizado |
-| `{ "activo": "false" }` | 400 "activo debe ser un valor booleano" |
-| `{ "otro": 1 }` (sin `activo`) | 400 "activo debe ser un valor booleano" |
+| `{ "activo": "false" }` | 400 "El campo activo debe ser verdadero o falso" |
+| `{}` | 400 "El campo activo es obligatorio" |
+| `{ "otro": 1 }` | 400 "No se pueden enviar estos campos: otro" |
 | Auto inexistente | 404 "Auto no encontrado" |
 
 ### Paso 5. Qué efecto tiene en las reservas
@@ -203,9 +230,11 @@ lugar de borrarlos.
 | Sin `patente` ni `cambios` | 400 con los dos mensajes juntos |
 | Patente repetida | 409 "La patente ingresada ya está en uso" |
 | La misma patente con otros espacios internos | **201**: se crea un duplicado (I-39) |
-| Campos desconocidos | 201/200: se descartan en silencio (I-04) |
-| `PUT` con `_id` | **500** (I-40) |
-| `PATCH activo` con `"false"` como texto | 400 "activo debe ser un valor booleano" |
+| Campos desconocidos | 400 "No se pueden enviar estos campos: …" / "No se pueden modificar estos campos: …" |
+| `marca` o `modelo` que no son texto | 400 "La marca debe ser un texto" |
+| `PUT` con `activo` | 400, con la pista de usar `PATCH /autos/:id/activo` |
+| `PUT` con `{}` | 400 "Debe indicarse al menos un campo para actualizar" |
+| `PATCH activo` con `"false"` como texto | 400 "El campo activo debe ser verdadero o falso" |
 | Reservar con un auto inactivo | 409 "El auto no está disponible para reservas" |
 | `DELETE /api/autos/:id` | 404 "Ruta no encontrada" |
 
@@ -213,13 +242,14 @@ lugar de borrarlos.
 
 ## Resumen
 
-- **Crear:** el service confía en el esquema. Mongoose normaliza (`trim`,
-  `uppercase`) y valida (`required`, `enum`). La patente repetida se traduce
-  a 409.
+- **Crear:** el DTO acepta solo los campos del auto, con su tipo. Mongoose
+  normaliza (`trim`, `uppercase`) y valida los valores (`required`, `enum`).
+  La patente repetida se traduce a 409.
 - **Consultar:** abierto a cualquier usuario con token, e incluye los autos
   inactivos.
 - **Modificar:** `findByIdAndUpdate` con `runValidators`. Es un cambio
-  parcial, y no filtra los campos (I-04, I-40).
+  parcial: el DTO exige al menos un campo y no deja pasar `activo`, `_id` ni
+  operadores como `$set`.
 - **Fuera de servicio:** `PATCH .../activo` con un booleano estricto. No hay
   borrado, para conservar el historial de clases.
 - Cada reserva comprueba que el auto exista y esté activo. Las clases ya

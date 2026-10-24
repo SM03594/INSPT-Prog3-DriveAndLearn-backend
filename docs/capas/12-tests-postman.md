@@ -4,7 +4,7 @@
 
 La colección de `postman/` prueba la API **de punta a punta, como lo haría el
 frontend**: con el servidor levantado de verdad, contra una base real,
-haciendo login y encadenando pedidos. Son 160 requests, organizados en 10
+haciendo login y encadenando pedidos. Son 192 requests, organizados en 11
 carpetas que se ejecutan en orden, y cada uno tiene scripts que comprueban la
 respuesta.
 
@@ -26,7 +26,7 @@ respuesta.
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   10 carpetas, 160 requests
+├── DriveAndLearn.postman_collection.json   11 carpetas, 192 requests
 ├── environments/
 │   ├── local.postman_environment.json      baseUrl = http://localhost:3000/api
 │   └── remoto.postman_environment.json     baseUrl = https://<servidor>/api
@@ -42,7 +42,10 @@ Las carpetas, en el orden en que se ejecutan:
    │ guarda tokens e ids            04 Autos (15) ──► 05 Profesores (19) ──► 06 Horario de la escuela (13)
    │                                                                │
    │ (variables de colección)                                       ▼
-   └────────────────────────────►  07 Clases (30) ──► 08 Errores generales (5) ──► 99 Teardown (10)
+   └────────────────────────────►  07 Clases (30) ──► 08 Errores generales (5) ──► 09 Validación de campos y tipos (32)
+                                                                                         │
+                                                                                         ▼
+                                                                                   99 Teardown (10)
                                                                      deja el horario como estaba,
                                                                      borra alumnos, saca autos de servicio
 ```
@@ -71,6 +74,13 @@ Clic derecho en la colección → **Run collection** → orden por defecto →
 que es el que genera los tokens y los ids. `07 Clases` además supone que el
 alumno 1 tiene exactamente 2 clases de saldo: para repetirla, volvé a correr
 el Setup.
+
+**Tests que fallan a propósito.** Si se encuentra un problema en la API, la
+convención es escribir la request con el comportamiento **correcto** y poner
+"hallazgo (I-NN)" en el nombre: queda en rojo hasta que se corrija la
+inconsistencia de [`../inconsistencias.md`](../inconsistencias.md). Hoy no hay
+ninguno: los 12 de `09 Validación de campos y tipos` pasaron a verde cuando cada
+endpoint tuvo su DTO.
 
 ### 3. Anatomía de un request
 

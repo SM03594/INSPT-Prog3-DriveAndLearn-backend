@@ -176,7 +176,7 @@ funcionan los routers y los middlewares lo explican las guías
 lanzaba un error, había que atraparlo con `try/catch` y pasarlo a mano con
 `next(error)`. Si no se hacía, la petición quedaba colgada. En Express 5 esto
 es automático: el error llega solo al `errorHandler`. Por eso los controllers
-del proyecto son tan cortos (`src/controllers/auto.controller.ts:25`):
+del proyecto son tan cortos (`src/controllers/auto.controller.ts:26`):
 
 ```ts
 export async function crear(req: Request, res: Response) {
@@ -250,7 +250,7 @@ Se usa en dos momentos:
         │ bcrypt.hash(clave, 10)                    │ bcrypt.compare(...)
         ▼                                           ▼
  "$2b$10$Xk...e9" → se guarda en Mongo          true / false
- src/utils/password.ts:42                   src/services/auth.service.ts:37
+ src/utils/password.ts:42                   src/services/auth.service.ts:34
 ```
 
 El `10` son las *rondas de costo*: cuanto más alto, más lento es calcular el

@@ -89,7 +89,8 @@ permisos.** Los lanza `auth.middleware`, y también `auth.service` cuando el
 login falla. La diferencia se explica en
 [`05-middlewares.md`](05-middlewares.md#4-requireadministrator-podés).
 
-**`ErrorDeNegocio`: una regla del dominio.** Lo lanzan los services. Por
+**`ErrorDeNegocio`: una regla del dominio.** Lo lanzan los services, y también
+los DTO cuando el body no cumple el contrato ("La marca debe ser un texto"). Por
 defecto es 400, pero quien lo lanza puede elegir otro status:
 
 ```ts
@@ -115,7 +116,7 @@ devuelvo sin cambios.*
 | `comoErrorAutenticacion` | `errorAutenticacion.ts` | `jwt.JsonWebTokenError` (firma inválida, vencido...) | `ErrorAutenticacion` (401) | `auth.middleware` |
 | `comoErrorLecturaCuerpo` | `errorLecturaCuerpo.ts` | Error de `express.json()` | `ErrorJsonInvalido` o `ErrorLecturaCuerpo` | `errorHandler` |
 
-Así se usa uno (`src/services/auto.service.ts:31`):
+Así se usa uno (`src/services/auto.service.ts:32`):
 
 ```ts
 try {
@@ -142,7 +143,8 @@ Un admin intenta crear un auto con una patente que ya existe:
 ```
 POST /api/autos { "patente": "AB123CD", "cambios": "MANUAL" }
  │
- ▼ auto.controller.crear → autoService.crear(req.body)
+ ▼ auto.controller.crear → autoService.crear(aCrearAutoDto(req.body))
+ │    (el DTO deja pasar el body: los campos y los tipos están bien)
  │
  ▼ AutoModel.create(...)
  │    MongoDB rechaza: índice único violado
@@ -196,6 +198,7 @@ Tres claves para entenderlo:
 | El body falta, no es un objeto o no se puede leer | `ErrorPeticionInvalida` o una subclase | 400 / 413 / 415 |
 | No hay token, o es inválido o está vencido | `ErrorAutenticacion` | 401 |
 | El usuario no tiene permiso | `ErrorAutorizacion` | 403 |
+| El body no cumple el contrato (un campo de más, otro tipo, falta un obligatorio) | `ErrorDeNegocio`, lanzado por el **DTO** | 400 |
 | Un dato no cumple una regla ("cantidad > 0") | `ErrorDeNegocio` | 400 |
 | El estado actual no permite la operación (sin saldo, horario ocupado) | `ErrorDeNegocio(msg, 409)` | 409 |
 | Un recurso relacionado no existe ("Profesor no encontrado" al reservar) | `ErrorDeNegocio(msg, 404)` | 404 |

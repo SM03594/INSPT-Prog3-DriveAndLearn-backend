@@ -19,13 +19,13 @@ Cliente                                   API                                   
 ───────                                   ───                                        ───────
 ① REGISTRO
 POST /api/alumnos ───────────────► routes ─ validacionDeCuerpo ─ controller ─ service ──► usuarios
-{ email, password, nomApe }        (pública: sin token)              │ valida campos     (password
-                                                                     │ saldo = 0          hasheada)
+{ email, password, nomApe }        (pública: sin token)       │ DTO:      │ saldo = 0     (password
+                                                              │ campos    │ hash           hasheada)
 ◄──────────────────────────────── 201 { _id, email, nomApe, rol, clasesPorReservar: 0 }  (sin password)
 
 ② LOGIN
 POST /api/auth/login ────────────► routes ─ validacionDeCuerpo ─ controller ─ auth.service
-{ email, password }                                                  │ busca por email ◄─ usuarios
+{ email, password }                                           │ DTO        │ busca por email ◄─ usuarios
                                                                      │ bcrypt.compare
                                                                      │ jwt.sign
 ◄──────────────────────────────── 200 { token, usuario: { id, email, nomApe, role } }
@@ -58,34 +58,31 @@ todavía no tiene cuenta no puede tener token. Ver
 [`../capas/04-routes.md`](../capas/04-routes.md#4-routeruse-un-middleware-para-todo-lo-que-sigue).
 
 `validacionDeCuerpo` solo comprueba que haya un objeto JSON. Qué campos trae
-lo decide el service.
+lo decide el DTO, en el paso 2.
 
-#### Paso 2. El controller
+#### Paso 2. El controller arma el DTO
 
-`src/controllers/alumno.controller.ts:27`:
+`src/controllers/alumno.controller.ts:31`:
 
 ```ts
 export async function crear(req: Request, res: Response) {
-  const datos = cuerpoComoObjeto(req.body);
-  const alumno = await alumnoService.crear(datos);
+  const alumno = await alumnoService.crear(aCrearAlumnoDto(req.body));
   res.status(201).json(alumno);
 }
 ```
 
-Pasa el body al service y responde **201 Created**.
-
-#### Paso 3. El service valida, y fija lo que no decide el cliente
-
-`src/services/alumno.service.ts:40` (`validarDatosCreacion`):
+`aCrearAlumnoDto` (`src/dtos/alumno.dto.ts:45`) comprueba la **forma** del
+body antes de que llegue al service:
 
 ```
 body recibido
   │
-  ├─ ¿es un objeto?                                      no → 400
-  ├─ ¿trae SOLO email, password, nomApe?                 no → 400 "No se pueden enviar estos campos..."
-  ├─ ¿los tres son texto?                                no → 400 "Email, contraseña y nombre y apellido son obligatorios"
+  ├─ ¿es un objeto?                                  no → 400 "El cuerpo de la petición debe ser un objeto JSON"
+  ├─ ¿trae SOLO email, password, nomApe?             no → 400 "No se pueden enviar estos campos: ..."
+  ├─ ¿cada uno es texto?                             no → 400 "El email debe ser un texto"
+  ├─ ¿están los tres?                                no → 400 "El nombre y apellido es obligatorio"
   ▼
-{ email, password, nomApe, clasesPorReservar: 0 }   ← el saldo inicial lo pone el SERVICE
+CrearAlumnoDto { email, password, nomApe }
 ```
 
 Si el body trae un campo de más, el registro **se rechaza** y no se ignora en
@@ -96,20 +93,33 @@ POST /api/alumnos
 { "email": "b@x.com", "password": "claveSegura123", "nomApe": "B", "clasesPorReservar": 100 }
 ```
 ```
-400 { "mensaje": "No se pueden enviar estos campos al registrarse: clasesPorReservar" }
+400 { "mensaje": "No se pueden enviar estos campos: clasesPorReservar (el saldo de clases se cambia con sumar-clases / restar-clases)" }
 ```
+
+La parte entre paréntesis es la `ayudaPorCampo` del DTO: una pista para el
+cliente sobre dónde se hace lo que intentó. Ver
+[`../capas/06b-dtos.md`](../capas/06b-dtos.md).
+
+#### Paso 3. El service fija lo que no decide el cliente
+
+`src/services/alumno.service.ts:41`:
+
+```ts
+export async function crear(datos: CrearAlumnoDto): Promise<AlumnoDoc> {
+  const datosAGuardar = await conPasswordHasheada({ ...datos, clasesPorReservar: 0 });
+  ...
+}
+```
+
+El service recibe un `CrearAlumnoDto` ya validado y aplica la **regla**: el
+saldo inicial es 0, siempre. El DTO impide que el cliente lo mande, y el
+service lo fija él mismo.
 
 #### Paso 4. Hashear la contraseña
 
-`alumno.service.ts:79`:
-
-```ts
-const datosAGuardar = await conPasswordHasheada(validarDatosCreacion(datosEntrada));
-```
-
-`conPasswordHasheada` (`src/utils/password.ts:27`) exige **al menos 8
+En la misma línea del paso 3, `conPasswordHasheada` (`src/utils/password.ts:27`) exige **al menos 8
 caracteres** y reemplaza el texto por su hash bcrypt. Ver
-[`../capas/10-utils-y-fechas.md`](../capas/10-utils-y-fechas.md#3-passwordts-hashear-antes-de-guardar).
+[`../capas/10-utils-y-fechas.md`](../capas/10-utils-y-fechas.md#4-passwordts-hashear-antes-de-guardar).
 
 #### Paso 5. Guardar: el model limpia y valida
 
@@ -152,25 +162,30 @@ El `toJSON.transform` del modelo `Usuario` quitó `password` y `__v`.
 
 #### Paso 7. Ruta y controller
 
-`src/routes/auth.routes.ts:7` → `src/controllers/auth.controller.ts:4`:
+`src/routes/auth.routes.ts:7` → `src/controllers/auth.controller.ts:6`:
 
 ```ts
 router.post('/login', validacionDeCuerpo, authController.login);
 
 export async function login(req: Request, res: Response) {
-  const resultado = await authService.autenticar(req.body?.email, req.body?.password);
+  const resultado = await authService.autenticar(aLoginDto(req.body));
   res.status(200).json(resultado);
 }
 ```
 
+`aLoginDto` (`src/dtos/auth.dto.ts:21`) exige `email` y `password`, los dos
+como texto, y ningún otro campo. Si falta alguno o tiene otro tipo, responde
+**400**: es un pedido mal armado, no un intento de entrar con credenciales
+equivocadas.
+
 #### Paso 8. `auth.service.autenticar`: comprobar las credenciales
 
-`src/services/auth.service.ts:22`:
+`src/services/auth.service.ts:27`:
 
 ```
-email, password  (unknown)
+LoginDto { email, password }   (los dos ya son texto)
   │
-  ├─ ¿los dos son texto y no están vacíos?            no → 401 "Email y contraseña son obligatorios"
+  ├─ ¿alguno está vacío?                              sí → 400 "Email y contraseña son obligatorios"
   │
   ├─ usuarioService.obtenerPorEmail(email)            (usuario.service.ts:34)
   │     normaliza: trim + toLowerCase → "ANA@example.com" encuentra a "ana@example.com"
@@ -294,14 +309,16 @@ clases" → 403.
 
 | Pedido | Respuesta real |
 |---|---|
-| Registro con `clasesPorReservar` | 400 "No se pueden enviar estos campos al registrarse: clasesPorReservar" |
+| Registro con `clasesPorReservar` | 400 "No se pueden enviar estos campos: clasesPorReservar (el saldo de clases se cambia con sumar-clases / restar-clases)" |
 | Registro con un email ya usado (por un alumno **o** un admin) | 409 "La direccion de email ya esta en uso." |
 | Registro con una contraseña de menos de 8 caracteres | 400 "La contraseña debe tener al menos 8 caracteres" |
-| Registro sin `nomApe` | 400 "Email, contraseña y nombre y apellido son obligatorios" |
+| Registro sin `nomApe` | 400 "El nombre y apellido es obligatorio" |
+| Registro con `nomApe: 123` | 400 "El nombre y apellido debe ser un texto" |
 | Registro con `nomApe: "   "` | 400 "El nombre y apellido es obligatorio" (el `trim` lo deja vacío y falla `required`) |
 | Registro con un email sin formato (`"hola"`) | 400 "El email no tiene un formato válido" |
 | Login con una contraseña errónea, o un email inexistente | 401 "Email o contraseña incorrectos" |
-| Login sin `password` | 401 "Email y contraseña son obligatorios" (ver I-29: podría ser un 400) |
+| Login sin `password` | 400 "La contraseña es obligatoria" |
+| Login con `email: ""` | 400 "Email y contraseña son obligatorios" |
 | Usar un token de hace más de 1 hora | 401 "Se requiere autenticación válida" |
 | Usar un token firmado con otro `JWT_SECRET` (por ejemplo, de otro entorno) | 401 |
 
@@ -309,10 +326,10 @@ clases" → 403.
 
 ## Resumen
 
-- **Registro:** ruta pública → el service acepta **solo** `email`, `password`
-  y `nomApe` → fija el saldo en 0 → hashea la contraseña → el model normaliza
+- **Registro:** ruta pública → el DTO acepta **solo** `email`, `password` y
+  `nomApe` → el service fija el saldo en 0 → hashea la contraseña → el model normaliza
   y guarda en `usuarios` → la respuesta sale **sin** `password`.
-- **Login:** busca por email (en todos los roles) → `bcrypt.compare` → firma
+- **Login:** el DTO exige email y contraseña (400 si faltan) → busca por email (en todos los roles) → `bcrypt.compare` → firma
   un JWT de 1 hora con `sub` = id y `role`. El error es el mismo para un email
   inexistente y para una contraseña errónea.
 - **Token:** `Authorization: Bearer <token>`. `requireAuthentication` lo
