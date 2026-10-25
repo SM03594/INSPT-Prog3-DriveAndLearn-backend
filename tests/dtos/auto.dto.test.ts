@@ -26,7 +26,6 @@ describe('aCrearAutoDto', () => {
     expect(aCrearAutoDto({ patente: 'AB123CD', cambios: 'MANUAL' })).toEqual({ patente: 'AB123CD', cambios: 'MANUAL' });
   });
 
-  // Antes, un _id o un createdAt del cliente se guardaban tal cual (I-46).
   it.each([
     [{ color: 'rojo' }, 'color'],
     [{ _id: '64b7f0f0f0f0f0f0f0f0f0f0' }, '_id'],
@@ -35,7 +34,6 @@ describe('aCrearAutoDto', () => {
     expect(() => aCrearAutoDto({ ...datosValidos, ...extra })).toThrow(`No se pueden enviar estos campos: ${campo}`);
   });
 
-  // Antes, Mongoose los convertía: marca 123 se guardaba como "123" (I-04).
   it.each([
     [{ marca: 123 }, 'La marca debe ser un texto'],
     [{ patente: 12345 }, 'La patente debe ser un texto'],
@@ -68,8 +66,6 @@ describe('aActualizarAutoDto', () => {
     );
   });
 
-  // Antes, { $set: { activo: false } } sacaba el auto de servicio, y un
-  // _id en el body daba 500 (I-45, I-40).
   it.each([
     [{ $set: { activo: false } }, '$set'],
     [{ _id: '64b7f0f0f0f0f0f0f0f0f0f0' }, '_id'],

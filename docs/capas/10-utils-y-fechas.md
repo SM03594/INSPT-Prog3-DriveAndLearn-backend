@@ -28,7 +28,7 @@ son lo más fácil de testear del proyecto.
 
 ### 1. `cuerpoPeticion.ts`: ¿el body es un objeto?
 
-`src/utils/cuerpoPeticion.ts:22`:
+`src/utils/cuerpoPeticion.ts:24`:
 
 ```ts
 export function esObjetoJson(valor: unknown): valor is Record<string, unknown> {
@@ -45,14 +45,14 @@ export function cuerpoComoObjeto(body: unknown): Record<string, unknown> {
 
 `esObjetoJson` es un **type guard**: responde `true` o `false` y, si es `true`,
 TypeScript trata el valor como un objeto. Descarta `null` (porque
-`typeof null` también es `'object'`) y los arrays. Lo usa también el DTO del
-calendario, para comprobar que cada tramo de la lista sea un objeto.
+`typeof null` también es `'object'`) y los arrays. Lo usan también el DTO del
+calendario, para comprobar que cada tramo de la lista sea un objeto, y el
+middleware `validacionDeCuerpo`.
 
 `cuerpoComoObjeto` usa ese guard para **lanzar** un error 400 si el body no es
 un objeto. Es el primer paso de `validarCampos` (sección 3). Por qué existe si
 `validacionDeCuerpo` ya hace ese chequeo en la ruta se explica en
-[`06-controllers.md`](06-controllers.md#2-leer-la-entrada). (El middleware
-tiene su propia copia de `esObjetoJson`: ver I-48.)
+[`06-controllers.md`](06-controllers.md#2-leer-la-entrada).
 
 ### 2. `validacionTipos.ts`: comprobar tipos usando un texto
 
@@ -89,7 +89,7 @@ corresponde a ese texto".
 Lo usa `validarCampos` (sección 3) para recorrer la tabla de campos de un DTO:
 
 ```ts
-const CAMPOS_ALUMNO = {                                   // src/dtos/alumno.dto.ts:25
+const CAMPOS_ALUMNO = {                                   // src/dtos/alumno.dto.ts:30
   email:  { tipo: 'string', nombre: 'El email' },
   nomApe: { tipo: 'string', nombre: 'El nombre y apellido' },
   // ...
@@ -110,7 +110,7 @@ conceptos de TypeScript que aparecen acá se explican en
 
 ### 3. `validacionCampos.ts`: el helper de los DTO
 
-`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:76`)
+`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:89`)
 junta las dos piezas anteriores y agrega lo que hace falta para validar un
 body completo:
 
@@ -142,7 +142,7 @@ Dos detalles de la implementación que vale la pena mirar:
 - **Devuelve un objeto nuevo**, armado campo por campo. Por eso un `_id`, un
   `createdAt` o un `$set` nunca llegan al service.
 
-`exigido(valor, mensaje)` (`:124`) completa el helper: los DTO lo usan para los
+`exigido(valor, mensaje)` (`:132`) completa el helper: los DTO lo usan para los
 campos obligatorios. Cómo se usan los dos dentro de un DTO se explica en
 [`06b-dtos.md`](06b-dtos.md), y cómo funcionan sus tipos genéricos, en
 [`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md#6-genéricos-tipos-con-parámetro).

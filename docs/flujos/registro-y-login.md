@@ -71,7 +71,7 @@ export async function crear(req: Request, res: Response) {
 }
 ```
 
-`aCrearAlumnoDto` (`src/dtos/alumno.dto.ts:45`) comprueba la **forma** del
+`aCrearAlumnoDto` (`src/dtos/alumno.dto.ts:50`) comprueba la **forma** del
 body antes de que llegue al service:
 
 ```

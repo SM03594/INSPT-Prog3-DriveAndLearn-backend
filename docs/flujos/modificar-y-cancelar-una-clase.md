@@ -68,7 +68,7 @@ if (clase === null) {
 
 ### Paso 2. Qué se puede cambiar
 
-`aActualizarClaseDto` (`src/dtos/clase.dto.ts:71`) acepta **solo**
+`aActualizarClaseDto` (`src/dtos/clase.dto.ts:79`) acepta **solo**
 `profesor`, `auto`, `inicio` y `fin`, como texto, y al menos uno de ellos:
 
 | Body | Respuesta |

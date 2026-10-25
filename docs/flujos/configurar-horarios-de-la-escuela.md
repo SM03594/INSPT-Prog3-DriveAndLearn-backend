@@ -112,7 +112,7 @@ POST /api/horario-escuela/agregar
 La respuesta es el **calendario completo**, no el documento. El `_id` de cada
 tramo es lo que se usa para quitarlo.
 
-`aAgregarTramoDto` (`src/dtos/calendarioSemanal.dto.ts:63`) es el **mismo
+`aAgregarTramoDto` (`src/dtos/calendarioSemanal.dto.ts:61`) es el **mismo
 DTO** que usa la disponibilidad de un profesor: exige `dia` (texto) y `tramo`
 (objeto), y ningún otro campo. Que el día exista lo revisa el service
 (`diaValido`), y las horas, el esquema al hacer `.save()`.
@@ -163,7 +163,7 @@ Se usa `POST` con el verbo en la URL (`/quitar`), no `DELETE`.
 
 ### Paso 5. Reemplazar la semana completa
 
-`aReemplazarCalendarioDto` (`src/dtos/calendarioSemanal.dto.ts:93`) exige un
+`aReemplazarCalendarioDto` (`src/dtos/calendarioSemanal.dto.ts:91`) exige un
 objeto con una **lista para cada uno de los 7 días**, en la que cada elemento
 sea un objeto. `reemplazar` (`horarioEscuela.service.ts:34`) lo guarda como el
 nuevo calendario. Es la forma más cómoda de cargar

@@ -144,8 +144,6 @@ describe('autenticación HTTP', () => {
       .expect(401);
   });
 
-  // Un login mal armado es un 400, como en el resto de la API (I-29):
-  // el 401 queda para credenciales que no coinciden.
   it.each([
     [{ email: '', password: '' }, 'Email y contraseña son obligatorios'],
     [{ email: 'ana@example.com' }, 'La contraseña es obligatoria'],

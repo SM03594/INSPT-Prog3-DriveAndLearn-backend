@@ -14,7 +14,6 @@ describe('aLoginDto', () => {
     });
   });
 
-  // Antes respondían 401: un pedido mal armado es un 400 (I-29).
   it.each([
     [{ email: 'ana@example.com' }, 'La contraseña es obligatoria'],
     [{ password: 'clave' }, 'El email es obligatorio'],

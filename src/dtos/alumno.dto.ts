@@ -6,7 +6,12 @@
 // service (saldo inicial en 0, cantidad entera y mayor que 0) y en el
 // esquema (formato del email, unique).
 
-import { exigido, validarCampos } from '../utils/validacionCampos.js';
+import {
+  AL_MODIFICAR,
+  SIN_CAMPOS_DE_MAS,
+  exigido,
+  validarCampos,
+} from '../utils/validacionCampos.js';
 
 export interface CrearAlumnoDto {
   email: string;
@@ -44,7 +49,7 @@ const AYUDA_SALDO = {
 // rechaza. El saldo inicial lo fija el service.
 export function aCrearAlumnoDto(body: unknown): CrearAlumnoDto {
   const datos = validarCampos(body, CAMPOS_ALUMNO, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
+    ...SIN_CAMPOS_DE_MAS,
     ayudaPorCampo: AYUDA_SALDO,
   });
 
@@ -59,11 +64,7 @@ export function aCrearAlumnoDto(body: unknown): CrearAlumnoDto {
 //  aActualizarAlumnoDto — body del PUT -> ActualizarAlumnoDto
 // ============================================================
 export function aActualizarAlumnoDto(body: unknown): ActualizarAlumnoDto {
-  return validarCampos(body, CAMPOS_ALUMNO, {
-    mensajeNoPermitidos: 'No se pueden modificar estos campos',
-    alMenosUno: true,
-    ayudaPorCampo: AYUDA_SALDO,
-  });
+  return validarCampos(body, CAMPOS_ALUMNO, { ...AL_MODIFICAR, ayudaPorCampo: AYUDA_SALDO });
 }
 
 // ============================================================
@@ -71,9 +72,7 @@ export function aActualizarAlumnoDto(body: unknown): ActualizarAlumnoDto {
 // ============================================================
 // Que sea un entero mayor que 0 es una regla: la revisa el service.
 export function aCantidadClasesDto(body: unknown): CantidadClasesDto {
-  const datos = validarCampos(body, CAMPOS_CANTIDAD, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
-  });
+  const datos = validarCampos(body, CAMPOS_CANTIDAD, SIN_CAMPOS_DE_MAS);
 
   return { cantidad: exigido(datos.cantidad, 'La cantidad es obligatoria') };
 }

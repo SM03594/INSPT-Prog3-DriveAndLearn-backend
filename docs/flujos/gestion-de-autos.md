@@ -51,7 +51,7 @@ El controller convierte el body en un `CrearAutoDto` (`auto.controller.ts:27`):
 const auto = await autoService.crear(aCrearAutoDto(req.body));
 ```
 
-`aCrearAutoDto` (`src/dtos/auto.dto.ts:45`) define el **contrato** del alta:
+`aCrearAutoDto` (`src/dtos/auto.dto.ts:49`) define el **contrato** del alta:
 
 | Campo | En el DTO |
 |---|---|
@@ -133,7 +133,7 @@ filtrar los inactivos para no ofrecerlos.
 
 ### Paso 3. Modificar con `PUT`
 
-El controller usa otro DTO, `aActualizarAutoDto` (`src/dtos/auto.dto.ts:61`):
+El controller usa otro DTO, `aActualizarAutoDto` (`src/dtos/auto.dto.ts:67`):
 los mismos datos del auto, todos opcionales, pero **al menos uno**, y **sin**
 `activo`. El service (`auto.service.ts:46`) los guarda:
 
@@ -178,7 +178,7 @@ export async function cambiarEstado(id: string, estadoNuevo: boolean) {
 }
 ```
 
-`aCambiarActivoDto` (`src/dtos/auto.dto.ts:73`) exige `activo` como booleano:
+`aCambiarActivoDto` (`src/dtos/auto.dto.ts:78`) exige `activo` como booleano:
 no acepta `"false"` como texto (que Mongoose convertiría a `false`). El
 service recibe un `boolean` y solo lo guarda.
 

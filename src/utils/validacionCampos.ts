@@ -73,6 +73,19 @@ export interface OpcionesValidarCampos {
   ayudaPorCampo?: Readonly<Record<string, string>>;
 }
 
+// Las dos opciones que usan casi todos los DTO:
+//   SIN_CAMPOS_DE_MAS -> altas y pedidos de un solo dato (login, cantidad...);
+//   AL_MODIFICAR      -> actualizaciones: además exige al menos un campo.
+// Si un DTO necesita algo más (ayudaPorCampo), las extiende con spread.
+export const SIN_CAMPOS_DE_MAS: OpcionesValidarCampos = {
+  mensajeNoPermitidos: 'No se pueden enviar estos campos',
+};
+
+export const AL_MODIFICAR: OpcionesValidarCampos = {
+  mensajeNoPermitidos: 'No se pueden modificar estos campos',
+  alMenosUno: true,
+};
+
 export function validarCampos<C extends CamposPermitidos>(
   entrada: unknown,
   campos: C,

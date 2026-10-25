@@ -8,7 +8,12 @@
 // "activo" se puede mandar al crear (un auto puede nacer fuera de
 // servicio), pero después solo cambia por PATCH /autos/:id/activo.
 
-import { exigido, validarCampos } from '../utils/validacionCampos.js';
+import {
+  AL_MODIFICAR,
+  SIN_CAMPOS_DE_MAS,
+  exigido,
+  validarCampos,
+} from '../utils/validacionCampos.js';
 
 export interface CrearAutoDto {
   patente: string;
@@ -40,12 +45,13 @@ const CAMPO_ACTIVO = {
 //  aCrearAutoDto — body del POST -> CrearAutoDto
 // ============================================================
 // _id, createdAt, color... no están en la tabla: se rechazan, en vez de
-// llegar a la base (antes, un _id o un createdAt del cliente se
-// guardaban tal cual).
+// llegar a la base.
 export function aCrearAutoDto(body: unknown): CrearAutoDto {
-  const datos = validarCampos(body, { ...CAMPOS_DATOS_AUTO, ...CAMPO_ACTIVO }, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
-  });
+  const datos = validarCampos(
+    body,
+    { ...CAMPOS_DATOS_AUTO, ...CAMPO_ACTIVO },
+    SIN_CAMPOS_DE_MAS,
+  );
 
   return {
     ...datos,
@@ -60,8 +66,7 @@ export function aCrearAutoDto(body: unknown): CrearAutoDto {
 // Sin "activo" ni operadores como $set: el estado tiene su propia ruta.
 export function aActualizarAutoDto(body: unknown): ActualizarAutoDto {
   return validarCampos(body, CAMPOS_DATOS_AUTO, {
-    mensajeNoPermitidos: 'No se pueden modificar estos campos',
-    alMenosUno: true,
+    ...AL_MODIFICAR,
     ayudaPorCampo: { activo: 'el estado se cambia con PATCH /autos/:id/activo' },
   });
 }
@@ -71,9 +76,7 @@ export function aActualizarAutoDto(body: unknown): ActualizarAutoDto {
 // ============================================================
 // Un booleano de verdad: "false" como texto no sirve.
 export function aCambiarActivoDto(body: unknown): CambiarActivoDto {
-  const datos = validarCampos(body, CAMPO_ACTIVO, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
-  });
+  const datos = validarCampos(body, CAMPO_ACTIVO, SIN_CAMPOS_DE_MAS);
 
   return { activo: exigido(datos.activo, 'El campo activo es obligatorio') };
 }

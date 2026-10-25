@@ -214,7 +214,7 @@ o de un admin.
 export function verificarCuerpo(req: Pick<Request, 'body' | 'headers'>): Record<string, unknown> {
   const body: unknown = req.body;
   if (body === undefined || req.headers['content-length'] === '0') {
-    throw new ErrorRequestSinCuerpo();                                   // 400
+    throw new ErrorPeticionSinCuerpo();                                  // 400
   }
   if (!esObjetoJson(body)) {
     throw new ErrorJsonInvalido('El cuerpo de la petición debe ser un objeto JSON'); // 400
@@ -229,7 +229,8 @@ export const validacionDeCuerpo: RequestHandler = (req, _res, next) => {
 ```
 
 El chequeo está separado del middleware para poder **reutilizarlo** (lo usa
-también `requireSelfOrAdministrator`).
+también `requireSelfOrAdministrator`). `esObjetoJson` se importa de
+`src/utils/cuerpoPeticion.ts`, el mismo type guard que usan los DTO.
 
 | Body recibido | Quién lo frena | Status |
 |---|---|---|
@@ -268,17 +269,20 @@ export const errorHandler: ErrorRequestHandler = (errOriginal, _req, res, _next)
 
 Express lo saltea mientras no haya errores, y salta directo a él cuando alguien
 lanza uno. Primero traduce los errores crudos de `express.json()`
-(`comoErrorLecturaCuerpo`) y después decide el status según la clase del
+(`verSiErrorLecturaCuerpo`) y después decide el status según la clase del
 error:
 
 ```
 ¿mongoose ValidationError? ............................ 400 (junta los mensajes de cada campo)
 ¿CastError? (id que no es un ObjectId) ................ 400 "Id inválido"
-¿ErrorLecturaCuerpo / ErrorPeticionInvalida /
- ErrorAutenticacion / ErrorAutorizacion? .............. err.status
-¿ErrorDeNegocio (o una subclase)? ..................... err.status
+¿ErrorPeticionInvalida (o una subclase) /
+ ErrorAutenticacion / ErrorAutorizacion /
+ ErrorDeNegocio (o una subclase)? ..................... err.status
 otro (un bug) ......................................... console.error + 500 "Error interno del servidor"
 ```
+
+Cada caso solo elige el `status` y el `mensaje`, y la respuesta se envía una
+vez, al final: `res.status(status).json({ mensaje })`.
 
 En el último caso **no** se envía el mensaje real al cliente: podría revelar
 detalles internos. Queda registrado en la consola del servidor. Las clases de

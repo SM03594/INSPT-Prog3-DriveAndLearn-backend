@@ -170,7 +170,7 @@ El controller **no decide nada del negocio**. Saca los datos de `req`,
 convierte el body en un DTO y llama al service. Después convierte el resultado
 en una respuesta HTTP: `null` se traduce en 404, y un auto en 200.
 
-`aCambiarActivoDto` (`src/dtos/auto.dto.ts:73`) comprueba la **forma** del
+`aCambiarActivoDto` (`src/dtos/auto.dto.ts:78`) comprueba la **forma** del
 body: que traiga `activo`, que sea un booleano de verdad (`"false"` como texto
 no sirve) y que no traiga otros campos. Si algo no cumple, lanza un error 400
 y el service ni se entera. Ver [`06b-dtos.md`](06b-dtos.md).
@@ -239,7 +239,7 @@ cualquier capa ── throw ──► (Express 5 lo reenvía solo) ──► err
                      cualquier otro (un bug) ............ 500 + console.error
 ```
 
-(`src/middlewares/errorHandler.middleware.ts:32-72`)
+(`src/middlewares/errorHandler.middleware.ts:32-73`)
 
 Gracias a esto, ninguna capa necesita saber **cómo** se responde un error:
 solo lo lanza. Las clases de error se explican en [`09-errores.md`](09-errores.md).

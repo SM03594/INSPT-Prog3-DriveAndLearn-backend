@@ -29,8 +29,6 @@ describe('aCrearProfesorDto', () => {
 });
 
 describe('aCambiarNomApeDto', () => {
-  // Antes, 123 se guardaba como "123" y un body sin nomApe respondía 200
-  // sin cambiar nada (I-34).
   it('rechaza un nombre que no es texto', () => {
     expect(() => aCambiarNomApeDto({ nomApe: 123 })).toThrow('El nombre y apellido debe ser un texto');
   });

@@ -32,7 +32,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-11 | 🟡 | `reglasEscuela.service.test.ts` testea un service con otro nombre | `tests/services/` |
 | I-12 | 🟡 | Mensaje engañoso con una hora de fin negativa | `models/CalendarioSemanal.ts` |
 | I-13 | 🟡 | `ErrorDeNegocio(…, 403)` hace lo mismo que `ErrorAutorizacion` | `clase.service.ts` |
-| I-14 | 🔵 | Comentarios que apuntan a guías borradas | `errorHandler.middleware.ts` |
+| I-14 | ✅ | Comentarios que apuntan a guías borradas | `errorHandler.middleware.ts` |
 | I-15 | 🔵 | Enlace a `docs/plan-tests-postman.md`, que no existe | `postman/` |
 | I-16 | 🔵 | `tsconfig.build.json` menciona `dist/index.js` | `tsconfig.build.json:7` |
 | I-17 | 🔵 | La cobertura excluye `src/index.ts`, que no existe | `vitest.config.ts` |
@@ -66,7 +66,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-45 | ✅ | El `PUT` de autos y admins acepta operadores de MongoDB: `$set` guardaba la contraseña de un admin en texto plano (admins: resuelto con el DTO) | `auto.service.ts`, `administrador.service.ts` |
 | I-46 | ✅ | El `POST` de autos acepta `_id` y `createdAt` elegidos por el cliente | `auto.service.ts` |
 | I-47 | 🟡 | Los errores de conversión de Mongoose llegan al cliente con detalles internos | `errorHandler.middleware.ts` |
-| I-48 | 🟡 | El chequeo "¿es un objeto JSON?" está repetido en 7 lugares, con 3 clases de error | middlewares, utils, services |
+| I-48 | ✅ | El chequeo "¿es un objeto JSON?" está repetido en 7 lugares, con 3 clases de error | middlewares, utils, services |
 | I-49 | ✅ | Los endpoints que leen campos sueltos ignoran en silencio los campos de más | controllers de alumno, auto y profesor |
 | I-50 | ✅ | `POST /horario-escuela/quitar` no valida el tipo de `tramoId` (404 en lugar de 400) | `horarioEscuela.service.ts` |
 | I-51 | 🟡 | Los mensajes de las reglas no siguen el formato de los DTO | `profesor.service.ts`, `clase.service.ts` |
@@ -159,14 +159,6 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 - **Avance (2026-10-24):** los DTO validan los tipos antes de llegar a Mongoose, así que en los endpoints con body ya no aparecen los mensajes "Cast to X failed" por el tipo de un campo. Pueden aparecer todavía dentro de un tramo (por ejemplo `"hora": "x"`), porque las horas las valida el esquema. Falta el mensaje genérico en el `errorHandler`.
 
-### I-48 · El chequeo "¿es un objeto JSON?" está repetido
-- **Detectada:** 2026-10-24.
-- **Dónde:** la condición `typeof x === 'object' && x !== null && !Array.isArray(x)` aparece en `validacionDeCuerpo.middleware.ts` (lanza `ErrorJsonInvalido`), `utils/cuerpoPeticion.ts` (`ErrorPeticionInvalida`), y en `alumno.service`, `clase.service`, `profesor.service` y `horarioEscuela.service` (`ErrorDeNegocio`). `utils/validacionCampos.ts` ya usa `cuerpoComoObjeto`.
-- **Qué pasa:** el cliente no lo nota (todas responden 400), pero es la misma regla escrita varias veces, con tres clases de error distintas para el mismo problema.
-- **Propuesta:** un solo type guard en `utils/` que reutilicen todos.
-
-- **Avance (2026-10-24):** los services ya no repiten el chequeo: lo hacen los DTO, con `cuerpoComoObjeto` y el type guard `esObjetoJson` (`src/utils/cuerpoPeticion.ts`). Queda una copia en `validacionDeCuerpo.middleware.ts`, que tiene su propio `esObjetoJson`.
-
 ### I-25 · `globals: true` en Vitest, pero todos los tests importan `describe`/`it`
 - **Detectada:** 2026-10-22, guía 11.
 - **Dónde:** `vitest.config.ts:14`, con el comentario "Hace disponibles describe, it, expect, etc. sin importarlos". Sin embargo, todos los archivos de `tests/` hacen `import { describe, it, expect } from 'vitest'`.
@@ -184,10 +176,6 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 - **Propuesta:** pasar los mensajes de esas reglas al formato de los DTO ("El nombre y apellido es obligatorio", "El profesor debe ser un identificador válido", "El inicio debe ser una fecha ISO 8601…"). Cambia el texto que reciben los clientes: hay que actualizar los tests, Postman y las guías.
 
 ## 🔵 Comentarios y documentación desactualizados
-
-### I-14 · Comentarios que apuntan a guías borradas
-- **Dónde:** `src/middlewares/errorHandler.middleware.ts:7` (`guia-middleware-handlers-y-routers.md`) y `:13` (`guia-capa-service.md`).
-- **Propuesta:** apuntar a `docs/capas/05-middlewares.md` y `docs/capas/09-errores.md`.
 
 ### I-15 · Enlace a un documento que no existe
 - **Dónde:** `postman/README.md:5` y la descripción de la colección (`info.description`) mencionan `docs/plan-tests-postman.md`. La sección 3 del README también remite a "§7 del plan" para anotar hallazgos.
@@ -424,3 +412,17 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
   db.profesores.updateMany({ fotoPerfil: { $exists: true } }, { $unset: { fotoPerfil: "" } })
   ```
   Además, confirmar que el frontend no use `fotoPerfil` ni `PATCH …/foto-perfil`.
+
+### I-14 · Comentarios que apuntan a guías borradas
+- **Dónde:** `src/middlewares/errorHandler.middleware.ts:7` (`guia-middleware-handlers-y-routers.md`) y `:13` (`guia-capa-service.md`).
+- **Propuesta:** apuntar a `docs/capas/05-middlewares.md` y `docs/capas/09-errores.md`.
+- **Resuelta:** 2026-10-25, al pasar `errorHandler` a un solo punto de respuesta. Primero se cambiaron los enlaces por los de las guías nuevas; después se decidió que el código no cite guías, así que la cabecera explica la idea en el propio comentario y no enlaza a ningún documento.
+
+### I-48 · El chequeo "¿es un objeto JSON?" está repetido
+- **Detectada:** 2026-10-24.
+- **Dónde:** la condición `typeof x === 'object' && x !== null && !Array.isArray(x)` aparece en `validacionDeCuerpo.middleware.ts` (lanza `ErrorJsonInvalido`), `utils/cuerpoPeticion.ts` (`ErrorPeticionInvalida`), y en `alumno.service`, `clase.service`, `profesor.service` y `horarioEscuela.service` (`ErrorDeNegocio`). `utils/validacionCampos.ts` ya usa `cuerpoComoObjeto`.
+- **Qué pasa:** el cliente no lo nota (todas responden 400), pero es la misma regla escrita varias veces, con tres clases de error distintas para el mismo problema.
+- **Propuesta:** un solo type guard en `utils/` que reutilicen todos.
+
+- **Avance (2026-10-24):** los services ya no repiten el chequeo: lo hacen los DTO, con `cuerpoComoObjeto` y el type guard `esObjetoJson` (`src/utils/cuerpoPeticion.ts`). Queda una copia en `validacionDeCuerpo.middleware.ts`, que tiene su propio `esObjetoJson`.
+- **Resuelta:** 2026-10-25. `validacionDeCuerpo.middleware.ts` borró su copia e importa `esObjetoJson` de `src/utils/cuerpoPeticion.ts`, que queda como el único type guard de este tipo. Siguen existiendo dos clases de error para el mismo caso (`ErrorJsonInvalido` en el middleware y `ErrorPeticionInvalida` en `cuerpoComoObjeto`), pero `ErrorJsonInvalido` extiende de `ErrorPeticionInvalida`, así que el cliente recibe la misma respuesta: 400 "El cuerpo de la petición debe ser un objeto JSON". Además se corrigió un comentario del middleware que decía que los campos los valida el service (ahora lo hace el DTO).

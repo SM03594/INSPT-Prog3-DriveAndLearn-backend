@@ -135,7 +135,7 @@ El mismo patrón aparece en `DIAS` y `Dia` (`src/models/CalendarioSemanal.ts:21-
 y en `CAMBIOS` (`src/models/Auto.ts:8`). Si agregás un valor al array, el tipo
 se actualiza solo.
 
-Una variante usa las **claves** de un objeto (`src/dtos/alumno.dto.ts:25`):
+Una variante usa las **claves** de un objeto (`src/dtos/alumno.dto.ts:30`):
 
 ```ts
 const CAMPOS_ALUMNO = {
@@ -159,12 +159,12 @@ usa tres:
 
 | Utilitario | Qué hace | Ejemplo en el proyecto |
 |---|---|---|
-| `Partial<T>` | Todos los campos pasan a ser opcionales. | `ActualizarAlumnoDto = Partial<CrearAlumnoDto>`: una edición trae **algunos** campos (`src/dtos/alumno.dto.ts:19`). |
+| `Partial<T>` | Todos los campos pasan a ser opcionales. | `ActualizarAlumnoDto = Partial<CrearAlumnoDto>`: una edición trae **algunos** campos (`src/dtos/alumno.dto.ts:24`). |
 | `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:116` |
 | `Omit<T, 'a'>` | Saca esos campos. | `DatosClase` en `clase.service.ts:25` |
 
 Se pueden combinar. Al editar un auto se acepta cualquiera de sus datos
-**menos** `activo`, que tiene su propia ruta (`src/dtos/auto.dto.ts:22`):
+**menos** `activo`, que tiene su propia ruta (`src/dtos/auto.dto.ts:27`):
 
 ```ts
 export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
@@ -205,7 +205,7 @@ En los controllers, `Request<{ id: string }>` le indica a Express que
 #### 6.1 Un genérico chico: `exigido<T>`
 
 Cuando un DTO necesita un campo obligatorio, usa `exigido`
-(`src/utils/validacionCampos.ts:119`):
+(`src/utils/validacionCampos.ts:132`):
 
 ```ts
 export function exigido<T>(valor: T | undefined, mensaje: string): T {
@@ -221,7 +221,7 @@ compilador deduce `T` a partir del argumento.
 
 #### 6.2 Un genérico con restricción: `validarCampos<C>`
 
-`validarCampos` (`src/utils/validacionCampos.ts:76`) recibe la tabla de campos
+`validarCampos` (`src/utils/validacionCampos.ts:89`) recibe la tabla de campos
 de un DTO y devuelve los datos con el tipo que **corresponde a esa tabla**:
 
 ```ts
@@ -288,7 +288,7 @@ if (typeof passwordEnTextoPlano !== 'string') {
 ```
 
 Cuando la comprobación es más compleja, se arma una función **type guard**, que
-devuelve `valor is Tipo` (`src/utils/cuerpoPeticion.ts:22`):
+devuelve `valor is Tipo` (`src/utils/cuerpoPeticion.ts:24`):
 
 ```ts
 function esObjetoJson(valor: unknown): valor is Record<string, unknown> {
@@ -302,7 +302,7 @@ El `valor is ...` es la promesa que le hacés a TypeScript: "si devuelvo
 comprobación está mal hecha, el tipo miente.
 
 Así se acota el tipo de un `req.body` dentro del DTO del registro
-(`aCrearAlumnoDto`, en `src/dtos/alumno.dto.ts:45`):
+(`aCrearAlumnoDto`, en `src/dtos/alumno.dto.ts:50`):
 
 ```
 req.body                              any
@@ -363,7 +363,7 @@ aparece al ejecutar. Por eso el proyecto los usa poco y siempre con un
 comentario que explica por qué es seguro. En lo posible, preferí un type guard.
 
 Un caso donde el `as` es inevitable está al final de `validarCampos`
-(`src/utils/validacionCampos.ts:113`):
+(`src/utils/validacionCampos.ts:126`):
 
 ```ts
 // Los tipos se comprobaron en runtime, campo por campo: TypeScript
@@ -401,17 +401,18 @@ un requisito para poder usar `declare global`.
 
 ### 11. Clases con tipos y `import type`
 
-En `src/errors/errorDeNegocio.ts:12`:
+En `src/errors/errorDeNegocio.ts:16`:
 
 ```ts
 export class ErrorDeNegocio extends Error {
-  constructor(message: string, public status = 400) { ... }
+  constructor(message: string, readonly status: number = 400) { ... }
 }
 ```
 
-Poner `public` delante de un parámetro del constructor lo declara y lo asigna
-como propiedad en un solo paso. Es un atajo de TS para `this.status = status`.
-Además, como el valor por defecto es `400`, TS infiere que el tipo es `number`.
+Poner `readonly` (o `public`) delante de un parámetro del constructor lo
+declara y lo asigna como propiedad en un solo paso. Es un atajo de TS para
+`this.status = status`. Con `readonly`, además, nadie puede cambiar el status
+después de crear el error: lo decide quien lo lanza, una sola vez.
 
 `import type { Request, Response } from 'express'` importa **solo tipos**. Ese
 import se borra por completo al compilar, así que no carga código en runtime.
@@ -450,10 +451,10 @@ import se borra por completo al compilar, así que no carga código en runtime.
 | `interface` / `extends` | La forma de un objeto, y heredar campos | `models/Usuario.ts:76` |
 | Unión `A \| B` | "Una cosa o la otra" | `AutoDoc \| null` |
 | `as const` + `typeof X[number]` | Una sola lista, usable como valor y como tipo | `types/roles.ts:8` |
-| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:22`, `services/clase.service.ts:25` |
+| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:27`, `services/clase.service.ts:25` |
 | Genéricos `<T>` | Tipos con parámetro | `utils/password.ts:27`, `exigido` y `validarCampos` |
 | *Mapped types* | Calcular un tipo a partir de otro | `DatosValidados` en `utils/validacionCampos.ts:61` |
-| `unknown` + type guards | Validar datos externos de forma segura | `utils/cuerpoPeticion.ts:22` |
+| `unknown` + type guards | Validar datos externos de forma segura | `utils/cuerpoPeticion.ts:24` |
 | `satisfies` | Comprobar un tipo sin perder los valores exactos | `utils/validacionTipos.ts:32` |
 | `!` / `as` | Afirmaciones sin chequeo en runtime (usar poco) | `clase.controller.ts:15` |
 | `declare global` | Agregar campos a tipos de librerías | `types/express.d.ts` |

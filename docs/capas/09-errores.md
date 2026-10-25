@@ -18,7 +18,7 @@ Error  (clase nativa de JavaScript)
  │
  ├── ErrorPeticionInvalida ......... 400 por defecto   "el pedido está mal armado"
  │     ├── ErrorJsonInvalido ....... 400               body que no es un objeto JSON
- │     ├── ErrorRequestSinCuerpo ... 400               falta el body
+ │     ├── ErrorPeticionSinCuerpo .. 400               falta el body
  │     └── ErrorLecturaCuerpo ...... 400 / 413 / 415   body ilegible (muy grande, charset...)
  │
  ├── ErrorAutenticacion ............ 401               "no sé quién sos"
@@ -70,7 +70,7 @@ Hay dos formas de definir el `status`:
 | Forma | Ejemplo | Cuándo conviene |
 |---|---|---|
 | Fijo, como campo de la clase | `readonly status = 401;` (`ErrorAutenticacion`, `ErrorAutorizacion`) | El status es **siempre** el mismo. |
-| Parámetro con valor por defecto | `constructor(message, public status = 400)` (`ErrorDeNegocio`, `ErrorPeticionInvalida`) | Quien lanza el error puede elegir otro status. |
+| Parámetro con valor por defecto | `constructor(message, readonly status = 400)` (`ErrorDeNegocio`, `ErrorPeticionInvalida`) | Quien lanza el error puede elegir otro status. |
 
 ### 2. Las cuatro familias
 
@@ -79,7 +79,7 @@ regla del negocio: el cliente mandó algo con un **formato** que no corresponde.
 Las subclases solo fijan el mensaje y el nombre:
 
 ```ts
-export class ErrorRequestSinCuerpo extends ErrorPeticionInvalida {
+export class ErrorPeticionSinCuerpo extends ErrorPeticionInvalida {
   constructor(message = 'La petición debe incluir un cuerpo JSON') { super(message); ... }
 }
 ```
@@ -113,8 +113,8 @@ devuelvo sin cambios.*
 | Traductor | Archivo | Error de entrada | Error de salida | Lo usa |
 |---|---|---|---|---|
 | `verSiErrorClaveDuplicada` | `errorClaveDuplicada.ts` | MongoDB `code: 11000` | `ErrorClaveDuplicada` (409) | services (`try/catch` en `create`/`update`) |
-| `comoErrorAutenticacion` | `errorAutenticacion.ts` | `jwt.JsonWebTokenError` (firma inválida, vencido...) | `ErrorAutenticacion` (401) | `auth.middleware` |
-| `comoErrorLecturaCuerpo` | `errorLecturaCuerpo.ts` | Error de `express.json()` | `ErrorJsonInvalido` o `ErrorLecturaCuerpo` | `errorHandler` |
+| `verSiErrorAutenticacion` | `errorAutenticacion.ts` | `jwt.JsonWebTokenError` (firma inválida, vencido...) | `ErrorAutenticacion` (401) | `auth.middleware` |
+| `verSiErrorLecturaCuerpo` | `errorLecturaCuerpo.ts` | Error de `express.json()` | `ErrorJsonInvalido` o `ErrorLecturaCuerpo` | `errorHandler` |
 
 Así se usa uno (`src/services/auto.service.ts:32`):
 
@@ -169,22 +169,30 @@ POST /api/autos { "patente": "AB123CD", "cambios": "MANUAL" }
 orden**:
 
 ```ts
-const err = comoErrorLecturaCuerpo(errOriginal);           // ① traducir errores de express.json()
+const err = verSiErrorLecturaCuerpo(errOriginal);          // ① traducir errores de express.json()
+let status: number;
+let mensaje: string;
 
-if (err instanceof mongoose.Error.ValidationError) → 400, junta los mensajes de todos los campos
-if (err instanceof Error && err.name === 'CastError') → 400 'Id inválido'
-if (err instanceof ErrorLecturaCuerpo || ErrorPeticionInvalida ||
-    ErrorAutenticacion || ErrorAutorizacion)           → err.status
-if (err instanceof ErrorDeNegocio)                     → err.status
-// cualquier otro:
-console.error(err);                                    → 500 'Error interno del servidor'
+if (err instanceof mongoose.Error.ValidationError)      → 400, junta los mensajes de todos los campos
+else if (err instanceof Error && err.name === 'CastError') → 400 'Id inválido'
+else if (err instanceof ErrorPeticionInvalida || ErrorAutenticacion ||
+         ErrorAutorizacion || ErrorDeNegocio)           → err.status, err.message
+else                                                    → console.error(err); 500 'Error interno del servidor'
+
+res.status(status).json({ mensaje });                     // ② se responde una sola vez
 ```
 
-Tres claves para entenderlo:
+Cuatro claves para entenderlo:
+
+- **Cada rama solo decide `status` y `mensaje`.** La respuesta se envía una
+  sola vez, en la última línea, así que no hace falta cortar la función con
+  un `return` en cada caso.
 
 - **`instanceof` reconoce las subclases.** `ErrorClaveDuplicada instanceof
   ErrorDeNegocio` es `true`, por eso no hace falta un `if` para cada subclase.
-  Lo mismo pasa con `ErrorJsonInvalido` respecto de `ErrorPeticionInvalida`.
+  Lo mismo pasa con `ErrorJsonInvalido`, `ErrorPeticionSinCuerpo` y
+  `ErrorLecturaCuerpo` respecto de `ErrorPeticionInvalida`. Y como las cuatro
+  clases de la tercera rama traen su `status`, comparten un solo `else if`.
 - **Todas las respuestas tienen la misma forma:** `{ "mensaje": "..." }`. El
   frontend siempre sabe dónde buscar el texto del error.
 - **El 500 no muestra el mensaje real.** Un bug puede tener detalles internos

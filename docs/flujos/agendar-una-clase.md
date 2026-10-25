@@ -97,7 +97,7 @@ lo que entiende el service. Ver
 
 ### Paso 3. ① Campos según el rol: el DTO
 
-`aCrearClaseDto` (`src/dtos/clase.dto.ts:44`) recibe el rol, porque el
+`aCrearClaseDto` (`src/dtos/clase.dto.ts:60`) recibe el rol, porque el
 **contrato** de la reserva depende de quién reserva:
 
 | Quién reserva | Campos permitidos | De quién es la clase |

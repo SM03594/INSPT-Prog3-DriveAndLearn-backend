@@ -59,7 +59,7 @@ const profesor = await profesorService.crear(aCrearProfesorDto(req.body));      
 res.status(201).json(profesor);
 ```
 
-`aCrearProfesorDto` (`src/dtos/profesor.dto.ts:28`) acepta **solo** `nomApe`,
+`aCrearProfesorDto` (`src/dtos/profesor.dto.ts:26`) acepta **solo** `nomApe`,
 como texto y obligatorio. El service (`src/services/profesor.service.ts:33`)
 aplica la regla que falta: que el nombre no quede vacío.
 
@@ -143,7 +143,7 @@ const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia,
 ```
 
 `aAgregarTramoDto` es el **mismo DTO** que usa el horario de la escuela
-(`src/dtos/calendarioSemanal.dto.ts:63`). Después, el service
+(`src/dtos/calendarioSemanal.dto.ts:61`). Después, el service
 (`src/services/profesor.service.ts:63`):
 
 ```

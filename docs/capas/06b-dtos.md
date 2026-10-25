@@ -63,7 +63,7 @@ DTO es esa definición.
 
 ### 2. Las dos partes de un DTO
 
-`src/dtos/alumno.dto.ts:11` y `:45`:
+`src/dtos/alumno.dto.ts:16` y `:50`:
 
 ```ts
 // ① el TIPO: lo que el service va a recibir
@@ -76,7 +76,7 @@ export interface CrearAlumnoDto {
 // ② la FUNCIÓN que lo construye a partir del body, comprobando en runtime
 export function aCrearAlumnoDto(body: unknown): CrearAlumnoDto {
   const datos = validarCampos(body, CAMPOS_ALUMNO, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
+    ...SIN_CAMPOS_DE_MAS,
     ayudaPorCampo: AYUDA_SALDO,
   });
 
@@ -98,7 +98,7 @@ La convención de nombres es `aXDto(body)`: "convertir a XDto".
 ### 3. `validarCampos`: la tabla de campos
 
 Cada DTO declara una tabla con los campos del contrato, el tipo de cada uno y
-cómo nombrarlo en los mensajes (`src/dtos/auto.dto.ts:28`):
+cómo nombrarlo en los mensajes (`src/dtos/auto.dto.ts:33`):
 
 ```ts
 const CAMPOS_DATOS_AUTO = {
@@ -109,7 +109,7 @@ const CAMPOS_DATOS_AUTO = {
 } as const;
 ```
 
-`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:76`)
+`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:89`)
 la recorre en cuatro pasos:
 
 ```
@@ -140,11 +140,23 @@ Las tres opciones:
 | `alMenosUno` | Rechazar `{}` en las actualizaciones | "Debe indicarse al menos un campo para actualizar" |
 | `ayudaPorCampo` | Una pista si mandan un campo conocido que no va | `clasesPorReservar` → "(el saldo de clases se cambia con sumar-clases / restar-clases)" |
 
+Casi todos los DTO usan una de dos combinaciones, así que `validacionCampos.ts`
+las exporta ya armadas:
+
+| Constante | Opciones | Se usa en |
+|---|---|---|
+| `SIN_CAMPOS_DE_MAS` | `mensajeNoPermitidos: 'No se pueden enviar estos campos'` | Altas y pedidos de un solo dato (login, `cantidad`, `activo`, un tramo) |
+| `AL_MODIFICAR` | `mensajeNoPermitidos: 'No se pueden modificar estos campos'`, `alMenosUno: true` | Los `PUT` |
+
+Si un DTO necesita además `ayudaPorCampo`, la suma con *spread*:
+`{ ...AL_MODIFICAR, ayudaPorCampo: AYUDA_SALDO }`. Así el mensaje se escribe
+en un solo lugar, y todos los DTO lo dicen igual.
+
 ### 4. Campos obligatorios: `exigido`
 
 `validarCampos` devuelve todos los campos como **opcionales**, porque la misma
 tabla sirve para crear y para editar. Cuando un DTO **promete** que un campo
-está, lo exige con `exigido` (`validacionCampos.ts:119`):
+está, lo exige con `exigido` (`validacionCampos.ts:132`):
 
 ```ts
 export function exigido<T>(valor: T | undefined, mensaje: string): T {
@@ -165,17 +177,14 @@ TypeScript que, si no lanzó el error, el valor ya no es `undefined`. Por eso el
 export type ActualizarAlumnoDto = Partial<CrearAlumnoDto>;   // cualquiera de los campos
 
 export function aActualizarAlumnoDto(body: unknown): ActualizarAlumnoDto {
-  return validarCampos(body, CAMPOS_ALUMNO, {
-    mensajeNoPermitidos: 'No se pueden modificar estos campos',
-    alMenosUno: true,                    // pero al menos uno
-    ayudaPorCampo: AYUDA_SALDO,
-  });
+  // AL_MODIFICAR: "No se pueden modificar estos campos" y al menos uno
+  return validarCampos(body, CAMPOS_ALUMNO, { ...AL_MODIFICAR, ayudaPorCampo: AYUDA_SALDO });
 }
 ```
 
 Algunos recursos tienen contratos distintos para cada operación. En autos,
 `activo` se acepta al crear, porque un auto puede nacer fuera de servicio,
-pero **no** al editar: tiene su propia ruta (`src/dtos/auto.dto.ts:61`).
+pero **no** al editar: tiene su propia ruta (`src/dtos/auto.dto.ts:67`).
 
 ```ts
 export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
@@ -187,15 +196,20 @@ export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
 
 Un alumno reserva **para sí mismo**, así que no puede mandar `alumno`. Un admin
 reserva **para otro**, así que tiene que mandarlo. Por eso la función recibe el
-rol (`src/dtos/clase.dto.ts:44`):
+rol (`src/dtos/clase.dto.ts:60`):
 
 ```ts
 export function aCrearClaseDto(body: unknown, rol: Rol): CrearClaseDto {
+  let reserva: CrearClaseDto;
+
   if (rol === 'administrador') {
-    const datos = validarCampos(body, CAMPOS_RESERVA_ADMIN, opciones);   // con "alumno"
-    return { ...reservaDe(datos), alumno: exigido(datos.alumno, 'El alumno es obligatorio') };
+    const datos = validarCampos(body, CAMPOS_RESERVA_ADMIN, SIN_CAMPOS_DE_MAS);   // con "alumno"
+    reserva = { ...reservaDe(datos), alumno: exigido(datos.alumno, 'El alumno es obligatorio') };
+  } else {
+    reserva = reservaDe(validarCampos(body, CAMPOS_RESERVA, SIN_CAMPOS_DE_MAS));  // sin "alumno"
   }
-  return reservaDe(validarCampos(body, CAMPOS_RESERVA, opciones));       // sin "alumno"
+
+  return reserva;
 }
 ```
 
@@ -214,7 +228,7 @@ src/dtos/calendarioSemanal.dto.ts
    aReemplazarCalendarioDto ◄── horarioEscuela.controller.reemplazar
 ```
 
-`aReemplazarCalendarioDto` (`:93`) hace un chequeo más: exige los 7 días, y
+`aReemplazarCalendarioDto` (`:91`) hace un chequeo más: exige los 7 días, y
 que **cada elemento** de cada lista sea un objeto. Un `"lunes": [null]` se
 guardaba tal cual y rompía las reservas de ese día.
 
@@ -276,9 +290,9 @@ por endpoint (ver [`12-tests-postman.md`](12-tests-postman.md)).
 
 1. En `src/dtos/<recurso>.dto.ts`, declarar el **tipo** (`interface XDto`) y
    la **tabla** de campos (`as const`).
-2. Escribir `aXDto(body: unknown): XDto`: `validarCampos` con el
-   `mensajeNoPermitidos` que corresponda ("enviar" o "modificar"), y
-   `exigido` para cada obligatorio.
+2. Escribir `aXDto(body: unknown): XDto`: `validarCampos` con
+   `SIN_CAMPOS_DE_MAS` (alta) o `AL_MODIFICAR` (actualización), y `exigido`
+   para cada obligatorio.
 3. En el controller, `service.operacion(aXDto(req.body))`.
 4. En el service, recibir `XDto` y dejar solo las reglas.
 5. Agregar el test en `tests/dtos/` y un caso en la carpeta `09` de Postman.

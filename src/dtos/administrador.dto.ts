@@ -16,7 +16,12 @@
 // dependen del dato siguen donde estaban: el formato del email y el
 // unique en el esquema, el largo de la contraseña en conPasswordHasheada.
 
-import { exigido, validarCampos } from '../utils/validacionCampos.js';
+import {
+  AL_MODIFICAR,
+  SIN_CAMPOS_DE_MAS,
+  exigido,
+  validarCampos,
+} from '../utils/validacionCampos.js';
 
 export interface CrearAdministradorDto {
   email: string;
@@ -41,9 +46,7 @@ const CAMPOS_ADMINISTRADOR = {
 // El tipo promete que los tres campos ESTÁN: por eso se exigen acá, y
 // no se deja que lo descubra el esquema al guardar.
 export function aCrearAdministradorDto(body: unknown): CrearAdministradorDto {
-  const datos = validarCampos(body, CAMPOS_ADMINISTRADOR, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
-  });
+  const datos = validarCampos(body, CAMPOS_ADMINISTRADOR, SIN_CAMPOS_DE_MAS);
 
   return {
     email: exigido(datos.email, 'El email es obligatorio'),
@@ -59,8 +62,5 @@ export function aCrearAdministradorDto(body: unknown): CrearAdministradorDto {
 // MongoDB ({ "$set": { "password": "..." } }) se rechaza acá y nunca
 // llega a findByIdAndUpdate sin pasar por el hash.
 export function aActualizarAdministradorDto(body: unknown): ActualizarAdministradorDto {
-  return validarCampos(body, CAMPOS_ADMINISTRADOR, {
-    mensajeNoPermitidos: 'No se pueden modificar estos campos',
-    alMenosUno: true,
-  });
+  return validarCampos(body, CAMPOS_ADMINISTRADOR, AL_MODIFICAR);
 }

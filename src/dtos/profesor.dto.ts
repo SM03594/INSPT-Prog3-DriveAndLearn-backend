@@ -5,7 +5,7 @@
 // la FORMA. Las reglas siguen en el service (el nombre no puede estar
 // vacío).
 
-import { exigido, validarCampos } from '../utils/validacionCampos.js';
+import { SIN_CAMPOS_DE_MAS, exigido, validarCampos } from '../utils/validacionCampos.js';
 
 export interface CrearProfesorDto {
   nomApe: string;
@@ -18,8 +18,6 @@ export interface CambiarNomApeDto {
 const CAMPO_NOM_APE = {
   nomApe: { tipo: 'string', nombre: 'El nombre y apellido' },
 } as const;
-
-const SIN_CAMPOS_DE_MAS = { mensajeNoPermitidos: 'No se pueden enviar estos campos' };
 
 // ============================================================
 //  aCrearProfesorDto — body del POST -> CrearProfesorDto

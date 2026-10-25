@@ -97,7 +97,7 @@ describe('aHoraLocal', () => {                                     // agrupa tes
 | `toBe(x)` | Igualdad exacta (`===`) | `expect(alumno.clasesPorReservar).toBe(0)` |
 | `toEqual(obj)` | Mismo contenido, aunque sea otro objeto | `toEqual({ dia: 'lunes', hora: 0, minuto: 0 })` |
 | `toMatchObject(obj)` | Que **incluya** esos campos (puede tener más) | `toMatchObject({ status: 400 })` |
-| `toThrow(X)` | Que una función **síncrona** lance un error | `expect(() => verificarCuerpo(...)).toThrow(ErrorRequestSinCuerpo)` |
+| `toThrow(X)` | Que una función **síncrona** lance un error | `expect(() => verificarCuerpo(...)).toThrow(ErrorPeticionSinCuerpo)` |
 | `rejects.toThrow(X)` | Que una **promesa** se rechace | `await expect(crear(...)).rejects.toThrow(ErrorClaveDuplicada)` |
 | `toBeUndefined()` | Que no exista | `expect(registro.body.password).toBeUndefined()` |
 
@@ -231,7 +231,7 @@ it('llama a next() si el body es un objeto', () => {
 it('lanza (y no llama a next) si no hay body', () => {
   const next = vi.fn();
   expect(() => validacionDeCuerpo(pedido(undefined) as Request, res, next))
-    .toThrow(ErrorRequestSinCuerpo);
+    .toThrow(ErrorPeticionSinCuerpo);
   expect(next).not.toHaveBeenCalled();
 });
 ```

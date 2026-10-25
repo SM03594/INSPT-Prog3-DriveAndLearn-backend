@@ -20,9 +20,6 @@ describe('aAgregarTramoDto', () => {
     expect(aAgregarTramoDto({ dia: 'lunes', tramo: TRAMO })).toEqual({ dia: 'lunes', tramo: TRAMO });
   });
 
-  // Antes, un body sin "tramo" guardaba un null en el horario de la
-  // escuela y rompía las reservas de ese día (I-32), y un tramo de texto
-  // devolvía un mensaje interno de Mongoose (I-36).
   it.each([
     [{ dia: 'lunes' }, 'El tramo es obligatorio'],
     [{ dia: 'lunes', tramo: 'mañana' }, 'El tramo debe ser un objeto'],
@@ -41,8 +38,6 @@ describe('aQuitarTramoDto', () => {
     expect(aQuitarTramoDto({ dia: 'lunes', tramoId: 'abc' })).toEqual({ dia: 'lunes', tramoId: 'abc' });
   });
 
-  // Antes, en el horario de la escuela, un tramoId numérico respondía 404
-  // "No se encontró el tramo" (I-50).
   it.each([
     [{ dia: 'lunes', tramoId: 123 }, 'El identificador del tramo debe ser un texto'],
     [{ dia: 'lunes' }, 'El identificador del tramo es obligatorio'],
@@ -74,7 +69,6 @@ describe('aReemplazarCalendarioDto', () => {
     );
   });
 
-  // Antes, un día que no existe se descartaba en silencio (I-37).
   it('rechaza un día que no existe', () => {
     expect(() => aReemplazarCalendarioDto({ ...SEMANA, feriado: [] })).toThrow(
       'No se pueden enviar estos campos: feriado',

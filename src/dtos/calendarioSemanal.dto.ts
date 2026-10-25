@@ -13,7 +13,7 @@
 import { DIAS, type CalendarioSemanal, type Dia, type Tramo } from '../models/CalendarioSemanal.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { esObjetoJson } from '../utils/cuerpoPeticion.js';
-import { exigido, validarCampos } from '../utils/validacionCampos.js';
+import { SIN_CAMPOS_DE_MAS, exigido, validarCampos } from '../utils/validacionCampos.js';
 
 export interface AgregarTramoDto {
   dia: string;
@@ -53,13 +53,11 @@ const CAMPOS_CALENDARIO = Object.fromEntries(
   DIAS.map((dia) => [dia, { tipo: 'lista', nombre: NOMBRE_DIA[dia] }]),
 ) as { readonly [D in Dia]: { readonly tipo: 'lista'; readonly nombre: string } };
 
-const SIN_CAMPOS_DE_MAS = { mensajeNoPermitidos: 'No se pueden enviar estos campos' };
-
 // ============================================================
 //  aAgregarTramoDto — { dia, tramo } -> AgregarTramoDto
 // ============================================================
-// Antes, un body sin "tramo" guardaba un null en el calendario y
-// rompía las reservas de ese día (I-32): ahora se exige.
+// Se exige el tramo: un null guardado en el calendario rompe las
+// reservas de ese día.
 export function aAgregarTramoDto(body: unknown): AgregarTramoDto {
   const datos = validarCampos(body, CAMPOS_AGREGAR_TRAMO, SIN_CAMPOS_DE_MAS);
 
@@ -99,9 +97,12 @@ export function aReemplazarCalendarioDto(body: unknown): ReemplazarCalendarioDto
     // some y no every: every con un type guard estrecha el tipo a
     // Record<string, unknown>[], y ya no se podría convertir a Tramo[].
     // Las horas de cada tramo las valida el esquema al hacer .save().
-    if (tramos.some((tramo) => !esObjetoJson(tramo))) {
+    const hayTramosQueNoSonObjetos = tramos.some((tramo) => !esObjetoJson(tramo));
+
+    if (hayTramosQueNoSonObjetos) {
       // "El martes" -> "martes", para armar "Cada tramo del martes...".
-      throw new ErrorDeNegocio(`Cada tramo del ${NOMBRE_DIA[dia].slice(3)} debe ser un objeto`);
+      const diaSinArticulo = NOMBRE_DIA[dia].slice('El '.length);
+      throw new ErrorDeNegocio(`Cada tramo del ${diaSinArticulo} debe ser un objeto`);
     }
     calendario[dia] = tramos as Tramo[];
   }

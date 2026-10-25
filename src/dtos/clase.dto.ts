@@ -11,7 +11,13 @@
 // qué alumno reserva.
 
 import type { Rol } from '../types/roles.js';
-import { exigido, validarCampos, type DatosValidados } from '../utils/validacionCampos.js';
+import {
+  AL_MODIFICAR,
+  SIN_CAMPOS_DE_MAS,
+  exigido,
+  validarCampos,
+  type DatosValidados,
+} from '../utils/validacionCampos.js';
 
 export interface CrearClaseDto {
   profesor: string;
@@ -38,21 +44,6 @@ const CAMPOS_RESERVA_ADMIN = {
   alumno: { tipo: 'string', nombre: 'El alumno' },
 } as const;
 
-// ============================================================
-//  aCrearClaseDto — body de POST /clases -> CrearClaseDto
-// ============================================================
-export function aCrearClaseDto(body: unknown, rol: Rol): CrearClaseDto {
-  const opciones = { mensajeNoPermitidos: 'No se pueden enviar estos campos' };
-
-  if (rol === 'administrador') {
-    const datos = validarCampos(body, CAMPOS_RESERVA_ADMIN, opciones);
-    return { ...reservaDe(datos), alumno: exigido(datos.alumno, 'El alumno es obligatorio') };
-  }
-
-  // Para un alumno, "alumno" no está en la tabla: si lo manda, se rechaza.
-  return reservaDe(validarCampos(body, CAMPOS_RESERVA, opciones));
-}
-
 // Los cuatro campos que siempre tiene una reserva.
 function reservaDe(datos: DatosValidados<typeof CAMPOS_RESERVA>): CrearClaseDto {
   return {
@@ -64,13 +55,27 @@ function reservaDe(datos: DatosValidados<typeof CAMPOS_RESERVA>): CrearClaseDto 
 }
 
 // ============================================================
+//  aCrearClaseDto — body de POST /clases -> CrearClaseDto
+// ============================================================
+export function aCrearClaseDto(body: unknown, rol: Rol): CrearClaseDto {
+  let reserva: CrearClaseDto;
+
+  if (rol === 'administrador') {
+    const datos = validarCampos(body, CAMPOS_RESERVA_ADMIN, SIN_CAMPOS_DE_MAS);
+    reserva = { ...reservaDe(datos), alumno: exigido(datos.alumno, 'El alumno es obligatorio') };
+  } else {
+    // Para un alumno, "alumno" no está en la tabla: si lo manda, se rechaza.
+    reserva = reservaDe(validarCampos(body, CAMPOS_RESERVA, SIN_CAMPOS_DE_MAS));
+  }
+
+  return reserva;
+}
+
+// ============================================================
 //  aActualizarClaseDto — body de PUT /clases/:id -> ActualizarClaseDto
 // ============================================================
 // Ni "alumno" ni "estado" ni operadores como $set: el estado se cambia
 // con PATCH /clases/:id/cancelar.
 export function aActualizarClaseDto(body: unknown): ActualizarClaseDto {
-  return validarCampos(body, CAMPOS_RESERVA, {
-    mensajeNoPermitidos: 'No se pueden modificar estos campos',
-    alMenosUno: true,
-  });
+  return validarCampos(body, CAMPOS_RESERVA, AL_MODIFICAR);
 }

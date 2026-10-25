@@ -115,8 +115,6 @@ describe('profesor.service', () => {
       expect(await cambiarNomApe(ID_INEXISTENTE, 'Nadie')).toBeNull();
     });
 
-    // Misma regla que al crear (antes lo frenaba recién el esquema, y un
-    // nomApe que no era texto se guardaba convertido: I-34).
     it.each(['', '   '])('rechaza un nombre vacío (%j)', async (nomApe) => {
       const creado = await crearProfesor();
 

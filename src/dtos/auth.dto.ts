@@ -6,7 +6,7 @@
 // resto de la API. El 401 queda solo para credenciales que no
 // coinciden (lo decide auth.service).
 
-import { exigido, validarCampos } from '../utils/validacionCampos.js';
+import { SIN_CAMPOS_DE_MAS, exigido, validarCampos } from '../utils/validacionCampos.js';
 
 export interface LoginDto {
   email: string;
@@ -19,9 +19,7 @@ const CAMPOS_LOGIN = {
 } as const;
 
 export function aLoginDto(body: unknown): LoginDto {
-  const datos = validarCampos(body, CAMPOS_LOGIN, {
-    mensajeNoPermitidos: 'No se pueden enviar estos campos',
-  });
+  const datos = validarCampos(body, CAMPOS_LOGIN, SIN_CAMPOS_DE_MAS);
 
   return {
     email: exigido(datos.email, 'El email es obligatorio'),
