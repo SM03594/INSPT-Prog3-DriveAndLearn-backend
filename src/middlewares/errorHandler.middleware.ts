@@ -3,14 +3,14 @@
 // ============================================================
 // Un middleware de errores se reconoce por tener EXACTAMENTE 4
 // parámetros: (err, req, res, next). Va montado al final de
-// app.ts, después de todos los routers (ver
-// docs/capas/05-middlewares.md).
+// app.ts, después de todos los routers, para recibir los errores
+// de cualquiera de ellos.
 //
 // En Express 5, si un handler async lanza o su promesa rechaza,
 // Express reenvía el error acá automáticamente (hace el next(err)
 // por vos). Por eso los controllers no llevan try/catch.
 //
-// Traduce los errores documentados en docs/capas/09-errores.md:
+// Traduce cada error a una respuesta { mensaje } con su status:
 //   body ilegible (JSON mal formado, demasiado grande...)   -> err.status (400, 413, 415)
 //   ValidationError (falta un campo / valor fuera de rango) -> 400
 //   CastError (id mal formado, ej. "abc")                   -> 400
@@ -27,10 +27,10 @@ import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { ErrorPeticionInvalida } from '../errors/errorPeticionInvalida.js';
-import { comoErrorLecturaCuerpo } from '../errors/errorLecturaCuerpo.js';
+import { verSiErrorLecturaCuerpo } from '../errors/errorLecturaCuerpo.js';
 
 export const errorHandler: ErrorRequestHandler = (errOriginal, _req, res, _next) => {
-  const err = comoErrorLecturaCuerpo(errOriginal);
+  const err = verSiErrorLecturaCuerpo(errOriginal);
   // Cada rama solo decide qué responder; se responde una vez, al final.
   let status: number;
   let mensaje: string;
@@ -47,9 +47,9 @@ export const errorHandler: ErrorRequestHandler = (errOriginal, _req, res, _next)
     mensaje = 'Id inválido';
   } else if (
     // Errores de la capa HTTP: los lanzan auth.middleware y
-    // validacionDeCuerpo, o los traduce comoErrorLecturaCuerpo.
+    // validacionDeCuerpo, o los traduce verSiErrorLecturaCuerpo.
     // ErrorPeticionInvalida incluye a sus subclases (ErrorLecturaCuerpo,
-    // ErrorJsonInvalido, ErrorRequestSinCuerpo).
+    // ErrorJsonInvalido, ErrorPeticionSinCuerpo).
     err instanceof ErrorPeticionInvalida ||
     err instanceof ErrorAutenticacion ||
     err instanceof ErrorAutorizacion ||

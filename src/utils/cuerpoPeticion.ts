@@ -17,8 +17,10 @@
 import { ErrorPeticionInvalida } from '../errors/errorPeticionInvalida.js';
 
 // Type guard: ¿"valor" es un objeto JSON ({...})? Descarta null (typeof
-// null también es 'object') y los arrays. Lo usan cuerpoComoObjeto y los
-// DTO, para los campos que tienen que ser un objeto (un tramo).
+// null también es 'object') y los arrays. Es el único chequeo de este
+// tipo en el proyecto: lo usan cuerpoComoObjeto, los DTO (para los
+// campos que tienen que ser un objeto, como un tramo) y el middleware
+// validacionDeCuerpo.
 export function esObjetoJson(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
 }

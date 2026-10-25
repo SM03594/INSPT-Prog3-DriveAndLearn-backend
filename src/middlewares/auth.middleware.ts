@@ -19,7 +19,7 @@ import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { obtenerJwtSecret } from '../config/env.js';
 import {
   ErrorAutenticacion,
-  comoErrorAutenticacion,
+  verSiErrorAutenticacion,
 } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import * as administradorService from '../services/administrador.service.js';
@@ -51,10 +51,10 @@ function verificarToken(autorizacion: string | undefined): string | JwtPayload {
       issuer: 'driveandlearn',
     });
   } catch (error) {
-    // Firma inválida, token vencido, etc.: comoErrorAutenticacion lo
+    // Firma inválida, token vencido, etc.: verSiErrorAutenticacion lo
     // convierte en ErrorAutenticacion (401). Si no es un error de
     // JWT, pasa tal cual y el errorHandler lo trata como un 500.
-    throw comoErrorAutenticacion(error, MENSAJE_NO_AUTORIZADO);
+    throw verSiErrorAutenticacion(error, MENSAJE_NO_AUTORIZADO);
   }
 }
 

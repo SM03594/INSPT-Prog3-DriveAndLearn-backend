@@ -8,9 +8,9 @@ import {
   validacionDeCuerpo,
   verificarCuerpo,
 } from '../../src/middlewares/validacionDeCuerpo.middleware.js';
-import { ErrorRequestSinCuerpo } from '../../src/errors/errorRequestSinCuerpo.js';
+import { ErrorPeticionSinCuerpo } from '../../src/errors/errorPeticionSinCuerpo.js';
 import { ErrorJsonInvalido } from '../../src/errors/errorJsonInvalido.js';
-import { ErrorLecturaCuerpo, comoErrorLecturaCuerpo } from '../../src/errors/errorLecturaCuerpo.js';
+import { ErrorLecturaCuerpo, verSiErrorLecturaCuerpo } from '../../src/errors/errorLecturaCuerpo.js';
 
 // Un pedido armado a mano: solo lo que mira verificarCuerpo.
 function pedido(body: unknown, contentLength?: string) {
@@ -21,12 +21,12 @@ function pedido(body: unknown, contentLength?: string) {
 }
 
 describe('verificarCuerpo', () => {
-  it('sin body (req.body undefined) → ErrorRequestSinCuerpo', () => {
-    expect(() => verificarCuerpo(pedido(undefined))).toThrow(ErrorRequestSinCuerpo);
+  it('sin body (req.body undefined) → ErrorPeticionSinCuerpo', () => {
+    expect(() => verificarCuerpo(pedido(undefined))).toThrow(ErrorPeticionSinCuerpo);
   });
 
-  it('body vacío con Content-Type JSON (express.json deja {}) → ErrorRequestSinCuerpo', () => {
-    expect(() => verificarCuerpo(pedido({}, '0'))).toThrow(ErrorRequestSinCuerpo);
+  it('body vacío con Content-Type JSON (express.json deja {}) → ErrorPeticionSinCuerpo', () => {
+    expect(() => verificarCuerpo(pedido({}, '0'))).toThrow(ErrorPeticionSinCuerpo);
   });
 
   it('un array → ErrorJsonInvalido', () => {
@@ -37,7 +37,7 @@ describe('verificarCuerpo', () => {
   });
 
   it('los dos errores responden 400', () => {
-    expect(new ErrorRequestSinCuerpo()).toMatchObject({
+    expect(new ErrorPeticionSinCuerpo()).toMatchObject({
       status: 400,
       message: 'La petición debe incluir un cuerpo JSON',
     });
@@ -70,19 +70,19 @@ describe('validacionDeCuerpo', () => {
     const next = vi.fn();
 
     expect(() => validacionDeCuerpo(pedido(undefined) as Request, res, next)).toThrow(
-      ErrorRequestSinCuerpo,
+      ErrorPeticionSinCuerpo,
     );
     expect(next).not.toHaveBeenCalled();
   });
 });
 
 // El JSON mal escrito no llega al middleware: express.json() lo
-// rechaza antes, y comoErrorLecturaCuerpo lo traduce.
-describe('comoErrorLecturaCuerpo', () => {
+// rechaza antes, y verSiErrorLecturaCuerpo lo traduce.
+describe('verSiErrorLecturaCuerpo', () => {
   it('JSON mal escrito → ErrorJsonInvalido', () => {
     const crudo = { type: 'entity.parse.failed', status: 400 };
 
-    const err = comoErrorLecturaCuerpo(crudo);
+    const err = verSiErrorLecturaCuerpo(crudo);
     expect(err).toBeInstanceOf(ErrorJsonInvalido);
     expect(err).toMatchObject({
       status: 400,
@@ -93,7 +93,7 @@ describe('comoErrorLecturaCuerpo', () => {
   it('body demasiado grande → sigue siendo ErrorLecturaCuerpo (413)', () => {
     const crudo = { type: 'entity.too.large', status: 413 };
 
-    const err = comoErrorLecturaCuerpo(crudo);
+    const err = verSiErrorLecturaCuerpo(crudo);
     expect(err).toBeInstanceOf(ErrorLecturaCuerpo);
     expect(err).toMatchObject({ status: 413 });
   });

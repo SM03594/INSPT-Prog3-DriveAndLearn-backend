@@ -2064,7 +2064,7 @@
                 "{{alumno3Id}}"
               ]
             },
-            "description": "Antes respondía 500: el body llegaba undefined al service. Ahora lo rechaza el middleware validacionDeCuerpo (ErrorRequestSinCuerpo)."
+            "description": "Antes respondía 500: el body llegaba undefined al service. Ahora lo rechaza el middleware validacionDeCuerpo (ErrorPeticionSinCuerpo)."
           }
         },
         {

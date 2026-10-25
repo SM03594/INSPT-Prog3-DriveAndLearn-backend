@@ -46,20 +46,26 @@ function esErrorDeLecturaDelCuerpo(
 }
 
 // ------------------------------------------------------------
-//  comoErrorLecturaCuerpo — traduce el error crudo de body-parser
+//  verSiErrorLecturaCuerpo — traduce el error crudo de body-parser
 // ------------------------------------------------------------
 // El JSON mal escrito ("entity.parse.failed", siempre 400) se
 // traduce a ErrorJsonInvalido, el mismo error que usa
 // validacionDeCuerpo para un JSON que no es un objeto.
-export function comoErrorLecturaCuerpo(err: unknown): unknown {
+export function verSiErrorLecturaCuerpo(err: unknown): unknown {
+  // Si no es un error de body-parser, se devuelve tal cual llegó.
   let resultado: unknown = err;
 
-  if (esErrorDeLecturaDelCuerpo(err) && err.type === 'entity.parse.failed') {
-    resultado = new ErrorJsonInvalido('El cuerpo de la petición no es un JSON válido');
-  } else if (esErrorDeLecturaDelCuerpo(err) && err.status >= 400 && err.status < 500) {
-    const mensaje =
-      MENSAJES_CUERPO_INVALIDO[err.type] ?? 'El cuerpo de la petición es inválido';
-    resultado = new ErrorLecturaCuerpo(mensaje, err.status);
+  if (esErrorDeLecturaDelCuerpo(err)) {
+    const esJsonMalEscrito = err.type === 'entity.parse.failed';
+    const esErrorDelCliente = err.status >= 400 && err.status < 500;
+
+    if (esJsonMalEscrito) {
+      resultado = new ErrorJsonInvalido('El cuerpo de la petición no es un JSON válido');
+    } else if (esErrorDelCliente) {
+      const mensaje =
+        MENSAJES_CUERPO_INVALIDO[err.type] ?? 'El cuerpo de la petición es inválido';
+      resultado = new ErrorLecturaCuerpo(mensaje, err.status);
+    }
   }
 
   return resultado;

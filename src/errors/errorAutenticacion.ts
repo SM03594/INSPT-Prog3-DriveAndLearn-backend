@@ -5,7 +5,7 @@
 // A diferencia de ErrorDeNegocio, es un error independiente: extiende
 // directamente de Error y siempre corresponde a una respuesta HTTP 401.
 //
-// comoErrorAutenticacion traduce los errores crudos de jsonwebtoken al
+// verSiErrorAutenticacion traduce los errores crudos de jsonwebtoken al
 // error propio del proyecto. Los errores que no son de JWT se devuelven
 // sin modificar para que el middleware central los trate como inesperados.
 
@@ -20,13 +20,17 @@ export class ErrorAutenticacion extends Error {
   }
 }
 
-export function comoErrorAutenticacion(
+export function verSiErrorAutenticacion(
   err: unknown,
   mensajePorDefecto: string,
 ): unknown {
+  // Arranca asumiendo que "err" no es de JWT: si no lo es, se devuelve
+  // tal cual llegó.
+  let resultado: unknown = err;
+
   if (err instanceof jwt.JsonWebTokenError) {
-    return new ErrorAutenticacion(mensajePorDefecto);
+    resultado = new ErrorAutenticacion(mensajePorDefecto);
   }
 
-  return err;
+  return resultado;
 }

@@ -5,7 +5,7 @@
 // objeto JSON que espera la API. Aparece en dos lugares:
 //   - JSON mal escrito ('{"email": "a@b.com",'): lo rechaza
 //     express.json() antes de llegar a cualquier router, y
-//     comoErrorLecturaCuerpo (errorLecturaCuerpo.ts) traduce ese
+//     verSiErrorLecturaCuerpo (errorLecturaCuerpo.ts) traduce ese
 //     error crudo a ErrorJsonInvalido.
 //   - JSON bien escrito que no es un objeto (un array, []): lo
 //     rechaza validacionDeCuerpo. (null, "texto" o 3 ni siquiera

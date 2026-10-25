@@ -6,20 +6,20 @@
 // sin token sigue respondiendo 401, y uno sin permiso 403):
 //
 // Rechaza:
-//   - sin body, o con un body vacío      -> ErrorRequestSinCuerpo (400)
+//   - sin body, o con un body vacío      -> ErrorPeticionSinCuerpo (400)
 //   - un JSON que no es un objeto ([])   -> ErrorJsonInvalido (400)
 //
 // Que el JSON esté bien escrito no se mira acá: express.json() (en
 // app.ts) lo lee antes de llegar a cualquier router, y si está mal
 // escrito el error va directo al errorHandler (ver
-// comoErrorLecturaCuerpo).
+// verSiErrorLecturaCuerpo).
 //
 // Tampoco mira qué campos trae el objeto ni de qué tipo son: eso lo
 // valida el DTO de cada endpoint (src/dtos/). Las reglas, el service.
 
 import type { Request, RequestHandler } from 'express';
 import { ErrorJsonInvalido } from '../errors/errorJsonInvalido.js';
-import { ErrorRequestSinCuerpo } from '../errors/errorRequestSinCuerpo.js';
+import { ErrorPeticionSinCuerpo } from '../errors/errorPeticionSinCuerpo.js';
 import { esObjetoJson } from '../utils/cuerpoPeticion.js';
 
 // ============================================================
@@ -38,7 +38,7 @@ export function verificarCuerpo(
   const body: unknown = req.body;
 
   if (body === undefined || req.headers['content-length'] === '0') {
-    throw new ErrorRequestSinCuerpo();
+    throw new ErrorPeticionSinCuerpo();
   }
   if (!esObjetoJson(body)) {
     throw new ErrorJsonInvalido('El cuerpo de la petición debe ser un objeto JSON');

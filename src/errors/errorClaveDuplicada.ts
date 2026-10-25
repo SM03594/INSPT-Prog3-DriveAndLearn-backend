@@ -7,7 +7,6 @@
 // que tira Mongoose/MongoDB al repetir un valor que estaba marcado como
 // unique.
 
-
 import { ErrorDeNegocio } from './errorDeNegocio.js';
 
 export class ErrorClaveDuplicada extends ErrorDeNegocio {
@@ -16,7 +15,6 @@ export class ErrorClaveDuplicada extends ErrorDeNegocio {
     this.name = 'ErrorClaveDuplicada';
   }
 }
-
 
 // ------------------------------------------------------------
 //  verSiErrorClaveDuplicada — traduce el error crudo de Mongo
@@ -33,35 +31,14 @@ export class ErrorClaveDuplicada extends ErrorDeNegocio {
 type ErrorMongoDuplicado = { code: 11000 };
 
 // esErrorMongoDuplicado — ¿"x" tiene forma de error de clave duplicada?
-//
-// Es un TYPE GUARD: una función que devuelve boolean, pero con un tipo de
-// retorno especial ("x is ErrorMongoDuplicado" en vez de "boolean" a
-// secas). Gracias a eso, después de un `if (esErrorMongoDuplicado(algo))`,
-// TypeScript "recuerda" adentro del if que `algo` es un ErrorMongoDuplicado
-// (con `.code` disponible), en vez de seguir tratándolo como `unknown`.
-// Es lo que le permite a verSiErrorClaveDuplicada() leer `.code`/`.message`
-// más abajo sin pelearse con el compilador.
-//
-// El cuerpo es un && de tres chequeos, evaluados de izquierda a derecha
-// (si uno falla, ni se llega a evaluar el siguiente):
-//   1) typeof x === 'object'  → descarta los primitivos (undefined,
-//      string, number, boolean...). Un error de verdad también es
-//      "object" en JS, así que esto no excluye al caso que buscamos.
-//   2) x !== null             → typeof null TAMBIÉN es 'object' (una
-//      rareza histórica de JS), así que hace falta descartarlo aparte.
-//      Sin este chequeo, el paso 3 podría intentar leer ".code" de null.
-//   3) (x as { code?: unknown }).code === 11000 → recién acá se lee la
-//      propiedad. El "as { code?: unknown }" (type assertion) es
-//      necesario porque "x" entró tipado como `unknown`: TypeScript no
-//      deja leer NINGUNA propiedad de un `unknown` sin decirle antes
-//      "tratalo como si tuviera, como mínimo, un campo code". Es una
-//      promesa que se hace solo a nivel de tipos (no valida nada en
-//      tiempo de ejecución) — por eso es seguro únicamente PORQUE los
-//      pasos 1 y 2 ya garantizaron que "x" es un objeto no nulo.
+// Es un type guard: si devuelve true, TypeScript ya sabe que "x" tiene
+// .code. Primero descarta los primitivos y null (typeof null también es
+// 'object'); recién entonces lee .code. El "as" solo sirve para que
+// TypeScript deje leer una propiedad de un unknown, y es seguro porque
+// los dos chequeos anteriores garantizan que "x" es un objeto.
 function esErrorMongoDuplicado(x: unknown): x is ErrorMongoDuplicado {
   return typeof x === 'object' && x !== null && (x as { code?: unknown }).code === 11000;
 }
-
 
 export function verSiErrorClaveDuplicada(err: unknown, mensajePorDefecto: string): unknown {
   // Arranca asumiendo que "err" no es un duplicado: si ningún caso de

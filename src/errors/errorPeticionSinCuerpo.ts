@@ -1,7 +1,7 @@
 // ============================================================
-//  errorRequestSinCuerpo.ts — Error de petición sin body
+//  errorPeticionSinCuerpo.ts — Error de petición sin body
 // ============================================================
-// ErrorRequestSinCuerpo representa un pedido que necesitaba body y
+// ErrorPeticionSinCuerpo representa un pedido que necesitaba body y
 // llegó sin él: no se mandó nada, o se mandó un body vacío. Lo lanza
 // validacionDeCuerpo (middlewares/validacionDeCuerpo.middleware.ts).
 //
@@ -11,9 +11,9 @@
 
 import { ErrorPeticionInvalida } from './errorPeticionInvalida.js';
 
-export class ErrorRequestSinCuerpo extends ErrorPeticionInvalida {
+export class ErrorPeticionSinCuerpo extends ErrorPeticionInvalida {
   constructor(message = 'La petición debe incluir un cuerpo JSON') {
     super(message);
-    this.name = 'ErrorRequestSinCuerpo';
+    this.name = 'ErrorPeticionSinCuerpo';
   }
 }
