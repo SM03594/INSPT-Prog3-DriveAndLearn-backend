@@ -22,8 +22,7 @@ export type TipoSegunNombre = {
 };
 
 // 'string' | 'number' | 'boolean': lo que puede ir en el "tipo" de
-// la tabla de campos de un DTO (validacionCampos suma objeto, lista y
-// cualquiera).
+// la tabla de campos de un DTO (validacionCampos suma objeto y lista).
 export type NombreTipo = keyof TipoSegunNombre;
 
 // Cómo se nombra cada tipo en los mensajes de error. "satisfies"

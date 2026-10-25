@@ -59,15 +59,22 @@ export async function quitarTramo(
   tramoId: string,
 ): Promise<CalendarioSemanal | null> {
   const horario = await HorarioEscuelaModel.findById('escuela');
-  if (horario === null) return null;
+  // Queda en null si todavía no se cargó el horario o si ese día no
+  // tiene un tramo con ese _id.
+  let calendarioActualizado: CalendarioSemanal | null = null;
 
-  const quitado = quitarTramoCalendario(
-    horario.calendario,
-    diaValido(dia),
-    tramoId,
-  );
-  if (!quitado) return null;
+  if (horario !== null) {
+    const seQuitoElTramo = quitarTramoCalendario(
+      horario.calendario,
+      diaValido(dia),
+      tramoId,
+    );
 
-  await horario.save();
-  return horario.calendario;
+    if (seQuitoElTramo) {
+      await horario.save();
+      calendarioActualizado = horario.calendario;
+    }
+  }
+
+  return calendarioActualizado;
 }

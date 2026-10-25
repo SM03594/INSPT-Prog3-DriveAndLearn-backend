@@ -61,10 +61,10 @@ async function validarActor(actor: ActorClase): Promise<void> {
 
 async function claseAccesible(id: string, actor: ActorClase): Promise<ClaseDoc | null> {
   const clase = await ClaseModel.findById(id);
-  return clase !== null &&
-    (actor.rol !== 'alumno' || clase.alumno.toString() === actor.id)
-    ? clase
-    : null;
+  // Un admin accede a cualquier clase; un alumno, solo a las suyas.
+  const puedeAccederla = clase !== null &&
+    (actor.rol !== 'alumno' || clase.alumno.toString() === actor.id);
+  return puedeAccederla ? clase : null;
 }
 
 function obtenerInstantes(datos: Pick<DatosClase, 'inicio' | 'fin'>): {
@@ -263,15 +263,12 @@ export async function crear(
   }
 }
 
-// "cambios" ya es un ActualizarClaseDto (ver dtos/clase.dto.ts).
-export async function actualizar(
-  id: string,
+// Aplica los cambios a una clase que el actor puede ver, después de
+// validar que se pueda modificar y que el nuevo horario esté libre.
+async function reprogramar(
+  clase: ClaseDoc,
   cambios: ActualizarClaseDto,
-  actor: ActorClase,
-): Promise<ClaseDoc | null> {
-  await validarActor(actor);
-  const clase = await claseAccesible(id, actor);
-  if (clase === null) return null;
+): Promise<ClaseDoc> {
   validarClaseModificable(clase);
   const instantes = obtenerInstantesActualizados(clase, cambios);
   const profesor = cambios.profesor === undefined
@@ -289,23 +286,37 @@ export async function actualizar(
   clase.auto = auto;
   clase.inicio = instantes.inicio;
   clase.fin = instantes.fin;
-  return clase.save();
+  const claseReprogramada = await clase.save();
+  return claseReprogramada;
 }
 
-export async function cancelar(
+// "cambios" ya es un ActualizarClaseDto (ver dtos/clase.dto.ts).
+export async function actualizar(
   id: string,
+  cambios: ActualizarClaseDto,
   actor: ActorClase,
 ): Promise<ClaseDoc | null> {
   await validarActor(actor);
   const clase = await claseAccesible(id, actor);
-  if (clase === null) return null;
-  if (clase.estado === 'cancelada') return clase;
+  // Queda en null si la clase no existe o es de otro alumno.
+  let claseActualizada: ClaseDoc | null = null;
+
+  if (clase !== null) {
+    claseActualizada = await reprogramar(clase, cambios);
+  }
+
+  return claseActualizada;
+}
+
+// Cancela una clase que todavía no estaba cancelada y le devuelve el
+// crédito al alumno. Si el reintegro falla, deja la clase como estaba.
+async function cancelarYReintegrarCredito(clase: ClaseDoc): Promise<ClaseDoc> {
   if (clase.inicio <= new Date()) {
     throw errorConflicto('Solo se pueden cancelar clases futuras');
   }
 
   const cancelada = await ClaseModel.findOneAndUpdate(
-    { _id: id, estado: { $ne: 'cancelada' }, inicio: { $gt: new Date() } },
+    { _id: clase._id, estado: { $ne: 'cancelada' }, inicio: { $gt: new Date() } },
     { $set: { estado: 'cancelada' } },
     { returnDocument: 'after', runValidators: true },
   );
@@ -332,4 +343,22 @@ export async function cancelar(
     throw error;
   }
   return cancelada;
+}
+
+export async function cancelar(
+  id: string,
+  actor: ActorClase,
+): Promise<ClaseDoc | null> {
+  await validarActor(actor);
+  const clase = await claseAccesible(id, actor);
+  // Queda en null si la clase no existe o es de otro alumno.
+  let claseCancelada: ClaseDoc | null = null;
+
+  if (clase !== null) {
+    // Cancelar dos veces no hace nada: no se reintegra el crédito otra vez.
+    const yaEstabaCancelada = clase.estado === 'cancelada';
+    claseCancelada = yaEstabaCancelada ? clase : await cancelarYReintegrarCredito(clase);
+  }
+
+  return claseCancelada;
 }

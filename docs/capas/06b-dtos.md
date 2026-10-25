@@ -34,7 +34,7 @@ pedido ─► routes ─► middlewares ─► controller ───────�
 | `alumno.dto.ts` | `CrearAlumnoDto`, `ActualizarAlumnoDto`, `CantidadClasesDto` | registro, `PUT`, `sumar-clases`/`restar-clases` |
 | `administrador.dto.ts` | `CrearAdministradorDto`, `ActualizarAdministradorDto` | `POST`, `PUT` |
 | `auto.dto.ts` | `CrearAutoDto`, `ActualizarAutoDto`, `CambiarActivoDto` | `POST`, `PUT`, `PATCH .../activo` |
-| `profesor.dto.ts` | `CrearProfesorDto`, `CambiarNomApeDto`, `CambiarFotoDto` | `POST`, `nom-ape`, `foto-perfil` |
+| `profesor.dto.ts` | `CrearProfesorDto`, `CambiarNomApeDto` | `POST`, `nom-ape` |
 | `calendarioSemanal.dto.ts` | `AgregarTramoDto`, `QuitarTramoDto`, `ReemplazarCalendarioDto` | disponibilidad del profesor **y** horario de la escuela |
 | `clase.dto.ts` | `CrearClaseDto`, `ActualizarClaseDto` | `POST`, `PUT` |
 
@@ -109,7 +109,7 @@ const CAMPOS_DATOS_AUTO = {
 } as const;
 ```
 
-`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:81`)
+`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:76`)
 la recorre en cuatro pasos:
 
 ```
@@ -131,7 +131,6 @@ Tipos que admite la tabla:
 | `'string'` / `'number'` / `'boolean'` | Ese tipo exacto: `"2"` no es un número | `nomApe`, `cantidad`, `activo` |
 | `'objeto'` | Un `{...}`, ni `null` ni un array | `tramo` |
 | `'lista'` | Un `[...]` | los días del calendario |
-| `'cualquiera'` | Cualquier valor: lo convierte el service | `foto` (texto, bytes o Buffer) |
 
 Las tres opciones:
 
@@ -145,7 +144,7 @@ Las tres opciones:
 
 `validarCampos` devuelve todos los campos como **opcionales**, porque la misma
 tabla sirve para crear y para editar. Cuando un DTO **promete** que un campo
-está, lo exige con `exigido` (`validacionCampos.ts:124`):
+está, lo exige con `exigido` (`validacionCampos.ts:119`):
 
 ```ts
 export function exigido<T>(valor: T | undefined, mensaje: string): T {
@@ -227,7 +226,7 @@ El DTO **no** reemplaza al service: cada capa valida una cosa distinta.
 |---|---|---|---|
 | Alumno | Campos, texto, obligatorios; `cantidad` número | Saldo inicial 0; `cantidad` entera y > 0 | Formato del email, unique |
 | Auto | Campos, tipos, patente y cambios obligatorios | — | Valores de `cambios` (enum), unique de la patente |
-| Profesor | `nomApe` texto; `foto` presente | Nombre no vacío; conversión de la foto | Tamaño de la foto |
+| Profesor | `nomApe` texto | Nombre no vacío | — |
 | Tramo | `dia` texto, `tramo` objeto | Que el día exista (`validarDia`) | Horas 0–23, fin > inicio |
 | Clase | Campos según el rol, todos texto | Ids válidos, fecha ISO, 1 hora, horario, saldo | Fin > inicio |
 | Login | Email y contraseña texto | No vacíos; credenciales (401) | — |

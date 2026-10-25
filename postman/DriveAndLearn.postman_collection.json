@@ -279,11 +279,6 @@
       "type": "string"
     },
     {
-      "key": "fotoGrande",
-      "value": "",
-      "type": "string"
-    },
-    {
       "key": "relleno",
       "value": "",
       "type": "string"
@@ -3878,7 +3873,7 @@
     },
     {
       "name": "05 Profesores",
-      "description": "Alta, edición, foto y disponibilidad horaria de profesores. Trabaja sobre un profesor 2 propio, así no se toca al profesor del Setup que usa 07 Clases.",
+      "description": "Alta, edición y disponibilidad horaria de profesores. Trabaja sobre un profesor 2 propio, así no se toca al profesor del Setup que usa 07 Clases.",
       "item": [
         {
           "name": "[201] Admin crea profesor: disponibilidad arranca vacía",
@@ -4265,105 +4260,6 @@
               ]
             },
             "description": "Antes respondía 500 (hallazgo §7.3 del plan, resuelto): el controller leía req.body.nomApe con req.body undefined. Ahora lo rechaza el middleware validacionDeCuerpo."
-          }
-        },
-        {
-          "name": "[200] Admin carga una foto chica (base64)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.test('Devuelve fotoPerfil', function () {",
-                  "  pm.expect(pm.response.json().fotoPerfil).to.be.an('object');",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/foto-perfil",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "profesores",
-                "{{profesor2Id}}",
-                "foto-perfil"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"foto\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "[413] Foto de más de 100 KB: la corta express.json()",
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.collectionVariables.set('fotoGrande', 'A'.repeat(200 * 1024));"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarError(pm, 413, \"demasiado grande\");"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/foto-perfil",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "profesores",
-                "{{profesor2Id}}",
-                "foto-perfil"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{ \"foto\": \"{{fotoGrande}}\" }",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "El modelo admite fotos de hasta 2 MiB, pero express.json() rechaza cualquier body de más de 100 KB antes de llegar al controller. En la práctica, la foto más grande que se puede subir ronda los 75 KB."
           }
         },
         {
@@ -7934,93 +7830,6 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"nomApe\": \"Otro\",\n  \"extra\": 1\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
-          }
-        },
-        {
-          "name": "[400] Foto numérica",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarError(pm, 400, \"base64 o como bytes\");"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/foto-perfil",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "profesores",
-                "{{profesor2Id}}",
-                "foto-perfil"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"foto\": 123\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "[400] Foto con un campo de más",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: extra\");"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/profesores/000000000000000000000000/foto-perfil",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "profesores",
-                "000000000000000000000000",
-                "foto-perfil"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"foto\": \"UE5H\",\n  \"extra\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -21,15 +21,12 @@ import {
   type TipoSegunNombre,
 } from './validacionTipos.js';
 
-// Los tipos de typeof, más tres que hacen falta en un JSON:
-//   objeto     -> un {...}, por ejemplo un tramo;
-//   lista      -> un [...], por ejemplo los tramos de un día;
-//   cualquiera -> no se revisa acá porque lo convierte el service
-//                 (la foto puede llegar como texto, bytes o Buffer).
+// Los tipos de typeof, más dos que hacen falta en un JSON:
+//   objeto -> un {...}, por ejemplo un tramo;
+//   lista  -> un [...], por ejemplo los tramos de un día.
 type TipoSegunCampo = TipoSegunNombre & {
   objeto: object;
   lista: unknown[];
-  cualquiera: unknown;
 };
 export type TipoCampo = keyof TipoSegunCampo;
 
@@ -37,7 +34,7 @@ const DESCRIPCION_CAMPO = {
   ...DESCRIPCION_TIPO,
   objeto: 'un objeto',
   lista: 'una lista',
-} as const satisfies Record<Exclude<TipoCampo, 'cualquiera'>, string>;
+} as const satisfies Record<TipoCampo, string>;
 
 function cumpleTipo(valor: unknown, tipo: TipoCampo): boolean {
   switch (tipo) {
@@ -45,8 +42,6 @@ function cumpleTipo(valor: unknown, tipo: TipoCampo): boolean {
       return esObjetoJson(valor);
     case 'lista':
       return Array.isArray(valor);
-    case 'cualquiera':
-      return true;
     default:
       return esDelTipo(valor, tipo);
   }
@@ -106,7 +101,7 @@ export function validarCampos<C extends CamposPermitidos>(
     const { tipo, nombre } = campos[campo];
     const valor = datos[campo];
 
-    if (tipo !== 'cualquiera' && !cumpleTipo(valor, tipo)) {
+    if (!cumpleTipo(valor, tipo)) {
       throw new ErrorDeNegocio(`${nombre} debe ser ${DESCRIPCION_CAMPO[tipo]}`);
     }
 

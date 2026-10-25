@@ -9,7 +9,6 @@ import {
   listar,
   obtenerPorId,
   cambiarNomApe,
-  cambiarFotoPerfil,
   agregarDisponibilidad,
   quitarDisponibilidad,
 } from '../../src/services/profesor.service.js';
@@ -124,45 +123,6 @@ describe('profesor.service', () => {
       await expect(cambiarNomApe(creado._id.toString(), nomApe)).rejects.toThrow(
         'El nombre y apellido del profesor es obligatorio',
       );
-    });
-  });
-
-  // --------------------------------------------------------
-  //  cambiarFotoPerfil
-  // --------------------------------------------------------
-  describe('cambiarFotoPerfil', () => {
-    it('guarda la foto y devuelve el doc actualizado', async () => {
-      const creado = await crearProfesor();
-      const foto = Buffer.from('bytes-de-una-imagen');
-
-      const res = await cambiarFotoPerfil(creado._id.toString(), foto);
-
-      expect(res?.fotoPerfil).toBeInstanceOf(Buffer);
-      expect(res?.fotoPerfil?.toString()).toBe('bytes-de-una-imagen');
-    });
-
-    it('convierte una foto base64 recibida en el service', async () => {
-      const creado = await crearProfesor();
-      const contenido = 'foto en base64';
-      const base64 = Buffer.from(contenido).toString('base64');
-
-      const res = await cambiarFotoPerfil(creado._id.toString(), base64);
-
-      expect(res?.fotoPerfil?.toString()).toBe(contenido);
-    });
-
-    it('devuelve null si el profesor no existe', async () => {
-      const foto = Buffer.from('x');
-      expect(await cambiarFotoPerfil(ID_INEXISTENTE, foto)).toBeNull();
-    });
-
-    it('tira ValidationError si la foto supera el tamaño máximo (2 MiB)', async () => {
-      const creado = await crearProfesor();
-      const fotoEnorme = Buffer.alloc(2 * Math.pow(1024, 2) + 1); // 2 MiB + 1 byte
-
-      await expect(
-        cambiarFotoPerfil(creado._id.toString(), fotoEnorme),
-      ).rejects.toThrow(/no puede superar/);
     });
   });
 

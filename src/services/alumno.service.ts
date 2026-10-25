@@ -88,11 +88,14 @@ async function ajustarClasesPorReservar(
   delta: number,
 ): Promise<AlumnoDoc | null> {
   const alumno = await AlumnoModel.findById(id);
-  if (alumno === null) return null;
+  let alumnoActualizado: AlumnoDoc | null = null;
 
-  alumno.clasesPorReservar += delta;
+  if (alumno !== null) {
+    alumno.clasesPorReservar += delta;
+    alumnoActualizado = await alumno.save();
+  }
 
-  return alumno.save();
+  return alumnoActualizado;
 }
 
 // ============================================================

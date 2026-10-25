@@ -18,7 +18,7 @@ validado (o argumentos comunes) y devuelve datos, o lanza un error.
 | `alumno.service` | `AlumnoModel` | Alta, edición y baja de alumnos, y el saldo de clases. |
 | `administrador.service` | `AdministradorModel` | Alta, edición y baja de admins, y `existe()` para los middlewares. |
 | `auto.service` | `AutoModel` | Alta y edición de autos, y ponerlos o sacarlos de servicio. |
-| `profesor.service` | `ProfesorModel` | Alta, nombre, foto y disponibilidad de los profesores. |
+| `profesor.service` | `ProfesorModel` | Alta, nombre y disponibilidad de los profesores. |
 | `calendarioSemanal.service` | — (no toca la base) | Operaciones sobre **cualquier** calendario semanal. |
 | `horarioEscuela.service` | `HorarioEscuelaModel` | El horario único de la escuela. |
 | `clase.service` | `Clase`, `Alumno`, `Profesor`, `Auto`, `HorarioEscuela`, `Administrador` | Reservar, modificar y cancelar clases. |
@@ -172,9 +172,14 @@ AutoModel.findByIdAndUpdate(id, cambios, { new: true, runValidators: true });
 
 ```ts
 const alumno = await AlumnoModel.findById(id);
-if (alumno === null) return null;
-alumno.clasesPorReservar += delta;
-return alumno.save();          // corre TODAS las validaciones (min: 0)
+let alumnoActualizado: AlumnoDoc | null = null;
+
+if (alumno !== null) {
+  alumno.clasesPorReservar += delta;
+  alumnoActualizado = await alumno.save();   // corre TODAS las validaciones (min: 0)
+}
+
+return alumnoActualizado;
 ```
 
 Se usa cuando el valor nuevo depende del anterior, o cuando hace falta que

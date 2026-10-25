@@ -186,7 +186,7 @@ coinciden, el service lanza `ErrorAutenticacion` y el resultado es un **401**.
 | `auto` | `listar`, `obtener`, `crear`, `actualizar`, `cambiarActivo` | `auto.dto` | `auto.service` |
 | `clase` | `listar`, `obtener`, `crear`, `actualizar`, `cancelar` | `clase.dto` | `clase.service` |
 | `horarioEscuela` | `obtener`, `reemplazar`, `validar`, `agregar`, `quitar` | `calendarioSemanal.dto` | `horarioEscuela.service` |
-| `profesor` | `listar`, `obtener`, `crear`, `cambiarNomApe`, `cambiarFotoPerfil`, `agregarDisponibilidad`, `quitarDisponibilidad` | `profesor.dto` y `calendarioSemanal.dto` | `profesor.service` |
+| `profesor` | `listar`, `obtener`, `crear`, `cambiarNomApe`, `agregarDisponibilidad`, `quitarDisponibilidad` | `profesor.dto` y `calendarioSemanal.dto` | `profesor.service` |
 
 Cada controller usa **un solo** service, el de su recurso. La excepción es
 `horarioEscuela.controller`, que para `validar` también importa `validarDia`

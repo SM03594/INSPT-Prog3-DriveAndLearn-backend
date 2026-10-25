@@ -195,7 +195,6 @@ pasa por `validacionDeCuerpo`.
 | GET | `/api/profesores`, `/api/profesores/:id` | 🔑 | |
 | POST | `/api/profesores` | 🛡️ | ✓ |
 | PATCH | `/api/profesores/:id/nom-ape` | 🛡️ | ✓ |
-| PATCH | `/api/profesores/:id/foto-perfil` | 🛡️ | ✓ |
 | POST | `/api/profesores/:id/disponibilidad` | 🛡️ | ✓ |
 | DELETE | `/api/profesores/:id/disponibilidad` | 🛡️ | ✓ |
 | **clases** | | | |

@@ -3,7 +3,7 @@
 ## Qué es esto, en una frase
 
 Un administrador **crea un profesor** (`POST /api/profesores`), le puede
-cambiar el nombre o la foto, y le **carga la disponibilidad**: los tramos de
+cambiar el nombre, y le **carga la disponibilidad**: los tramos de
 cada día en los que puede dar clases. Sin disponibilidad, a ese profesor no se
 le puede reservar nada. Esta guía sigue esos pedidos a través de las capas,
 con las respuestas reales de la API.
@@ -18,15 +18,14 @@ explica en [`../temas/horarios-y-agendamiento.md`](../temas/horarios-y-agendamie
 
 ## El mapa
 
-`src/routes/profesor.routes.ts:17-25`. Todo pide token; lo marcado con 🛡️
+`src/routes/profesor.routes.ts:17-24`. Todo pide token; lo marcado con 🛡️
 además pide admin:
 
 | Pedido | Quién | Service | Qué hace |
 |---|---|---|---|
 | `POST /api/profesores` `{ nomApe }` | 🛡️ | `crear` | Alta con la disponibilidad vacía |
-| `GET /api/profesores`, `GET /api/profesores/:id` | 🔑 cualquiera | `listar`, `obtenerPorId` | Incluye la disponibilidad y la foto |
+| `GET /api/profesores`, `GET /api/profesores/:id` | 🔑 cualquiera | `listar`, `obtenerPorId` | Incluye la disponibilidad |
 | `PATCH /api/profesores/:id/nom-ape` `{ nomApe }` | 🛡️ | `cambiarNomApe` | Cambia el nombre |
-| `PATCH /api/profesores/:id/foto-perfil` `{ foto }` | 🛡️ | `cambiarFotoPerfil` | Reemplaza la foto |
 | `POST /api/profesores/:id/disponibilidad` `{ dia, tramo }` | 🛡️ | `agregarDisponibilidad` | Agrega un tramo |
 | `DELETE /api/profesores/:id/disponibilidad` `{ dia, tramoId }` | 🛡️ | `quitarDisponibilidad` | Quita un tramo |
 
@@ -60,8 +59,8 @@ const profesor = await profesorService.crear(aCrearProfesorDto(req.body));      
 res.status(201).json(profesor);
 ```
 
-`aCrearProfesorDto` (`src/dtos/profesor.dto.ts:38`) acepta **solo** `nomApe`,
-como texto y obligatorio. El service (`src/services/profesor.service.ts:62`)
+`aCrearProfesorDto` (`src/dtos/profesor.dto.ts:28`) acepta **solo** `nomApe`,
+como texto y obligatorio. El service (`src/services/profesor.service.ts:33`)
 aplica la regla que falta: que el nombre no quede vacío.
 
 ```ts
@@ -103,11 +102,11 @@ distintas: el DTO dice que **falta** el campo, y el service, que llegó
 `GET /api/profesores` y `GET /api/profesores/:id` los puede usar **cualquier
 usuario con token**, también los alumnos: necesitan ver qué profesores hay y
 cuándo están disponibles para elegir al reservar. La respuesta incluye la
-`disponibilidad` completa y, si tiene, la `fotoPerfil` (ver el paso 4).
+`disponibilidad` completa.
 
 ### Paso 3. Cambiar el nombre
 
-Controller (`profesor.controller.ts:33`) → service (`profesor.service.ts:78`):
+Controller (`profesor.controller.ts:33`) → service (`profesor.service.ts:49`):
 
 ```ts
 const { nomApe } = aCambiarNomApeDto(req.body);                       // controller
@@ -133,57 +132,19 @@ el service, que no quede vacío. Comportamiento real:
 Antes de los DTO, `123` se guardaba como `"123"` y un body sin `nomApe`
 respondía 200 sin cambiar nada (I-34, ya resuelta).
 
-### Paso 4. La foto de perfil
-
-`aCambiarFotoDto` (`src/dtos/profesor.dto.ts:55`) exige que el body traiga
-`foto`, y nada más. El **tipo** no lo revisa: la foto puede llegar en varios
-formatos, y la que los convierte es `fotoComoBuffer`
-(`profesor.service.ts:39`), que pasa lo que llegue a bytes (`Buffer`):
-
-| `foto` recibida | Se guarda |
-|---|---|
-| Un texto | Se interpreta como **base64** |
-| Un array de números entre 0 y 255 | Esos bytes |
-| `{ "type": "Buffer", "data": [...] }` | Esos bytes (el formato en que la API devuelve un `Buffer`) |
-| `null` | Un buffer **vacío**, o sea que borra la foto |
-| Otra cosa (un número, por ejemplo) | 400 "La foto debe enviarse en base64 o como bytes" |
-| Body sin `foto` (`{}`) | 400 "La foto es obligatoria" (DTO) |
-
-En la respuesta, la foto viene como un **array de números**:
-
-```json
-"fotoPerfil": { "type": "Buffer", "data": [80, 78, 71, 68, 65, 84, 65] }
-```
-
-Hay varios detalles a tener en cuenta, todos comprobados (I-35):
-
-- **Cualquier texto se acepta como base64.** `"esto no es base64 !!!"` se
-  guarda como 10 bytes sin sentido. No se comprueba que sea una imagen.
-- **`{ "foto": null }` borra la foto actual.** Antes la borraba también un
-  body sin `foto`; ahora eso responde 400. Falta decidir si `null` es la forma
-  de borrar la foto o si también se rechaza.
-- **El límite real es ~75 KB, no 2 MiB.** El modelo permite hasta 2 MiB
-  (`Profesor.ts:12`), pero `express.json()` corta cualquier body de más de
-  100 KB **antes** de llegar al service: una foto de 3 MB responde 413 "El
-  cuerpo de la petición es demasiado grande". Y en base64 los datos ocupan un
-  33 % más.
-- Como array de números, cada byte ocupa hasta 4 caracteres en el JSON. La
-  foto viaja en **todas** las respuestas del profesor, también en
-  `GET /api/profesores` (la lista completa).
-
-### Paso 5. Agregar disponibilidad
+### Paso 4. Agregar disponibilidad
 
 ```ts
 router.post('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo,
-            profesorController.agregarDisponibilidad);                        // routes :24
+            profesorController.agregarDisponibilidad);                        // routes :23
 
-const { dia, tramo } = aAgregarTramoDto(req.body);                             // controller :65
+const { dia, tramo } = aAgregarTramoDto(req.body);                             // controller :51
 const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia, tramo);
 ```
 
 `aAgregarTramoDto` es el **mismo DTO** que usa el horario de la escuela
 (`src/dtos/calendarioSemanal.dto.ts:63`). Después, el service
-(`src/services/profesor.service.ts:106`):
+(`src/services/profesor.service.ts:63`):
 
 ```
 aAgregarTramoDto ─────── (en el controller)
@@ -227,7 +188,7 @@ POST /api/profesores/6ada695b.../disponibilidad
 | Sin `horaFin` | 400 "La hora de fin es obligatoria" |
 | 10–12 cuando ya hay uno de 09–13 | **200**: se aceptan tramos superpuestos (I-37) |
 
-### Paso 6. Quitar disponibilidad
+### Paso 5. Quitar disponibilidad
 
 ```http
 DELETE /api/profesores/6ada695b.../disponibilidad
@@ -236,7 +197,7 @@ DELETE /api/profesores/6ada695b.../disponibilidad
 
 Es un `DELETE` **con body** (ver I-24). El controller usa `aQuitarTramoDto`,
 compartido con el horario: `tramoId` tiene que ser un texto (`123` responde
-400 "El identificador del tramo debe ser un texto"). El service (`:122`) busca el tramo por
+400 "El identificador del tramo debe ser un texto"). El service (`:83`) busca el tramo por
 `_id` **en ese día** y lo saca con `quitarTramo`, que devuelve `true` o
 `false`.
 
@@ -251,7 +212,7 @@ tramo. Pasa porque el service devuelve `null` en los dos casos, y el
 controller no los distingue (I-33). En el horario de la escuela, el mismo caso
 responde "No se encontró el tramo solicitado en ese día".
 
-### Paso 7. Cómo se usa al reservar
+### Paso 6. Cómo se usa al reservar
 
 Al reservar, la clase tiene que caber **entera** en un tramo del profesor
 **y** en uno de la escuela ese día. Ver
@@ -275,9 +236,6 @@ Hay tres cosas que **no** se controlan al cargar la disponibilidad:
 | Crear con el nombre vacío (`"  "`) | 400 "El nombre y apellido del profesor es obligatorio" (I-51) |
 | Un alumno crea o modifica | 403 "Se requieren permisos de administrador" |
 | Cambiar el nombre a un número | 400 "El nombre y apellido debe ser un texto" |
-| Cambiar la foto sin mandar `foto` | 400 "La foto es obligatoria" |
-| Foto de más de ~75 KB | 413 "El cuerpo de la petición es demasiado grande" |
-| Foto como número | 400 "La foto debe enviarse en base64 o como bytes" |
 | Día `"Lunes"` (mayúscula) | 400 'Día inválido: "Lunes". Debe ser uno de: …' |
 | Tramo con el fin antes del inicio | 400 "La hora de fin debe ser posterior a la de inicio" |
 | Quitar un tramo que no existe | 404 "Profesor no encontrado" (I-33) |
@@ -288,11 +246,8 @@ Hay tres cosas que **no** se controlan al cargar la disponibilidad:
 ## Resumen
 
 - **Alta:** solo `nomApe`. La disponibilidad arranca vacía.
-- **Consulta:** abierta a cualquier usuario con token. Trae la disponibilidad
-  y la foto.
-- **Nombre y foto:** cambian por `PATCH`. El nombre tiene las mismas
-  validaciones que el alta. La foto se exige, pero su contenido se valida poco
-  (I-35).
+- **Consulta:** abierta a cualquier usuario con token. Trae la disponibilidad.
+- **Nombre:** cambia por `PATCH`, con las mismas validaciones que el alta.
 - **Disponibilidad:** se agrega de a un tramo por día. El DTO, compartido con
   el horario de la escuela, valida la forma; el service, que el día exista; y
   Mongoose valida los números al hacer `.save()`. Cada tramo tiene un `_id`, que es lo que se usa para quitarlo.

@@ -51,8 +51,11 @@ export function quitarTramo(
 
   const tramos = calendario[dia];
   const indice = tramos.findIndex((t) => t._id?.toString() === tramoId);
-  if (indice === -1) return false;
+  const seEncontroElTramo = indice !== -1;
 
-  tramos.splice(indice, 1);
-  return true;
+  if (seEncontroElTramo) {
+    tramos.splice(indice, 1);
+  }
+
+  return seEncontroElTramo;
 }

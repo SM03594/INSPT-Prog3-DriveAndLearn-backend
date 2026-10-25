@@ -205,7 +205,7 @@ En los controllers, `Request<{ id: string }>` le indica a Express que
 #### 6.1 Un genérico chico: `exigido<T>`
 
 Cuando un DTO necesita un campo obligatorio, usa `exigido`
-(`src/utils/validacionCampos.ts:124`):
+(`src/utils/validacionCampos.ts:119`):
 
 ```ts
 export function exigido<T>(valor: T | undefined, mensaje: string): T {
@@ -221,7 +221,7 @@ compilador deduce `T` a partir del argumento.
 
 #### 6.2 Un genérico con restricción: `validarCampos<C>`
 
-`validarCampos` (`src/utils/validacionCampos.ts:81`) recibe la tabla de campos
+`validarCampos` (`src/utils/validacionCampos.ts:76`) recibe la tabla de campos
 de un DTO y devuelve los datos con el tipo que **corresponde a esa tabla**:
 
 ```ts
@@ -242,7 +242,7 @@ export function validarCampos<C extends CamposPermitidos>(
 #### 6.3 Un tipo que se calcula: `DatosValidados<C>`
 
 El tipo de retorno se **deduce** de la tabla con un *mapped type*
-(`validacionCampos.ts:66`):
+(`validacionCampos.ts:61`):
 
 ```ts
 export type DatosValidados<C extends CamposPermitidos> = {
@@ -363,7 +363,7 @@ aparece al ejecutar. Por eso el proyecto los usa poco y siempre con un
 comentario que explica por qué es seguro. En lo posible, preferí un type guard.
 
 Un caso donde el `as` es inevitable está al final de `validarCampos`
-(`src/utils/validacionCampos.ts:118`):
+(`src/utils/validacionCampos.ts:113`):
 
 ```ts
 // Los tipos se comprobaron en runtime, campo por campo: TypeScript
@@ -452,7 +452,7 @@ import se borra por completo al compilar, así que no carga código en runtime.
 | `as const` + `typeof X[number]` | Una sola lista, usable como valor y como tipo | `types/roles.ts:8` |
 | `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:22`, `services/clase.service.ts:25` |
 | Genéricos `<T>` | Tipos con parámetro | `utils/password.ts:27`, `exigido` y `validarCampos` |
-| *Mapped types* | Calcular un tipo a partir de otro | `DatosValidados` en `utils/validacionCampos.ts:66` |
+| *Mapped types* | Calcular un tipo a partir de otro | `DatosValidados` en `utils/validacionCampos.ts:61` |
 | `unknown` + type guards | Validar datos externos de forma segura | `utils/cuerpoPeticion.ts:22` |
 | `satisfies` | Comprobar un tipo sin perder los valores exactos | `utils/validacionTipos.ts:32` |
 | `!` / `as` | Afirmaciones sin chequeo en runtime (usar poco) | `clase.controller.ts:15` |

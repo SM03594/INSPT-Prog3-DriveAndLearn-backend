@@ -82,15 +82,14 @@ describe('validarCampos', () => {
   });
 });
 
-describe('validarCampos con objeto, lista y cualquiera', () => {
+describe('validarCampos con objeto y lista', () => {
   const CAMPOS_JSON = {
     tramo: { tipo: 'objeto', nombre: 'El tramo' },
     lunes: { tipo: 'lista', nombre: 'El lunes' },
-    foto: { tipo: 'cualquiera', nombre: 'La foto' },
   } as const;
 
-  it('acepta un objeto, una lista y cualquier valor en "cualquiera"', () => {
-    const entrada = { tramo: { hora: 9 }, lunes: [], foto: 123 };
+  it('acepta un objeto y una lista', () => {
+    const entrada = { tramo: { hora: 9 }, lunes: [] };
 
     expect(validarCampos(entrada, CAMPOS_JSON, AL_CREAR)).toEqual(entrada);
   });

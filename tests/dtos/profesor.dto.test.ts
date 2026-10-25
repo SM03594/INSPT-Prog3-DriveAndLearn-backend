@@ -6,7 +6,7 @@
 // de calendarioSemanal.dto.ts (ver calendarioSemanal.dto.test.ts).
 
 import { describe, it, expect } from 'vitest';
-import { aCambiarFotoDto, aCambiarNomApeDto, aCrearProfesorDto } from '../../src/dtos/profesor.dto.js';
+import { aCambiarNomApeDto, aCrearProfesorDto } from '../../src/dtos/profesor.dto.js';
 
 describe('aCrearProfesorDto', () => {
   it('devuelve el nombre', () => {
@@ -42,22 +42,5 @@ describe('aCambiarNomApeDto', () => {
 
   it('rechaza campos de más', () => {
     expect(() => aCambiarNomApeDto({ nomApe: 'Otro', extra: 1 })).toThrow('No se pueden enviar estos campos: extra');
-  });
-});
-
-describe('aCambiarFotoDto', () => {
-  // La foto puede llegar en varios formatos: el DTO no la revisa, la
-  // convierte el service.
-  it.each(['UE5H', [80, 78, 71], { type: 'Buffer', data: [80] }])('deja pasar la foto tal cual (%j)', (foto) => {
-    expect(aCambiarFotoDto({ foto })).toEqual({ foto });
-  });
-
-  // Antes, un body sin "foto" borraba la foto actual (I-35).
-  it('exige la foto', () => {
-    expect(() => aCambiarFotoDto({})).toThrow('La foto es obligatoria');
-  });
-
-  it('rechaza campos de más', () => {
-    expect(() => aCambiarFotoDto({ foto: 'UE5H', extra: 1 })).toThrow('No se pueden enviar estos campos: extra');
   });
 });

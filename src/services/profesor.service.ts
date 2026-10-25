@@ -23,35 +23,6 @@ function nombreObligatorio(nomApe: string): string {
   return nomApe;
 }
 
-function esBufferSerializado(
-  valor: unknown,
-): valor is { type: 'Buffer'; data: number[] } {
-  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) {
-    return false;
-  }
-  const objeto = valor as Record<string, unknown>;
-  return objeto.type === 'Buffer' && Array.isArray(objeto.data) &&
-    objeto.data.every((byte) =>
-      typeof byte === 'number' && Number.isInteger(byte) && byte >= 0 && byte <= 255,
-    );
-}
-
-function fotoComoBuffer(valor: unknown): Buffer {
-  if (valor === undefined || valor === null) return Buffer.alloc(0);
-  if (Buffer.isBuffer(valor)) return valor;
-  if (typeof valor === 'string') return Buffer.from(valor, 'base64');
-  if (
-    Array.isArray(valor) &&
-    valor.every((byte) =>
-      typeof byte === 'number' && Number.isInteger(byte) && byte >= 0 && byte <= 255,
-    )
-  ) {
-    return Buffer.from(valor);
-  }
-  if (esBufferSerializado(valor)) return Buffer.from(valor.data);
-  throw new ErrorDeNegocio('La foto debe enviarse en base64 o como bytes');
-}
-
 // ============================================================
 //  listar — todos los profesores
 // ============================================================
@@ -59,6 +30,9 @@ export async function listar(): Promise<ProfesorDoc[]> {
   return ProfesorModel.find();
 }
 
+// ============================================================
+//  crear — crear un profesor
+// ============================================================
 export async function crear(datos: CrearProfesorDto): Promise<ProfesorDoc> {
   return ProfesorModel.create({ nomApe: nombreObligatorio(datos.nomApe) });
 }
@@ -87,20 +61,6 @@ export async function cambiarNomApe(
 }
 
 // ============================================================
-//  cambiarFotoPerfil — reemplaza la foto de perfil
-// ============================================================
-export async function cambiarFotoPerfil(
-  id: string,
-  fotoEntrada: unknown,
-): Promise<ProfesorDoc | null> {
-  const profesor = await ProfesorModel.findById(id);
-  if (profesor === null) return null;
-
-  profesor.fotoPerfil = fotoComoBuffer(fotoEntrada);
-  return profesor.save();
-}
-
-// ============================================================
 //  agregarDisponibilidad — suma un tramo al día indicado
 // ============================================================
 export async function agregarDisponibilidad(
@@ -109,11 +69,15 @@ export async function agregarDisponibilidad(
   tramo: Tramo,
 ): Promise<ProfesorDoc | null> {
   const profesor = await ProfesorModel.findById(id);
-  if (profesor === null) return null;
+  let profesorActualizado: ProfesorDoc | null = null;
 
-  validarDia(dia);
-  agregarTramo(profesor.disponibilidad, dia, tramo);
-  return profesor.save();
+  if (profesor !== null) {
+    validarDia(dia);
+    agregarTramo(profesor.disponibilidad, dia, tramo);
+    profesorActualizado = await profesor.save();
+  }
+
+  return profesorActualizado;
 }
 
 // ============================================================
@@ -125,11 +89,17 @@ export async function quitarDisponibilidad(
   tramoId: string,
 ): Promise<ProfesorDoc | null> {
   const profesor = await ProfesorModel.findById(id);
-  if (profesor === null) return null;
+  
+  let profesorActualizado: ProfesorDoc | null = null;
 
-  validarDia(dia);
-  const quitado = quitarTramo(profesor.disponibilidad, dia, tramoId);
-  if (!quitado) return null;
+  if (profesor !== null) {
+    validarDia(dia);
+    const seQuitoElTramo = quitarTramo(profesor.disponibilidad, dia, tramoId);
 
-  return profesor.save();
+    if (seQuitoElTramo) {
+      profesorActualizado = await profesor.save();
+    }
+  }
+
+  return profesorActualizado;
 }

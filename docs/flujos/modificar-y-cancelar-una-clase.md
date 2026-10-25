@@ -91,6 +91,9 @@ Ana: PUT /api/clases/<clase de Beto>  → 404 "Clase no encontrada"
 con ese id. Con un 404 no se revela nada. Un **admin** puede modificar
 cualquier clase.
 
+Si la clase es accesible, `actualizar` (`:294`) se la pasa a `reprogramar`
+(`:268`), que hace los pasos 4 a 7.
+
 ### Paso 4. ¿Todavía se puede modificar?
 
 `validarClaseModificable` (`:167`):
@@ -157,7 +160,7 @@ responde 200.
 ```ts
 clase.profesor = profesor; clase.auto = auto;
 clase.inicio = instantes.inicio; clase.fin = instantes.fin;
-return clase.save();
+const claseReprogramada = await clase.save();
 ```
 
 Usa `.save()` para que corra también el `pre('validate')` del modelo (fin
@@ -179,7 +182,8 @@ No hay `validacionDeCuerpo`: cancelar no necesita datos, la URL dice todo.
 
 ### Paso 9. El service
 
-`clase.service.ts:295`:
+`cancelar` (`clase.service.ts:348`). Si la clase todavía no estaba cancelada,
+la cancela `cancelarYReintegrarCredito` (`:313`):
 
 ```
 validarActor ─► claseAccesible (de otro → 404)

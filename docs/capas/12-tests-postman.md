@@ -4,7 +4,7 @@
 
 La colección de `postman/` prueba la API **de punta a punta, como lo haría el
 frontend**: con el servidor levantado de verdad, contra una base real,
-haciendo login y encadenando pedidos. Son 192 requests, organizados en 11
+haciendo login y encadenando pedidos. Son 188 requests, organizados en 11
 carpetas que se ejecutan en orden, y cada uno tiene scripts que comprueban la
 respuesta.
 
@@ -26,7 +26,7 @@ respuesta.
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   11 carpetas, 192 requests
+├── DriveAndLearn.postman_collection.json   11 carpetas, 188 requests
 ├── environments/
 │   ├── local.postman_environment.json      baseUrl = http://localhost:3000/api
 │   └── remoto.postman_environment.json     baseUrl = https://<servidor>/api
@@ -39,10 +39,10 @@ Las carpetas, en el orden en que se ejecutan:
 00 Setup (15) ──► 01 Auth (9) ──► 02 Alumnos (32) ──► 03 Administradores (12)
    │ login admin, crea alumnos,                                     │
    │ autos, profesor, tramos;                                       ▼
-   │ guarda tokens e ids            04 Autos (15) ──► 05 Profesores (19) ──► 06 Horario de la escuela (13)
+   │ guarda tokens e ids            04 Autos (15) ──► 05 Profesores (17) ──► 06 Horario de la escuela (13)
    │                                                                │
    │ (variables de colección)                                       ▼
-   └────────────────────────────►  07 Clases (30) ──► 08 Errores generales (5) ──► 09 Validación de campos y tipos (32)
+   └────────────────────────────►  07 Clases (30) ──► 08 Errores generales (5) ──► 09 Validación de campos y tipos (30)
                                                                                          │
                                                                                          ▼
                                                                                    99 Teardown (10)

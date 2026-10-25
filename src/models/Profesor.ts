@@ -9,8 +9,6 @@ import {
   type CalendarioSemanal,
 } from './CalendarioSemanal.js';
 
-const MAX_FOTO_BYTES: number = 2 * Math.pow(1024, 2); // 2 MiB
-
 
 // ============================================================
 //  Definición del esquema
@@ -30,15 +28,6 @@ const profesorSchema = new Schema(
       // objeto literal) para que cada profesor tenga SU propio
       // calendario y no compartan la misma instancia.
       default: crearCalendarioSemanal,
-    },
-
-    fotoPerfil: {
-      type: Buffer,
-      // Opcional. Guarda los bytes de la imagen (el modelo de datos la define como "binary").
-      validate: {
-        validator: (buf?: Buffer | null) => buf == null || buf.length <= MAX_FOTO_BYTES,
-        message: `La foto de perfil no puede superar los ${MAX_FOTO_BYTES / 1024 / 1024} MiB`,
-      },
     },
   },
   {
@@ -61,7 +50,6 @@ const profesorSchema = new Schema(
 export interface Profesor {
   nomApe: string;
   disponibilidad: CalendarioSemanal;
-  fotoPerfil?: Buffer;
 }
 
 export type ProfesorDoc = HydratedDocument<Profesor>;

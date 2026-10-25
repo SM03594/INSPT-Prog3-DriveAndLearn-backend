@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 11 carpetas, 192 requests
+├── DriveAndLearn.postman_collection.json   # 11 carpetas, 188 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado
@@ -50,7 +50,7 @@ Clic derecho en la colección → **Run collection** → dejar el orden por defe
 | `02 Alumnos` | Registro, permisos propios / de admin, saldo de clases. |
 | `03 Administradores` | Alta, edición, baja y token de un admin borrado. |
 | `04 Autos` | CRUD y puesta fuera de servicio. |
-| `05 Profesores` | Alta, edición, foto y disponibilidad. |
+| `05 Profesores` | Alta, edición y disponibilidad. |
 | `06 Horario de la escuela` | Horario semanal de la escuela: ver, reemplazar, agregar y quitar tramos. |
 | `07 Clases` | Reservas: fechas, horarios, solapamientos, saldo, permisos, cancelación. |
 | `08 Errores generales` | Ruta inexistente y bodies ilegibles. |

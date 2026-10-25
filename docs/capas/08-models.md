@@ -16,7 +16,7 @@ capa más baja: la única que habla directamente con la base.
 colección "usuarios"                       colección "profesores"
 ┌────────────────────────────┐             ┌──────────────────────────────┐
 │ Usuario (base)             │             │ Profesor                     │
-│  rol, email, password,     │             │  nomApe, fotoPerfil,         │
+│  rol, email, password,     │             │  nomApe,                     │
 │  nomApe                    │             │  disponibilidad ─────────────┼──┐
 │   ├─ Alumno  (rol:'alumno')│             └──────────────────────────────┘  │
 │   │    + clasesPorReservar │                                               │
@@ -97,7 +97,7 @@ patente: {
 | `min` / `max` | Rango numérico. | `HoraDelDia`, `clasesPorReservar` |
 | `default` | Valor si no viene. | `activo: true`, `estado: 'pendiente'`, `clasesPorReservar: 0` |
 | `match` | El texto tiene que cumplir una regex. Corre **después** de `trim`/`lowercase`. | Formato de `Usuario.email` |
-| `validate` | Una función propia: `{ validator, message }`. | `Number.isInteger` en horas, tamaño de `fotoPerfil` |
+| `validate` | Una función propia: `{ validator, message }`. | `Number.isInteger` en horas y minutos |
 | `unique` | **No es un validador**: crea un **índice** en MongoDB. | `email`, `patente` |
 
 El primer valor de `required: [true, '...']` activa la regla, y el segundo es

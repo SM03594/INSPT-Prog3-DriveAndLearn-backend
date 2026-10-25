@@ -110,7 +110,7 @@ conceptos de TypeScript que aparecen acá se explican en
 
 ### 3. `validacionCampos.ts`: el helper de los DTO
 
-`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:81`)
+`validarCampos(body, tabla, opciones)` (`src/utils/validacionCampos.ts:76`)
 junta las dos piezas anteriores y agrega lo que hace falta para validar un
 body completo:
 
@@ -124,14 +124,13 @@ body
 un objeto NUEVO, solo con los campos de la tabla
 ```
 
-A los tres tipos de `typeof` les suma tres que aparecen en un JSON
-(`validacionCampos.ts:29`):
+A los tres tipos de `typeof` les suma dos que aparecen en un JSON
+(`validacionCampos.ts:27`):
 
 ```ts
 type TipoSegunCampo = TipoSegunNombre & {
   objeto: object;          // un {...}: un tramo          → esObjetoJson
   lista: unknown[];        // un [...]: los tramos de un día → Array.isArray
-  cualquiera: unknown;     // no se revisa: la foto la convierte el service
 };
 ```
 

@@ -8,7 +8,7 @@
 
 import type { Request, Response } from 'express';
 import * as profesorService from '../services/profesor.service.js';
-import { aCambiarFotoDto, aCambiarNomApeDto, aCrearProfesorDto } from '../dtos/profesor.dto.js';
+import { aCambiarNomApeDto, aCrearProfesorDto } from '../dtos/profesor.dto.js';
 import { aAgregarTramoDto, aQuitarTramoDto } from '../dtos/calendarioSemanal.dto.js';
 
 export async function listar(_req: Request, res: Response) {
@@ -36,20 +36,6 @@ export async function cambiarNomApe(
 ) {
   const { nomApe } = aCambiarNomApeDto(req.body);
   const profesor = await profesorService.cambiarNomApe(req.params.id, nomApe);
-
-  if (profesor === null) {
-    return res.status(404).json({ mensaje: 'Profesor no encontrado' });
-  }
-
-  res.json(profesor);
-}
-
-export async function cambiarFotoPerfil(
-  req: Request<{ id: string }>,
-  res: Response,
-) {
-  const { foto } = aCambiarFotoDto(req.body);
-  const profesor = await profesorService.cambiarFotoPerfil(req.params.id, foto);
 
   if (profesor === null) {
     return res.status(404).json({ mensaje: 'Profesor no encontrado' });

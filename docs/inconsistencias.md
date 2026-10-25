@@ -49,11 +49,11 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-28 | 🔴 | El tiempo del login revela si un email está registrado | `auth.service.ts:37` |
 | I-29 | ✅ | El login sin email o password responde 401 en lugar de 400 | `auth.service.ts:26-33` |
 | I-30 | 🟡 | Mensajes de error sin tildes ("direccion", "esta") | `Usuario.ts:33`, services |
-| I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:345` |
+| I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:246` |
 | I-32 | ✅ | `agregar` sin tramo guarda `null` y rompe las reservas de ese día (500) | `horarioEscuela.service.ts:53` |
-| I-33 | 🟡 | Quitar un tramo inexistente responde "Profesor no encontrado" | `profesor.service.ts:156`, controller |
+| I-33 | 🟡 | Quitar un tramo inexistente responde "Profesor no encontrado" | `profesor.service.ts:83`, controller |
 | I-34 | ✅ | `PATCH nom-ape` no valida: acepta números y un body sin `nomApe` | `profesor.service.ts:111` |
-| I-35 | 🟡 | Foto de perfil: base64 sin validar, se borra si falta, límite real de ~75 KB | `profesor.service.ts:70`, `Profesor.ts:12` |
+| I-35 | ✅ | Foto de perfil: base64 sin validar, se borra si falta, límite real de ~75 KB (se eliminó la foto) | `profesor.service.ts`, `Profesor.ts` |
 | I-36 | ✅ | Un tramo que no es objeto devuelve un mensaje interno de Mongoose | `horarioEscuela.service.ts:53` |
 | I-37 | 💭 | Se aceptan tramos superpuestos y días extra (estos se descartan) | `calendarioSemanal.service.ts`, `horarioEscuela.service.ts` |
 | I-38 | 💭 | No hay forma de dar de baja un profesor | `profesor.routes.ts` |
@@ -87,7 +87,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-05 · Uso de la opción deprecada `new: true` de Mongoose
 - **Detectada:** 2026-10-22, por los warnings al correr los tests: *"the `new` option for `findOneAndUpdate()` … is deprecated. Use `returnDocument: 'after'`"*.
-- **Dónde:** `alumno.service.ts:66`, `administrador.service.ts:87`, `auto.service.ts:52` y `:73`, `profesor.service.ts:85` (líneas actualizadas el 2026-10-24, después de los DTO). En cambio, `clase.service.ts` ya usa `returnDocument: 'after'`.
+- **Dónde:** `alumno.service.ts:66`, `administrador.service.ts:87`, `auto.service.ts:52` y `:73`, `profesor.service.ts:56` (líneas actualizadas el 2026-10-24, después de los DTO; la de `profesor.service` se actualizó el 2026-10-25). En cambio, `clase.service.ts` ya usa `returnDocument: 'after'`.
 - **Propuesta:** reemplazar `new: true` por `returnDocument: 'after'` en todos.
 
 ### I-06 · La interfaz `Auto` no coincide con su esquema
@@ -131,27 +131,15 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-31 · "No tenés clases disponibles" también se le dice a un admin
 - **Detectada:** 2026-10-22, flujo `agendar-una-clase`.
-- **Dónde:** `src/services/clase.service.ts:345`.
+- **Dónde:** `src/services/clase.service.ts:246`.
 - **Qué pasa:** cuando un admin reserva para un alumno sin saldo, la respuesta es 409 *"No tenés clases disponibles para reservar"*, como si el admin fuera el alumno.
 - **Propuesta:** usar un mensaje neutro ("El alumno no tiene clases disponibles para reservar") o elegirlo según `actor.rol`.
 
 ### I-33 · Quitar un tramo inexistente responde "Profesor no encontrado"
 - **Detectada:** 2026-10-22, flujo `alta-de-profesor-y-disponibilidad`.
-- **Dónde:** `profesor.service.quitarDisponibilidad` (`:156`) devuelve `null` tanto si el profesor no existe como si no encontró el tramo, y `profesor.controller.quitarDisponibilidad` responde siempre 404 "Profesor no encontrado".
+- **Dónde:** `profesor.service.quitarDisponibilidad` (`:83`) devuelve `null` tanto si el profesor no existe como si no encontró el tramo, y `profesor.controller.quitarDisponibilidad` responde siempre 404 "Profesor no encontrado".
 - **Qué pasa (comprobado):** con un `tramoId` inexistente, o con el día equivocado, la respuesta dice que el profesor no existe, cuando sí existe. El horario de la escuela, en el mismo caso, responde "No se encontró el tramo solicitado en ese día".
 - **Propuesta:** que el service lance `ErrorDeNegocio('No se encontró el tramo solicitado en ese día', 404)` cuando falta el tramo, y que reserve `null` para el profesor inexistente.
-
-### I-35 · Foto de perfil: validaciones y límites
-- **Detectada:** 2026-10-22, flujo `alta-de-profesor-y-disponibilidad`.
-- **Dónde:** `profesor.service.fotoComoBuffer` (`:70`) y `models/Profesor.ts:12`.
-- **Qué pasa (comprobado):**
-  - Cualquier texto se acepta como base64: `"esto no es base64 !!!"` se guarda como 10 bytes sin sentido. No se comprueba que sea una imagen.
-  - Un body sin `foto` **borra** la foto actual (la reemplaza por un buffer vacío).
-  - El modelo permite hasta 2 MiB, pero `express.json()` corta cualquier body de más de 100 KB (413). El límite real es de unos 75 KB de imagen.
-  - La foto se devuelve como `{ "type": "Buffer", "data": [números] }` en **todas** las respuestas del profesor, incluida la lista completa.
-- **Propuesta:** exigir el campo `foto`, validar el base64 y el tipo de imagen, y elegir **un** límite: o se sube el límite de `express.json` para esa ruta, o se baja `MAX_FOTO_BYTES`. Además, excluir `fotoPerfil` de los listados (con `select`) o servirla en un endpoint aparte.
-
-- **Avance (2026-10-24):** con `aCambiarFotoDto`, un body sin `foto` responde 400 "La foto es obligatoria" y ya no borra la foto. Siguen abiertos: el base64 sin validar, el límite real de ~75 KB y la foto en los listados. Además, `{ "foto": null }` **todavía borra** la foto (200, `fotoPerfil` con `data: []`; comprobado): `exigido` solo rechaza `undefined`. Hay que decidir si esa es la forma de borrar una foto (y documentarla) o si se rechaza.
 
 ### I-39 · La patente no tiene formato
 - **Detectada:** 2026-10-22, flujo `gestion-de-autos`.
@@ -276,6 +264,7 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
 ### I-38 · No hay forma de dar de baja un profesor
 - **Qué pasa:** no existe `DELETE /api/profesores/:id`, ni un campo `activo` como el de los autos. Un profesor que deja la escuela sigue apareciendo en los listados. La única forma de que no le reserven clases es quitarle toda la disponibilidad.
 - **Propuesta:** agregar `activo` (como en `Auto`) y comprobarlo en `validarDisponibilidad`. Así no se pierde el historial de clases, que se perdería con un borrado.
+- **Nota (2026-10-25):** la `propuesta.md` original prometía "Agregar y quitar profesores" y "Agregar y quitar autos". Al ampliarla según la corrección del profesor, se ajustó a lo implementado: los autos se sacan de servicio (`activo`) y para los profesores solo figuran alta y edición. Si se resuelve esta entrada, sumar la baja de profesores a la propuesta.
 
 ### I-43 · Los scripts de admin dependen de `tsx`
 - **Qué pasa:** `admin:bootstrap` y `admin:desde-env` corren con `tsx`, que está en `devDependencies`. En un servidor instalado con `npm install --omit=dev` no funcionan. Los scripts compilados (`dist/scripts/*.js`) sí funcionan: `node dist/scripts/bootstrapAdminDesdeEnv.js` (comprobado), pero no hay un script de npm que los use.
@@ -411,3 +400,21 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
 - **Pendiente relacionado:** confirmar que el frontend no use `/api/horario`
   ni `/api/calendario-semanal`. No se pudo revisar porque el acceso a GitHub
   estaba bloqueado.
+
+### I-35 · Foto de perfil: validaciones y límites
+- **Detectada:** 2026-10-22, flujo `alta-de-profesor-y-disponibilidad`.
+- **Dónde:** `profesor.service.fotoComoBuffer` (`:70`) y `models/Profesor.ts:12`.
+- **Qué pasa (comprobado):**
+  - Cualquier texto se acepta como base64: `"esto no es base64 !!!"` se guarda como 10 bytes sin sentido. No se comprueba que sea una imagen.
+  - Un body sin `foto` **borra** la foto actual (la reemplaza por un buffer vacío).
+  - El modelo permite hasta 2 MiB, pero `express.json()` corta cualquier body de más de 100 KB (413). El límite real es de unos 75 KB de imagen.
+  - La foto se devuelve como `{ "type": "Buffer", "data": [números] }` en **todas** las respuestas del profesor, incluida la lista completa.
+- **Propuesta:** exigir el campo `foto`, validar el base64 y el tipo de imagen, y elegir **un** límite: o se sube el límite de `express.json` para esa ruta, o se baja `MAX_FOTO_BYTES`. Además, excluir `fotoPerfil` de los listados (con `select`) o servirla en un endpoint aparte.
+
+- **Avance (2026-10-24):** con `aCambiarFotoDto`, un body sin `foto` responde 400 "La foto es obligatoria" y ya no borra la foto. Siguen abiertos: el base64 sin validar, el límite real de ~75 KB y la foto en los listados. Además, `{ "foto": null }` **todavía borra** la foto (200, `fotoPerfil` con `data: []`; comprobado): `exigido` solo rechaza `undefined`. Hay que decidir si esa es la forma de borrar una foto (y documentarla) o si se rechaza.
+- **Resuelta:** 2026-10-25, **se eliminó la foto de perfil** en lugar de corregirla. Se quitaron el campo `fotoPerfil` y `MAX_FOTO_BYTES` del modelo, la ruta `PATCH /api/profesores/:id/foto-perfil`, `cambiarFotoPerfil` del controller y del service, `fotoComoBuffer` y sus helpers, `aCambiarFotoDto`, y el tipo `'cualquiera'` de `validacionCampos` (solo lo usaba la foto). También se quitaron sus tests, las 4 requests de Postman y la foto de las guías y de `propuesta.md`. La ruta vieja ahora responde 404 "Ruta no encontrada".
+- **Pendiente al deployar:** Mongoose **no** borra de la base un campo que sale del esquema, y lo sigue devolviendo en el JSON (comprobado con una base en memoria: un profesor con `fotoPerfil` guardado lo sigue mostrando, aun después de un `save()`). En cada base con datos hay que correr una vez:
+  ```js
+  db.profesores.updateMany({ fotoPerfil: { $exists: true } }, { $unset: { fotoPerfil: "" } })
+  ```
+  Además, confirmar que el frontend no use `fotoPerfil` ni `PATCH …/foto-perfil`.
