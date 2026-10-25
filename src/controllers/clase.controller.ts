@@ -29,10 +29,10 @@ export async function listar(req: Request, res: Response) {
 export async function obtener(req: Request<{ id: string }>, res: Response) {
   const clase = await claseService.obtenerPorId(req.params.id, actorDe(req));
   if (clase === null) {
-    return res.status(404).json({ mensaje: 'Clase no encontrada' });
+    res.status(404).json({ mensaje: 'Clase no encontrada' });
+  } else {
+    res.json(clase);
   }
-
-  res.json(clase);
 }
 
 export async function crear(req: Request, res: Response) {
@@ -50,17 +50,17 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
     actorDe(req),
   );
   if (clase === null) {
-    return res.status(404).json({ mensaje: 'Clase no encontrada' });
+    res.status(404).json({ mensaje: 'Clase no encontrada' });
+  } else {
+    res.json(clase);
   }
-
-  res.json(clase);
 }
 
 export async function cancelar(req: Request<{ id: string }>, res: Response) {
   const clase = await claseService.cancelar(req.params.id, actorDe(req));
   if (clase === null) {
-    return res.status(404).json({ mensaje: 'Clase no encontrada' });
+    res.status(404).json({ mensaje: 'Clase no encontrada' });
+  } else {
+    res.json(clase);
   }
-
-  res.json(clase);
 }

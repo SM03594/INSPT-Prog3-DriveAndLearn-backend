@@ -70,6 +70,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-49 | ✅ | Los endpoints que leen campos sueltos ignoran en silencio los campos de más | controllers de alumno, auto y profesor |
 | I-50 | ✅ | `POST /horario-escuela/quitar` no valida el tipo de `tramoId` (404 en lugar de 400) | `horarioEscuela.service.ts` |
 | I-51 | 🟡 | Los mensajes de las reglas no siguen el formato de los DTO | `profesor.service.ts`, `clase.service.ts` |
+| I-52 | 🔵 | El ejemplo de `crear` en la guía 01 no usa el DTO | `docs/capas/01-stack-y-dependencias.md:181` |
 
 ---
 
@@ -197,6 +198,11 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-17 · La cobertura excluye un archivo que no existe
 - **Dónde:** `vitest.config.ts:33` excluye `src/index.ts`. El punto de entrada es `src/server.ts`.
+
+### I-52 · El ejemplo de `crear` en la guía 01 no usa el DTO
+- **Detectada:** 2026-10-25, al actualizar las referencias de línea de los controllers.
+- **Dónde:** `docs/capas/01-stack-y-dependencias.md:181`. El ejemplo muestra `autoService.crear(req.body)`, pero el código real (`auto.controller.ts:27`) hace `autoService.crear(aCrearAutoDto(req.body))`. La guía 06 ya muestra la versión con DTO.
+- **Propuesta:** reemplazar el ejemplo por el código actual. El comentario `// si lanza → errorHandler` sigue valiendo.
 
 ### I-26 · El README de Postman dice que el Setup crea 4 alumnos
 - **Detectada:** 2026-10-22, guía 12.

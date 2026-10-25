@@ -21,10 +21,10 @@ export async function listar(_req: Request, res: Response) {
 export async function obtener(req: Request<{ id: string }>, res: Response) {
   const administrador = await administradorService.obtenerPorId(req.params.id);
   if (administrador === null) {
-    return res.status(404).json({ mensaje: 'Administrador no encontrado' });
+    res.status(404).json({ mensaje: 'Administrador no encontrado' });
+  } else {
+    res.json(administrador);
   }
-
-  res.json(administrador);
 }
 
 // El controller arma el DTO a partir del body (400 si no cumple el
@@ -41,17 +41,17 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
   );
 
   if (administrador === null) {
-    return res.status(404).json({ mensaje: 'Administrador no encontrado' });
+    res.status(404).json({ mensaje: 'Administrador no encontrado' });
+  } else {
+    res.json(administrador);
   }
-
-  res.json(administrador);
 }
 
 export async function eliminar(req: Request<{ id: string }>, res: Response) {
   const administrador = await administradorService.eliminar(req.params.id);
   if (administrador === null) {
-    return res.status(404).json({ mensaje: 'Administrador no encontrado' });
+    res.status(404).json({ mensaje: 'Administrador no encontrado' });
+  } else {
+    res.status(204).end();
   }
-
-  res.status(204).end();
 }

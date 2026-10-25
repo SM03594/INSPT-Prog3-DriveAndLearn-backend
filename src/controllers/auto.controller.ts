@@ -18,9 +18,10 @@ export async function listar(_req: Request, res: Response) {
 export async function obtener(req: Request<{ id: string }>, res: Response) {
   const auto = await autoService.obtenerPorId(req.params.id);
   if (auto === null) {
-    return res.status(404).json({ mensaje: 'Auto no encontrado' });
+    res.status(404).json({ mensaje: 'Auto no encontrado' });
+  } else {
+    res.json(auto);
   }
-  res.json(auto);
 }
 
 export async function crear(req: Request, res: Response) {
@@ -31,15 +32,17 @@ export async function crear(req: Request, res: Response) {
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
   const auto = await autoService.actualizar(req.params.id, aActualizarAutoDto(req.body));
   if (auto === null) {
-    return res.status(404).json({ mensaje: 'Auto no encontrado' });
+    res.status(404).json({ mensaje: 'Auto no encontrado' });
+  } else {
+    res.json(auto);
   }
-  res.json(auto);
 }
 
 export async function cambiarActivo(req: Request<{ id: string }>, res: Response) {
   const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
   if (auto === null) {
-    return res.status(404).json({ mensaje: 'Auto no encontrado' });
+    res.status(404).json({ mensaje: 'Auto no encontrado' });
+  } else {
+    res.json(auto);
   }
-  res.json(auto);
 }

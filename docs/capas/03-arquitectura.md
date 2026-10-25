@@ -153,15 +153,16 @@ función". Los middlewares se explican en detalle en
 
 ### 4. El controller: de HTTP a función
 
-`src/controllers/auto.controller.ts:39`:
+`src/controllers/auto.controller.ts:41`:
 
 ```ts
 export async function cambiarActivo(req: Request<{ id: string }>, res: Response) {
   const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
   if (auto === null) {
-    return res.status(404).json({ mensaje: 'Auto no encontrado' });
+    res.status(404).json({ mensaje: 'Auto no encontrado' });
+  } else {
+    res.json(auto);
   }
-  res.json(auto);
 }
 ```
 

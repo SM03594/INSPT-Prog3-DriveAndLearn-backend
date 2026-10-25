@@ -147,15 +147,22 @@ El caso de `null` aparece en casi todos los controllers
 ```ts
 const alumno = await alumnoService.obtenerPorId(req.params.id);
 if (alumno === null) {
-  return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  res.status(404).json({ mensaje: 'Alumno no encontrado' });
+} else {
+  res.json(alumno);
 }
-res.json(alumno);
 ```
 
-¿Por qué el `return` delante de `res.status(404)`? Para **cortar** la función.
-Sin él, después de responder 404 también se ejecutaría `res.json(alumno)`, y
-Express lanzaría *"Cannot set headers after they are sent"*, porque no se puede
-responder dos veces el mismo pedido.
+¿Por qué `if / else` y no dos `if` seguidos? Porque un pedido se responde
+**una sola vez**. Con el `else`, cada camino responde exactamente una vez y la
+función tiene una única salida, sin `return`. Si después del 404 también se
+ejecutara `res.json(alumno)`, Express lanzaría *"Cannot set headers after they
+are sent"*.
+
+En el proyecto se evita cortar una función con un `return` temprano (como
+`return res.status(404)…`): cada función tiene, como mucho, un `return` al
+final. Los handlers de Express no necesitan ninguno, porque Express no usa lo
+que devuelven.
 
 ¿Por qué `eliminar` responde **204 sin cuerpo**? Porque, una vez borrado el
 recurso, no hay nada útil que devolver. `.end()` cierra la respuesta sin
@@ -199,7 +206,7 @@ de `calendarioSemanal.service`. Las rutas sin body (`listar`, `obtener`,
 
 | Síntoma | Causa |
 |---|---|
-| *"Cannot set headers after they are sent"* | Falta el `return` antes de `res.status(404)...`. |
+| *"Cannot set headers after they are sent"* | Se respondió dos veces: falta el `else` después de `res.status(404)...`. |
 | La respuesta es `{}` | Falta el `await`: se respondió con la **promesa** en lugar del resultado. Si además el service falla, el error no llega al `errorHandler`. |
 | Un `DELETE` responde 204 pero el cliente espera un JSON | Es lo esperado: 204 significa "sin cuerpo". |
 | Un controller crece con `if` y validaciones | Hay lógica en el controller. Si es de **forma** (qué campos, de qué tipo), va en el DTO; si es una **regla**, en el service. |

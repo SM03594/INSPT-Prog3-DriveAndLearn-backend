@@ -45,7 +45,7 @@ POST /api/autos                     PATCH .../activo { "activo": false }
 
 ### Paso 1. Crear: el DTO filtra, el modelo normaliza y valida
 
-El controller convierte el body en un `CrearAutoDto` (`auto.controller.ts:26`):
+El controller convierte el body en un `CrearAutoDto` (`auto.controller.ts:27`):
 
 ```ts
 const auto = await autoService.crear(aCrearAutoDto(req.body));
@@ -166,7 +166,7 @@ contrato. Por qué `activo` tiene su propia ruta se ve en el paso 4.
 
 ### Paso 4. Sacar de servicio y volver a ponerlo
 
-`auto.controller.ts:39` → `auto.service.ts:66`:
+`auto.controller.ts:41` → `auto.service.ts:66`:
 
 ```ts
 // controller: el DTO garantiza que "activo" es un booleano de verdad

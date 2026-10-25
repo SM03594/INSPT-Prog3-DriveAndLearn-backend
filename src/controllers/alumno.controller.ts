@@ -22,10 +22,10 @@ export async function listar(_req: Request, res: Response) {
 export async function obtener(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.obtenerPorId(req.params.id);
   if (alumno === null) {
-    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+    res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  } else {
+    res.json(alumno);
   }
-
-  res.json(alumno);
 }
 
 export async function crear(req: Request, res: Response) {
@@ -43,19 +43,19 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
     aActualizarAlumnoDto(req.body),
   );
   if (alumno === null) {
-    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+    res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  } else {
+    res.json(alumno);
   }
-
-  res.json(alumno);
 }
 
 export async function eliminar(req: Request<{ id: string }>, res: Response) {
   const alumno = await alumnoService.eliminar(req.params.id);
   if (alumno === null) {
-    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+    res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  } else {
+    res.status(204).end();
   }
-
-  res.status(204).end();
 }
 
 // aCantidadClasesDto: 400 si "cantidad" falta, no es un número o
@@ -68,10 +68,10 @@ export async function sumarClases(req: Request<{ id: string }>, res: Response) {
   );
 
   if (alumno === null) {
-    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+    res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  } else {
+    res.json(alumno);
   }
-
-  res.json(alumno);
 }
 
 export async function restarClases(req: Request<{ id: string }>, res: Response) {
@@ -81,8 +81,8 @@ export async function restarClases(req: Request<{ id: string }>, res: Response) 
   );
 
   if (alumno === null) {
-    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+    res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  } else {
+    res.json(alumno);
   }
-
-  res.json(alumno);
 }

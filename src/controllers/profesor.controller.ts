@@ -24,10 +24,10 @@ export async function crear(req: Request, res: Response) {
 export async function obtener(req: Request<{ id: string }>, res: Response) {
   const profesor = await profesorService.obtenerPorId(req.params.id);
   if (profesor === null) {
-    return res.status(404).json({ mensaje: 'Profesor no encontrado' });
+    res.status(404).json({ mensaje: 'Profesor no encontrado' });
+  } else {
+    res.json(profesor);
   }
-
-  res.json(profesor);
 }
 
 export async function cambiarNomApe(
@@ -38,10 +38,10 @@ export async function cambiarNomApe(
   const profesor = await profesorService.cambiarNomApe(req.params.id, nomApe);
 
   if (profesor === null) {
-    return res.status(404).json({ mensaje: 'Profesor no encontrado' });
+    res.status(404).json({ mensaje: 'Profesor no encontrado' });
+  } else {
+    res.json(profesor);
   }
-
-  res.json(profesor);
 }
 
 export async function agregarDisponibilidad(
@@ -52,10 +52,10 @@ export async function agregarDisponibilidad(
   const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia, tramo);
 
   if (profesor === null) {
-    return res.status(404).json({ mensaje: 'Profesor no encontrado' });
+    res.status(404).json({ mensaje: 'Profesor no encontrado' });
+  } else {
+    res.json(profesor);
   }
-
-  res.json(profesor);
 }
 
 export async function quitarDisponibilidad(
@@ -66,8 +66,8 @@ export async function quitarDisponibilidad(
   const profesor = await profesorService.quitarDisponibilidad(req.params.id, dia, tramoId);
 
   if (profesor === null) {
-    return res.status(404).json({ mensaje: 'Profesor no encontrado' });
+    res.status(404).json({ mensaje: 'Profesor no encontrado' });
+  } else {
+    res.json(profesor);
   }
-
-  res.json(profesor);
 }

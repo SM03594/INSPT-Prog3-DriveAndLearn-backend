@@ -20,7 +20,6 @@ router.post('/', requireAdministrator, validacionDeCuerpo, profesorController.cr
 router.get('/', profesorController.listar);
 router.get('/:id', profesorController.obtener);
 router.patch('/:id/nom-ape', requireAdministrator, validacionDeCuerpo, profesorController.cambiarNomApe);
-router.patch('/:id/foto-perfil', requireAdministrator, validacionDeCuerpo, profesorController.cambiarFotoPerfil);
 router.post('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo, profesorController.agregarDisponibilidad);
 router.delete('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo, profesorController.quitarDisponibilidad);
 

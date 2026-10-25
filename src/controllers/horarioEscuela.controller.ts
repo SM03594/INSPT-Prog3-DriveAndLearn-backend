@@ -35,9 +35,10 @@ export async function quitar(req: Request, res: Response) {
   const { dia, tramoId } = aQuitarTramoDto(req.body);
   const calendario = await horarioService.quitarTramo(dia, tramoId);
   if (calendario === null) {
-    return res.status(404).json({ 
+    res.status(404).json({
       mensaje: 'No se encontró el tramo solicitado en ese día',
     });
+  } else {
+    res.json(calendario);
   }
-  res.json(calendario);
 }

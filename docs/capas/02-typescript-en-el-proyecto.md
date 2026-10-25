@@ -58,7 +58,7 @@ export async function actualizar(
   Como es `async`, siempre devuelve una `Promise`. Lo que va entre `< >` es lo
   que obtenés al hacer `await`: un `AutoDoc`, o `null` si el auto no existe.
 - `|` se lee "o". `AutoDoc | null` obliga a quien la llama a contemplar el
-  `null`. Por eso el controller hace `if (auto === null) return res.status(404)…`.
+  `null`. Por eso el controller hace `if (auto === null) { res.status(404)… } else { … }`.
 
 Las variables casi nunca necesitan anotación: TypeScript **infiere** el tipo a
 partir del valor (`const id = usuario._id.toString()` ya es `string`).

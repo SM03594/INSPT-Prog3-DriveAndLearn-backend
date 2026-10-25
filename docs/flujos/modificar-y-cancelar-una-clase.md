@@ -59,8 +59,11 @@ El ciclo de vida de una clase:
 router.put('/:id', validacionDeCuerpo, claseController.actualizar);
 
 const clase = await claseService.actualizar(req.params.id, aActualizarClaseDto(req.body), actorDe(req));
-if (clase === null) return res.status(404).json({ mensaje: 'Clase no encontrada' });
-res.json(clase);
+if (clase === null) {
+  res.status(404).json({ mensaje: 'Clase no encontrada' });
+} else {
+  res.json(clase);
+}
 ```
 
 ### Paso 2. Qué se puede cambiar

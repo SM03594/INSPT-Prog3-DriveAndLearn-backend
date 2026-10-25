@@ -176,7 +176,7 @@ funcionan los routers y los middlewares lo explican las guías
 lanzaba un error, había que atraparlo con `try/catch` y pasarlo a mano con
 `next(error)`. Si no se hacía, la petición quedaba colgada. En Express 5 esto
 es automático: el error llega solo al `errorHandler`. Por eso los controllers
-del proyecto son tan cortos (`src/controllers/auto.controller.ts:26`):
+del proyecto son tan cortos (`src/controllers/auto.controller.ts:27`):
 
 ```ts
 export async function crear(req: Request, res: Response) {
