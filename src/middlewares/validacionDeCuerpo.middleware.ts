@@ -15,17 +15,12 @@
 // comoErrorLecturaCuerpo).
 //
 // Tampoco mira qué campos trae el objeto ni de qué tipo son: eso lo
-// valida el service.
+// valida el DTO de cada endpoint (src/dtos/). Las reglas, el service.
 
 import type { Request, RequestHandler } from 'express';
 import { ErrorJsonInvalido } from '../errors/errorJsonInvalido.js';
 import { ErrorRequestSinCuerpo } from '../errors/errorRequestSinCuerpo.js';
-
-// Type guard: ¿"valor" es un objeto JSON ({...})? Descarta null (typeof
-// null también es 'object') y los arrays.
-function esObjetoJson(valor: unknown): valor is Record<string, unknown> {
-  return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
-}
+import { esObjetoJson } from '../utils/cuerpoPeticion.js';
 
 // ============================================================
 //  verificarCuerpo — el chequeo, para reutilizar

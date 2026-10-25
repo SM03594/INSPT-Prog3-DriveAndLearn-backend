@@ -4,13 +4,13 @@
 // Un middleware de errores se reconoce por tener EXACTAMENTE 4
 // parámetros: (err, req, res, next). Va montado al final de
 // app.ts, después de todos los routers (ver
-// guia-middleware-handlers-y-routers.md §3 y §6).
+// docs/capas/05-middlewares.md).
 //
 // En Express 5, si un handler async lanza o su promesa rechaza,
 // Express reenvía el error acá automáticamente (hace el next(err)
 // por vos). Por eso los controllers no llevan try/catch.
 //
-// Traduce los errores documentados en guia-capa-service.md §9:
+// Traduce los errores documentados en docs/capas/09-errores.md:
 //   body ilegible (JSON mal formado, demasiado grande...)   -> err.status (400, 413, 415)
 //   ValidationError (falta un campo / valor fuera de rango) -> 400
 //   CastError (id mal formado, ej. "abc")                   -> 400
@@ -27,46 +27,47 @@ import { ErrorAutenticacion } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { ErrorPeticionInvalida } from '../errors/errorPeticionInvalida.js';
-import { comoErrorLecturaCuerpo, ErrorLecturaCuerpo } from '../errors/errorLecturaCuerpo.js';
+import { comoErrorLecturaCuerpo } from '../errors/errorLecturaCuerpo.js';
 
 export const errorHandler: ErrorRequestHandler = (errOriginal, _req, res, _next) => {
-
   const err = comoErrorLecturaCuerpo(errOriginal);
+  // Cada rama solo decide qué responder; se responde una vez, al final.
+  let status: number;
+  let mensaje: string;
 
   if (err instanceof mongoose.Error.ValidationError) {
-    const mensaje = Object.values(err.errors)
+    status = 400;
+    mensaje = Object.values(err.errors)
       //para devolver varios mensajes de error a la vez de distintos campos
       .map((e) => e.message)
       .join('. ');
-    return res.status(400).json({ mensaje });
-  }
-
-  // CastError: el id no tiene forma de ObjectId.
-  if (err instanceof Error && err.name === 'CastError') {
-    return res.status(400).json({ mensaje: 'Id inválido' });
-  }
-
-  // Errores de la capa HTTP (los lanza auth.middleware, o los traduce
-  // comoErrorLecturaCuerpo): cada uno trae su status (400, 401, 403,
-  // o el 4xx de un ErrorLecturaCuerpo).
-  if (
-    err instanceof ErrorLecturaCuerpo ||
+  } else if (err instanceof Error && err.name === 'CastError') {
+    // CastError: el id no tiene forma de ObjectId.
+    status = 400;
+    mensaje = 'Id inválido';
+  } else if (
+    // Errores de la capa HTTP: los lanzan auth.middleware y
+    // validacionDeCuerpo, o los traduce comoErrorLecturaCuerpo.
+    // ErrorPeticionInvalida incluye a sus subclases (ErrorLecturaCuerpo,
+    // ErrorJsonInvalido, ErrorRequestSinCuerpo).
     err instanceof ErrorPeticionInvalida ||
     err instanceof ErrorAutenticacion ||
-    err instanceof ErrorAutorizacion
+    err instanceof ErrorAutorizacion ||
+    // ErrorDeNegocio (y sus subclases, como ErrorClaveDuplicada): una
+    // regla de negocio que el service chequeó/tradujo a mano y decidió
+    // cortar (no es un bug).
+    err instanceof ErrorDeNegocio
   ) {
-    return res.status(err.status).json({ mensaje: err.message });
+    // Todos traen su status: lo elige quien lanzó el error.
+    status = err.status;
+    mensaje = err.message;
+  } else {
+    // Cualquier otro caso: un bug real. Se loguea para poder
+    // diagnosticarlo y se responde 500 sin exponer detalles internos.
+    console.error(err);
+    status = 500;
+    mensaje = 'Error interno del servidor';
   }
 
-  // ErrorDeNegocio (y sus subclases, como ErrorClaveDuplicada): una
-  // regla de negocio que el service chequeó/tradujo a mano y decidió
-  // cortar (no es un bug). El status lo elige quien la lanzó.
-  if (err instanceof ErrorDeNegocio) {
-    return res.status(err.status).json({ mensaje: err.message });
-  }
-
-  // Cualquier otro caso: un bug real. Se loguea para poder
-  // diagnosticarlo y se responde 500 sin exponer detalles internos.
-  console.error(err);
-  res.status(500).json({ mensaje: 'Error interno del servidor' });
+  res.status(status).json({ mensaje });
 };
