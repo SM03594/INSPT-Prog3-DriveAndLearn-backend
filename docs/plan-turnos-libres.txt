@@ -29,6 +29,10 @@ docs/inconsistencias.md.
   N5. LA HORA DE LA ESCUELA SE DEFINE CON UN OFFSET RESPECTO DE UTC,
       CONFIGURADO EN EL .env (OFFSET_UTC). ES LA ÚNICA FUENTE DE VERDAD DE
       TODA LA APP. SI NO SE INDICA, env.ts USA -03:00.
+      (2026-10-26, después de implementarlo: se simplificó. La variable
+       pasó a ser OFFSET_HORA_UTC, un número de horas como -3, sin el
+       formato ±HH:MM ni parsearOffsetUtc. Por defecto -3. Lo que sigue
+       de este plan sobre OFFSET_UTC describe la primera versión.)
 
 --- N1 · Quién reserva para quién (YA EXISTE, salvo el mensaje de saldo) -----
 

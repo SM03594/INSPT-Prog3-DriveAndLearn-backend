@@ -6,11 +6,11 @@
 //      Sin zona, JS lo interpretaría en la zona del server.
 //   2) Guardado: Date en UTC (Mongo), no se toca.
 //   3) Cálculos locales (día de la semana, hora de reloj, qué día es
-//      hoy): siempre con OFFSET_UTC (config/env.ts), nunca
+//      hoy): siempre con OFFSET_HORA_UTC (config/env.ts), nunca
 //      getDay()/getHours(), que usan la zona del proceso.
 //   4) Salida: res.json serializa en ISO UTC; el frontend lo muestra.
 
-import { OFFSET_UTC_MINUTOS } from '../config/env.js';
+import { OFFSET_HORA_UTC } from '../config/env.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import type { Dia } from '../models/CalendarioSemanal.js';
 import type { HoraDelDia } from '../models/Horario.js';
@@ -59,9 +59,9 @@ export function parsearInstante(
 }
 
 // ============================================================
-//  La hora de la escuela: el instante corrido por OFFSET_UTC
+//  La hora de la escuela: el instante corrido por OFFSET_HORA_UTC
 // ============================================================
-const MS_POR_MINUTO = 60 * 1000;
+const MS_POR_HORA = 60 * 60 * 1000;
 
 // getUTCDay() devuelve 0 para el domingo, 1 para el lunes, etc.
 const DIA_POR_INDICE: readonly Dia[] = [
@@ -78,7 +78,7 @@ const DIA_POR_INDICE: readonly Dia[] = [
 // corrido dan la fecha y la hora que marca el reloj en la escuela.
 // No es un instante real: solo sirve para leerle esos datos.
 function relojDeLaEscuela(instante: Date): Date {
-  const reloj = new Date(instante.getTime() + OFFSET_UTC_MINUTOS * MS_POR_MINUTO);
+  const reloj = new Date(instante.getTime() + OFFSET_HORA_UTC * MS_POR_HORA);
   return reloj;
 }
 
@@ -164,7 +164,7 @@ export function instanteLocal(fecha: FechaCalendario, hora: HoraDelDia): Date {
     hora.hora,
     hora.minuto,
   );
-  const instante = new Date(comoSiFueraUtc - OFFSET_UTC_MINUTOS * MS_POR_MINUTO);
+  const instante = new Date(comoSiFueraUtc - OFFSET_HORA_UTC * MS_POR_HORA);
   return instante;
 }
 

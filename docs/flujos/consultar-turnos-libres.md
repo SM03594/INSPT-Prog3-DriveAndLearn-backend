@@ -32,7 +32,7 @@ ellas para no ofrecer nunca un turno que `POST /api/clases` vaya a rechazar:
 | N2 | Un alumno no puede tener dos clases a la misma hora | Si consulta un alumno, se sacan sus horarios ocupados |
 | N3 | Toda clase empieza en una hora en punto y dura exactamente 1 h | Los turnos salen siempre en punto: 09, 10, 11… |
 | N4 | Los tramos de la escuela y del profesor empiezan y terminan en punto | Las ventanas libres también son en punto |
-| N5 | La hora de la escuela se define con `OFFSET_UTC` en el `.env` (`-03:00` por defecto), única fuente de verdad | Consulta y reserva convierten las horas con la misma constante |
+| N5 | La hora de la escuela se define con `OFFSET_HORA_UTC` en el `.env` (`-3` por defecto), única fuente de verdad | Consulta y reserva convierten las horas con la misma constante |
 
 Cómo se representan los horarios y qué significa "caber en un tramo" se
 explica en [`../temas/horarios-y-agendamiento.md`](../temas/horarios-y-agendamiento.md).
@@ -232,8 +232,8 @@ ventana 08:20–09:10  →  []              (no entra ninguna hora en punto)
   la ventana 09–13 da 11 y 12 (la grilla no se corre a 10:20–11:20).
 - **Inicios repetidos**: si dos tramos superpuestos dieron el mismo turno, se
   deja uno.
-- **De hora de la escuela a instante** con `OFFSET_UTC`, el offset respecto de
-  UTC que se configura en el `.env` (`-03:00` si no se indica, norma N5):
+- **De hora de la escuela a instante** con `OFFSET_HORA_UTC`, las horas de
+  diferencia con UTC que se configuran en el `.env` (`-3` si no se indica, norma N5):
 
 ```
 "2026-11-09" + "09:00"  →  "2026-11-09T09:00:00-03:00"  →  2026-11-09T12:00:00.000Z
@@ -243,7 +243,7 @@ La reserva usa la **misma** constante para el camino inverso, de instante a
 hora de la escuela (`aHoraLocal`, `src/utils/fechas.ts:92`). Como hay una sola
 fuente de verdad, la consulta y la reserva no pueden desfasarse. "Hoy" (para
 rechazar fechas pasadas y sacar los turnos ya empezados) también se calcula
-con `OFFSET_UTC`. Por qué hace falta esa conversión está en
+con `OFFSET_HORA_UTC`. Por qué hace falta esa conversión está en
 [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md).
 
 ### Paso 11. La respuesta

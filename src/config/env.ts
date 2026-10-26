@@ -68,46 +68,22 @@ export function obtenerAdminInicial(): DatosAdminInicial {
   return { email, password, nomApe };
 }
 
-// --- OFFSET_UTC ---
-// Diferencia de la hora de la escuela con UTC, como "±HH:MM". Es la
-// ÚNICA fuente de la hora de la escuela: todo cálculo "local" (qué día
-// de la semana es, qué hora marca el reloj en la escuela, qué día es
-// hoy) usa esta constante, nunca la zona del sistema operativo donde
-// corre el server (un deploy suele correr en UTC).
+// --- OFFSET_HORA_UTC ---
+// Horas de diferencia de la escuela con UTC (Argentina: -3). Es la
+// ÚNICA fuente de la hora de la escuela: los cálculos "locales" de
+// utils/fechas.ts (qué día de la semana es, qué hora marca el reloj,
+// qué día es hoy) la usan en vez de la zona del sistema operativo
+// donde corre el server (un deploy suele correr en UTC).
+// Si no está en el .env, o está sin valor, -3. Va "||" y no "??"
+// porque dotenv carga "OFFSET_HORA_UTC=" como "", y "??" lo dejaría
+// pasar (Number('') es 0, UTC). El "||" mira el texto, antes de
+// convertirlo: "0" no es vacío, así que UTC se puede configurar igual.
 // Un offset fijo no contempla el horario de verano: si el país lo
-// adopta, hay que cambiar OFFSET_UTC y reiniciar el servidor.
-const OFFSET_UTC_POR_DEFECTO = '-03:00';
-const FORMATO_OFFSET = /^([+-])(\d{2}):(\d{2})$/;
-const HORAS_MAXIMAS_OFFSET = 14;
+// adopta, hay que cambiar OFFSET_HORA_UTC y reiniciar el servidor.
+export const OFFSET_HORA_UTC: number = Number(process.env.OFFSET_HORA_UTC || -3);
 
-export interface OffsetUtc {
-  texto: string; // "-03:00"
-  minutos: number; // -180
+// Un valor mal escrito ("abc") daría NaN y todas las fechas saldrían
+// inválidas: mejor frenar el arranque (como con JWT_SECRET).
+if (Number.isNaN(OFFSET_HORA_UTC)) {
+  throw new Error('OFFSET_HORA_UTC debe ser un número de horas (por ejemplo, -3)');
 }
-
-// Un valor mal escrito frena el arranque (como JWT_SECRET): un offset
-// equivocado correría todas las clases sin dar ningún error.
-// Se exporta para poder testearla sin tocar process.env.
-export function parsearOffsetUtc(valor: string | undefined): OffsetUtc {
-  // dotenv carga "OFFSET_UTC=" (sin valor) como "": por eso el
-  // default no puede ir con "??".
-  const texto = valor === undefined || valor.trim() === ''
-    ? OFFSET_UTC_POR_DEFECTO
-    : valor.trim();
-  const partes = FORMATO_OFFSET.exec(texto);
-  const horas = Number(partes?.[2]);
-  const minutos = Number(partes?.[3]);
-  const esOffsetValido =
-    partes !== null && horas <= HORAS_MAXIMAS_OFFSET && minutos <= 59;
-
-  if (!esOffsetValido) {
-    throw new Error('OFFSET_UTC debe tener el formato ±HH:MM (por ejemplo, -03:00)');
-  }
-
-  const signo = partes[1] === '-' ? -1 : 1;
-  return { texto, minutos: signo * (horas * 60 + minutos) };
-}
-
-const offsetUtc = parsearOffsetUtc(process.env.OFFSET_UTC);
-export const OFFSET_UTC: string = offsetUtc.texto;
-export const OFFSET_UTC_MINUTOS: number = offsetUtc.minutos;

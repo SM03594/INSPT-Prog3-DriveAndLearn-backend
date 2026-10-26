@@ -2,8 +2,8 @@
 //  fechas.test.ts — Tests de src/utils/fechas.ts (sin DB)
 // ============================================================
 // vitest.config.ts corre el proceso con TZ=UTC: si aHoraLocal usara
-// la zona del proceso en vez de OFFSET_UTC, estos tests fallarían.
-// Sin OFFSET_UTC en el entorno, el offset es el de por defecto, -03:00.
+// la zona del proceso en vez de OFFSET_HORA_UTC, estos tests fallarían.
+// Sin OFFSET_HORA_UTC en el entorno, el offset es el de por defecto, -3.
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -116,7 +116,7 @@ describe('compararFechas y formatearFecha', () => {
 });
 
 describe('instanteLocal', () => {
-  it('convierte la hora de la escuela a instante con OFFSET_UTC (-03:00)', () => {
+  it('convierte la hora de la escuela a instante con OFFSET_HORA_UTC (-3)', () => {
     expect(instanteLocal({ anio: 2026, mes: 11, diaDelMes: 9 }, { hora: 9, minuto: 0 }).toISOString())
       .toBe('2026-11-09T12:00:00.000Z');
   });
@@ -135,14 +135,14 @@ describe('instanteLocal', () => {
   });
 });
 
-describe('con otro OFFSET_UTC (+05:30)', () => {
+describe('con otro OFFSET_HORA_UTC (5.5, o sea +05:30)', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
   });
 
   it('instanteLocal y aHoraLocal usan el mismo offset', async () => {
-    vi.stubEnv('OFFSET_UTC', '+05:30');
+    vi.stubEnv('OFFSET_HORA_UTC', '5.5');
     vi.resetModules();
     const fechas = await import('../../src/utils/fechas.js');
     const fecha = { anio: 2026, mes: 11, diaDelMes: 9 };

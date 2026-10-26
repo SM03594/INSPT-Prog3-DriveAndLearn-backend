@@ -36,7 +36,7 @@ Argentina**:
                      ┌──────────────────┼───────────────────────────┐
                      ▼                  ▼                           ▼
        ③ CÁLCULOS LOCALES (SÍ)   ④ COMPARAR (NO)               ⑤ SALIDA (NO)
-       aHoraLocal + OFFSET_UTC    inicio > new Date()           res.json
+       aHoraLocal + offset        inicio > new Date()           res.json
        → domingo 11:00            superposición, duración       → "2026-11-08T14:00:00.000Z"
        ¿entra en el horario?      ¿todavía no empezó?           (el frontend lo muestra
                                                                  en la zona del usuario)
@@ -118,9 +118,9 @@ así que para saber si una clase entra hay que traducir el instante a la hora
 **de la escuela**.
 
 Eso hace `aHoraLocal` (`src/utils/fechas.ts:92`). La hora de la escuela se
-define con **un solo dato**, `OFFSET_UTC`: la diferencia con UTC, como
-`±HH:MM`. Sale del `.env` y la lee `src/config/env.ts` (`parsearOffsetUtc`);
-si no está, vale `-03:00`. Es la **única** fuente de la hora de la escuela en
+define con **un solo dato**, `OFFSET_HORA_UTC`: las horas de diferencia con
+UTC (`-3` en Argentina). Sale del `.env` y la lee `src/config/env.ts:83`; si
+no está o está sin valor, vale `-3`. Es la **única** fuente de la hora de la escuela en
 toda la app.
 
 La cuenta es sumarle el offset al instante y leer el resultado "como si fuera
@@ -134,7 +134,7 @@ UTC" (`relojDeLaEscuela`, `:80`):
 El `Date` corrido no es un instante real: solo sirve para leerle el día y la
 hora con los métodos `getUTC*`, que no dependen de la zona del proceso.
 
-| Instante | `aHoraLocal` con el offset por defecto (`-03:00`) | Con `OFFSET_UTC=+09:00` |
+| Instante | `aHoraLocal` con el offset por defecto (`-3`) | Con `OFFSET_HORA_UTC=9` |
 |---|---|---|
 | `2026-11-08T14:00:00Z` | domingo 11:00 | domingo 23:00 |
 | `2026-11-10T01:00:00Z` | **lunes 22:00** | **martes 10:00** |
@@ -210,7 +210,7 @@ mismo.
 
 Antes, la escuela se configuraba con un **nombre** de zona IANA
 (`ZONA_HORARIA=America/Argentina/Buenos_Aires`) y `aHoraLocal` usaba `Intl`.
-Se cambió a un **offset fijo** (`OFFSET_UTC`) porque la consulta de turnos
+Se cambió a un **offset fijo** (`OFFSET_HORA_UTC`) porque la consulta de turnos
 libres también necesita el camino inverso (de hora de reloj a instante), y
 con un offset las dos direcciones son una suma y una resta del **mismo
 número**: no se pueden contradecir. Con dos configuraciones (un nombre para
@@ -226,15 +226,15 @@ lo usa:
 | `America/Argentina/Buenos_Aires` | GMT-03:00 | GMT-03:00 |
 
 Argentina hoy no lo usa, así que `-03:00` es correcto todo el año. Si lo
-volviera a usar, habría que cambiar `OFFSET_UTC` y reiniciar el servidor en
+volviera a usar, habría que cambiar `OFFSET_HORA_UTC` y reiniciar el servidor en
 cada cambio de hora. Ojo: las clases se guardan como instantes, así que al
 cambiar el offset las clases futuras **ya reservadas** se ven corridas una
 hora en el reloj de la escuela.
 
-Un valor mal escrito (`-3`, `UTC`, `America/…`) no arranca el servidor:
-`parsearOffsetUtc` lanza *"OFFSET_UTC debe tener el formato ±HH:MM (por
-ejemplo, -03:00)"*. Es mejor que un offset equivocado que corra todas las
-clases sin dar error.
+El valor es un número de horas: `-3`, `0` (UTC) o `5.5` para `+05:30`. Si no
+es un número (`UTC`, `America/…`, `-03:00`), el servidor no arranca: `env.ts`
+lanza *"OFFSET_HORA_UTC debe ser un número de horas (por ejemplo, -3)"*. Es
+mejor que un `NaN`, que dejaría todas las fechas inválidas.
 
 ### 8. Por qué los tests corren en UTC
 
@@ -248,7 +248,7 @@ siempre, y el error aparece antes de llegar al deploy.
 La consulta de **turnos libres** recibe un día y horas de reloj ("el 9/11/2026
 desde las 08:00 **en la escuela**"), así que necesita el camino inverso de
 `aHoraLocal`. Lo hacen tres funciones de `src/utils/fechas.ts`, todas con
-`OFFSET_UTC`:
+`OFFSET_HORA_UTC`:
 
 | Función | Qué hace | Ejemplo con `-03:00` |
 |---|---|---|
@@ -276,9 +276,9 @@ un instante.
 | Las clases quedan corridas 3 horas | Se aceptó una fecha **sin zona**, o se usó `getHours()` en lugar de `aHoraLocal`. |
 | Una clase del lunes a la noche figura como martes | Se usó `getDay()`: en un servidor en UTC ya es el día siguiente. |
 | Todo anda en tu máquina y falla en el deploy | Algún cálculo depende de la zona del proceso. En tu máquina coincide con la de la escuela; en el servidor (UTC), no. |
-| Medio año las clases están corridas una hora | El país usa horario de verano y `OFFSET_UTC` no se cambió (el offset es fijo). |
-| El servidor no arranca: "OFFSET_UTC debe tener el formato ±HH:MM" | `OFFSET_UTC` está mal escrito en el `.env` (por ejemplo `-3` o un nombre de zona). |
-| Postman reserva a las 10:00 y la API dice "fuera del horario" | `offsetZona` del environment de Postman no coincide con el `OFFSET_UTC` del servidor. |
+| Medio año las clases están corridas una hora | El país usa horario de verano y `OFFSET_HORA_UTC` no se cambió (el offset es fijo). |
+| El servidor no arranca: "OFFSET_HORA_UTC debe ser un número de horas" | `OFFSET_HORA_UTC` está mal escrito en el `.env` (por ejemplo `-03:00` o un nombre de zona). |
+| Postman reserva a las 10:00 y la API dice "fuera del horario" | `offsetZona` del environment de Postman no coincide con el `OFFSET_HORA_UTC` del servidor (`-03:00` en Postman es `-3` en el `.env`). |
 | "La clase debe reservarse para una fecha futura" con una fecha que sí es futura | El reloj del servidor está mal, no la zona: `new Date()` es la hora del sistema. |
 | La API devuelve `14:00` y el usuario esperaba `11:00` | No es un error: la salida es UTC. El frontend tiene que convertirla a la zona del usuario. |
 
@@ -292,12 +292,12 @@ un instante.
   - **al entrar**: el texto tiene que traer `Z` o `±HH:MM` (`parsearInstante`,
     en el DTO);
   - **al calcular día y hora de reloj** (y al revés): siempre con
-    `OFFSET_UTC` (`aHoraLocal`, `instanteLocal`), nunca con
+    `OFFSET_HORA_UTC` (`aHoraLocal`, `instanteLocal`), nunca con
     `getDay()`/`getHours()`.
 - **Guardar, comparar y medir duraciones no necesitan la zona**. Por eso
   `clase.inicio > new Date()` es correcto en cualquier servidor.
 - La salida es ISO en UTC; el frontend la muestra en la zona del usuario.
-- `OFFSET_UTC` (del `.env`, `-03:00` por defecto) es la única fuente de la
+- `OFFSET_HORA_UTC` (del `.env`, `-3` por defecto) es la única fuente de la
   hora de la escuela: simple y sin contradicciones, a cambio de no contemplar
   el horario de verano. Los tests corren en UTC para que un error de zona no
   pase de casualidad.

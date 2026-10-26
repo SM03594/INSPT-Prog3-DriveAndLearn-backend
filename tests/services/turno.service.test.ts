@@ -6,7 +6,7 @@
 // Marta, los lunes de 08 a 20. Autos: AA111AA y BB222BB (manuales),
 // CC333CC (automático) y DD444DD (automático, fuera de servicio). Ana
 // y Beto tienen saldo. Las horas de los tests son de la escuela
-// (-03:00, el OFFSET_UTC por defecto).
+// (-03:00, el OFFSET_HORA_UTC por defecto).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Types } from 'mongoose';
