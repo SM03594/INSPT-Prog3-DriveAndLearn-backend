@@ -34,7 +34,7 @@ import * as administradorService from './administrador.service.js';
 import * as alumnoService from './alumno.service.js';
 import * as autoService from './auto.service.js';
 import * as claseService from './clase.service.js';
-import { DURACION_CLASE_MS, type ActorClase } from './clase.service.js';
+import { DURACION_CLASE_MS } from './clase.service.js';
 import * as horarioEscuelaService from './horarioEscuela.service.js';
 import * as profesorService from './profesor.service.js';
 import {
@@ -51,6 +51,7 @@ import {
   type FechaCalendario,
 } from '../utils/fechas.js';
 import type { ConsultarTurnosDto } from '../dtos/turno.dto.js';
+import type { Actor } from '../types/actor.js';
 
 const MINUTOS_POR_HORA = 60;
 const MINUTOS_DEL_DIA = 24 * MINUTOS_POR_HORA;
@@ -85,9 +86,26 @@ function exigirFechaNoPasada(fecha: FechaCalendario): void {
   }
 }
 
+// Solo si vinieron los dos: con uno solo, el día se recorta por ese
+// lado y, si no entra ninguna clase, la respuesta trae "turnos": [].
+// "Al menos una hora" es la duración de una clase (DURACION_CLASE_MS).
+function exigirRangoValido(consulta: ConsultarTurnosDto): void {
+  const { desde, hasta } = consulta;
+
+  if (desde !== undefined && hasta !== undefined) {
+    const minutosDelRango = aMinutos(hasta) - aMinutos(desde);
+
+    if (minutosDelRango <= 0) {
+      throw new ErrorDeNegocio('El desde debe ser anterior al hasta');
+    } else if (minutosDelRango < MINUTOS_POR_CLASE) {
+      throw new ErrorDeNegocio('El rango debe ser de al menos una hora');
+    }
+  }
+}
+
 // Devuelve el alumno que consulta (para su saldo y sus clases), o null
 // si consulta un admin.
-async function cuentaQueConsulta(actor: ActorClase): Promise<AlumnoDoc | null> {
+async function cuentaQueConsulta(actor: Actor): Promise<AlumnoDoc | null> {
   let alumno: AlumnoDoc | null = null;
   let cuentaActiva: boolean;
 
@@ -252,14 +270,16 @@ function conAutosLibres(
 //  listarTurnosLibres — null si el profesor no existe (404)
 // ============================================================
 // "consulta" ya es un ConsultarTurnosDto: la forma la validó el
-// controller. Los errores salen en este orden: fecha pasada (400),
-// cuenta borrada (403), profesor inexistente (404), sin saldo (409).
+// controller. Los errores salen en este orden: fecha pasada y rango
+// (400), cuenta borrada (403), id mal formado (400), profesor
+// inexistente (404), sin saldo (409).
 export async function listarTurnosLibres(
   idProfesor: string,
   consulta: ConsultarTurnosDto,
-  actor: ActorClase,
+  actor: Actor,
 ): Promise<TurnosLibres | null> {
   exigirFechaNoPasada(consulta.fecha);
+  exigirRangoValido(consulta);
   const alumno = await cuentaQueConsulta(actor);
   const [profesor, horarioEscuela, autos] = await Promise.all([
     profesorService.obtenerPorId(idProfesor),
