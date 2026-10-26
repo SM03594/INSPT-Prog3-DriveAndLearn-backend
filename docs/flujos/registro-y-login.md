@@ -32,7 +32,7 @@ POST /api/auth/login ────────────► routes ─ validaci
 
 ③ USAR EL TOKEN
 GET /api/alumnos/:id ────────────► requireAuthentication ─ requireSelfOrAdministrator ─ controller ...
-Authorization: Bearer <token>        │ jwt.verify → req.auth = { id, role }
+Authorization: Bearer <token>        │ jwt.verify + revocación → req.auth
 ◄──────────────────────────────── 200 { ...datos del alumno }
 ```
 
@@ -256,14 +256,15 @@ payload: { "role": "alumno",
            "sub":  "6ada67d6a1255f5aab347d4b",     ← subject: el id del usuario
            "iat":  1792698326,                     ← emitido en (segundos desde 1970)
            "exp":  1792701926,                     ← vence en: iat + 3600 (1 hora)
+           "jti":  "4ecb...",                      ← id aleatorio de esta sesión
            "aud":  "driveandlearn-api",            ← para quién es
            "iss":  "driveandlearn" }               ← quién lo emitió
 ```
 
 La **firma** se calcula con el header, el payload y `JWT_SECRET`. Cualquiera
 puede **leer** el payload (no está cifrado), pero nadie puede **modificarlo**
-sin conocer el secreto: si cambia una letra, la firma deja de coincidir. Por
-eso el token lleva solo el id y el rol, nunca datos sensibles.
+sin conocer el secreto: si cambia una letra, la firma deja de coincidir. El
+token lleva el id, el rol y metadatos de autenticación, nunca datos sensibles.
 
 ---
 
@@ -276,10 +277,11 @@ GET /api/alumnos/6ada67d6a1255f5aab347d4b
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-`requireAuthentication` (`src/middlewares/auth.middleware.ts:117`) verifica
+`requireAuthentication` (`src/middlewares/auth.middleware.ts`) verifica
 el token **con las mismas opciones con que se firmó** (algoritmo, audiencia,
-emisor) y carga `req.auth = { id: payload.sub, role: payload.role }`. A partir
-de ahí, los siguientes middlewares y el controller saben quién es. Se explica
+emisor), comprueba que no esté revocado y carga la identidad junto con el JWT y
+su vencimiento en `req.auth`. A partir de ahí, los siguientes middlewares y el
+controller saben quién es. Se explica
 paso a paso en
 [`../capas/05-middlewares.md`](../capas/05-middlewares.md#3-requireauthentication-quién-sos).
 
@@ -290,18 +292,13 @@ paso a paso en
 | `GET /api/alumnos/<su id>` **sin** token | **401** "Se requiere autenticación válida" |
 | Token sin el prefijo `Bearer ` | **401** "Se requiere autenticación válida" |
 
-#### Paso 12. ¿Y el logout?
+#### Paso 12. Cerrar sesión
 
-**No hay endpoint de logout.** La API no guarda sesiones: todo lo que necesita
-saber está dentro del token. "Cerrar sesión" consiste en que el **cliente**
-borre el token. Pero un token copiado sigue siendo válido hasta que vence, en
-1 hora como máximo.
-
-Hay un caso que sí se controla: si se **borra** al usuario, su token deja de
-servir para las rutas que comprueban que la cuenta siga existiendo
-(`requireAdministrator`, y `validarActor` en las clases). El Teardown de
-Postman lo comprueba: "El token del alumno borrado ya no sirve para ver
-clases" → 403.
+`POST /api/auth/logout` exige un JWT válido y revoca solo la sesión de ese
+token. La revocación se guarda por hash hasta el vencimiento del JWT; cualquier
+ruta protegida rechaza después ese mismo token con `401`. Otros logins del
+mismo usuario conservan sus propios tokens. El recorrido completo está en
+[`cerrar-sesion.md`](cerrar-sesion.md).
 
 ---
 
@@ -334,6 +331,6 @@ clases" → 403.
   inexistente y para una contraseña errónea.
 - **Token:** `Authorization: Bearer <token>`. `requireAuthentication` lo
   verifica y carga `req.auth`. Se puede leer, pero no modificar.
-- No hay logout del lado del servidor: el token vale hasta que vence.
+- Logout revoca el JWT presentado; los otros tokens del mismo usuario no cambian.
 
 **Siguiente lectura:** [`agendar-una-clase.md`](agendar-una-clase.md).

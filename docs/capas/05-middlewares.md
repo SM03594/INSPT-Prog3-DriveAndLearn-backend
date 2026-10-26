@@ -84,15 +84,18 @@ Están en `src/app.ts:22-23` y se ejecutan en **todos** los pedidos:
 
 ### 3. `requireAuthentication`: ¿quién sos?
 
-`src/middlewares/auth.middleware.ts:117`:
+`src/middlewares/auth.middleware.ts`:
 
 ```ts
-export const requireAuthentication: RequestHandler = (req, _res, next) => {
-  const payload = verificarToken(req.header('authorization'));
+export const requireAuthentication: RequestHandler = async (req, _res, next) => {
+  const { token, payload } = verificarToken(req.header('authorization'));
   if (!esPayloadAutenticado(payload)) {
     throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
   }
-  req.auth = { id: payload.sub, role: payload.role };
+  if (await authService.tokenEstaRevocado(token)) {
+    throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
+  }
+  req.auth = { id: payload.sub, role: payload.role, token, exp: payload.exp };
   next();
 };
 ```
@@ -108,15 +111,18 @@ Authorization: Bearer eyJhbGciOi...
        │     audience: 'driveandlearn-api',             ← emitido para esta API
        │     issuer:   'driveandlearn' })               ← emitido por nosotros
        │     firma mala / vencido → JsonWebTokenError → ErrorAutenticacion → 401
-       ├─ ¿el payload trae sub (string) y un role válido? (:69)       no → 401
+      ├─ ¿el payload trae sub, role y exp válidos?        no → 401
+      ├─ ¿SHA-256(token) está revocado en Mongo?         sí → 401
        ▼
-req.auth = { id, role }  ──►  next()
+    req.auth = { id, role, token, exp }  ──►  next()
 ```
 
 El paso más importante es el último: **`req.auth` queda disponible para todo
 lo que sigue en la cadena**. Los otros middlewares y los controllers lo leen
 para saber quién hace el pedido. Que TypeScript acepte `req.auth` se explica
 en [`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md#10-ampliar-los-tipos-de-una-librería-reqauth).
+El service consulta revocaciones en todas las rutas protegidas; el flujo de
+logout está explicado en [`../flujos/cerrar-sesion.md`](../flujos/cerrar-sesion.md).
 
 `_res` lleva guion bajo porque no se usa: es la convención para indicar "este
 parámetro existe, pero no lo necesito".

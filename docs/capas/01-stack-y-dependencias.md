@@ -263,13 +263,14 @@ sistema y no del proyecto.
 
 ### 9. jsonwebtoken: quién sos en cada pedido
 
-La API no guarda sesiones. Cuando alguien hace login, recibe un **JWT** (JSON
-Web Token): un texto firmado con `JWT_SECRET` que dice quién es el usuario y
-qué rol tiene. En cada pedido siguiente, el cliente lo envía en la cabecera
-`Authorization: Bearer <token>`.
+La API usa **JWT** (JSON Web Token) para identificar al usuario en cada
+pedido, y guarda en MongoDB las revocaciones voluntarias hasta que cada token
+vence. Cuando alguien hace login, recibe un texto firmado con `JWT_SECRET`
+que incluye su id, rol, vencimiento y un `jti` aleatorio. En cada pedido
+siguiente, el cliente lo envía en `Authorization: Bearer <token>`.
 
 ```
- login OK ──► jwt.sign({ role }, secreto, { subject: id, expiresIn: '1h', ... })
+ login OK ──► jwt.sign({ role }, secreto, { subject: id, jwtid, expiresIn: '1h', ... })
               src/services/auth.service.ts:43
                      │
                      ▼  el cliente guarda el token
@@ -282,12 +283,20 @@ qué rol tiene. En cada pedido siguiente, el cliente lo envía en la cabecera
           firma válida y no vencido? ── no ──► 401
                      │ sí
                      ▼
-              req.auth = { id, role } → sigue al controller
+              auth.service.tokenEstaRevocado(SHA-256(token))
+                │ no revocado
+                ▼
+              req.auth = { id, role, token, exp } → sigue al controller
+
+           POST /api/auth/logout ──► auth.service.revocarToken()
+                    └─► guarda SHA-256(token) + expiraEn
 ```
 
 La firma garantiza que nadie modificó el token, pero **el contenido no está
-cifrado**: cualquiera puede leerlo. Por eso solo lleva el id y el rol, nunca
-datos sensibles. El flujo completo está en
+cifrado**: cualquiera puede leerlo. Por eso solo lleva identificadores y
+metadatos de autenticación, nunca datos sensibles. El logout y la revocación
+se explican en [`../flujos/cerrar-sesion.md`](../flujos/cerrar-sesion.md); el
+flujo de login está en
 [`../flujos/registro-y-login.md`](../flujos/registro-y-login.md).
 
 ### 10. Las dependencias de desarrollo

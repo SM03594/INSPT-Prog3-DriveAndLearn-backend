@@ -173,6 +173,7 @@ pasa por `validacionDeCuerpo`.
 |---|---|---|---|
 | **auth** | | | |
 | POST | `/api/auth/login` | 🌐 | ✓ |
+| POST | `/api/auth/logout` | 🔑 | |
 | **alumnos** | | | |
 | POST | `/api/alumnos` | 🌐 | ✓ |
 | GET | `/api/alumnos` | 🛡️ | |

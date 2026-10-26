@@ -181,6 +181,21 @@ export async function login(req: Request, res: Response) {
 texto, responde **400** (un pedido mal armado). Si las credenciales no
 coinciden, el service lanza `ErrorAutenticacion` y el resultado es un **401**.
 
+Logout no recibe un body ni necesita DTO. La ruta garantiza que `req.auth`
+exista; el controller pasa al service el JWT y su vencimiento verificados, y
+solo traduce el resultado exitoso a HTTP:
+
+```ts
+export async function logout(req: Request, res: Response) {
+  const auth = req.auth!;
+  await authService.revocarToken(auth.token, auth.exp);
+  res.status(204).end();
+}
+```
+
+El controller no determina si el token puede revocarse ni accede al modelo.
+Esas reglas y la persistencia están en `auth.service`.
+
 ---
 
 ## Todos los controllers
@@ -189,7 +204,7 @@ coinciden, el service lanza `ErrorAutenticacion` y el resultado es un **401**.
 |---|---|---|---|
 | `alumno` | `listar`, `obtener`, `crear`, `actualizar`, `eliminar`, `sumarClases`, `restarClases` | `alumno.dto` | `alumno.service` |
 | `administrador` | `listar`, `obtener`, `crear`, `actualizar`, `eliminar` | `administrador.dto` | `administrador.service` |
-| `auth` | `login` | `auth.dto` | `auth.service` |
+| `auth` | `login`, `logout` | `auth.dto` (solo login) | `auth.service` |
 | `auto` | `listar`, `obtener`, `crear`, `actualizar`, `cambiarActivo` | `auto.dto` | `auto.service` |
 | `clase` | `listar`, `obtener`, `crear`, `actualizar`, `eliminar` | `clase.dto` | `clase.service` |
 | `horarioEscuela` | `obtener`, `reemplazar`, `validar`, `agregar`, `quitar` | `calendarioSemanal.dto` | `horarioEscuela.service` |

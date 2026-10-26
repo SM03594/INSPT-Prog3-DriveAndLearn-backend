@@ -985,7 +985,7 @@
     },
     {
       "name": "01 Auth",
-      "description": "POST /auth/login y el chequeo del JWT en rutas protegidas (401).",
+      "description": "POST /auth/login, POST /auth/logout y el chequeo de JWT válidos, inválidos y revocados.",
       "item": [
         {
           "name": "[200] Login válido devuelve token y usuario",
@@ -1377,6 +1377,127 @@
               ]
             }
           }
+        },
+        {
+          "name": "[200] Login para probar logout",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "utils.esperarStatus(pm, 200);",
+              "pm.collectionVariables.set('tokenLogout', pm.response.json().token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"alumno1.{{runId}}@postman.test\",\n  \"password\": \"{{passwordPrueba}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "[204] Logout revoca solo el JWT enviado",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "utils.esperarStatus(pm, 204);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenLogout}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "[401] JWT revocado no accede a una ruta protegida",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "utils.esperarError(pm, 401, \"Se requiere autenticación válida\");"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/autos",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "autos"
+          ]
+        },
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenLogout}}",
+              "type": "string"
+            }
+          ]
+        }
+      }
         }
       ]
     },

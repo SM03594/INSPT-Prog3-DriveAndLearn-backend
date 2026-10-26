@@ -8,3 +8,10 @@ export async function login(req: Request, res: Response) {
 
   res.status(200).json(resultado);
 }
+
+export async function logout(req: Request, res: Response) {
+  const auth = req.auth!;
+
+  await authService.revocarToken(auth.token, auth.exp);
+  res.status(204).end();
+}

@@ -25,6 +25,7 @@ import {
 } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import * as administradorService from '../services/administrador.service.js';
+import * as authService from '../services/auth.service.js';
 import * as claseService from '../services/clase.service.js';
 import { verificarCuerpo } from './validacionDeCuerpo.middleware.js';
 import { ROLES, type Rol } from '../types/roles.js';
@@ -37,22 +38,30 @@ const MENSAJE_NO_AUTORIZADO = 'Se requiere autenticación válida';
 // Recibe el header "Authorization" completo y devuelve el payload
 // del JWT. Lanza ErrorAutenticacion si el header no tiene la forma
 // "Bearer <token>" o si jwt.verify rechaza el token.
-function verificarToken(autorizacion: string | undefined): string | JwtPayload {
+function verificarToken(autorizacion: string | undefined): {
+  token: string;
+  payload: string | JwtPayload;
+} {
   const coincidencia = autorizacion?.match(/^Bearer\s+(\S+)$/i);
 
   if (coincidencia === undefined || coincidencia === null) {
     throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
   }
 
+  const token = coincidencia[1];
+
   try {
     // Las mismas opciones con las que auth.service firma el token:
     // fijar el algoritmo evita aceptar tokens firmados con otro, y
     // audience/issuer descartan tokens emitidos para otra cosa.
-    return jwt.verify(coincidencia[1], obtenerJwtSecret(), {
-      algorithms: ['HS256'],
-      audience: 'driveandlearn-api',
-      issuer: 'driveandlearn',
-    });
+    return {
+      token,
+      payload: jwt.verify(token, obtenerJwtSecret(), {
+        algorithms: ['HS256'],
+        audience: 'driveandlearn-api',
+        issuer: 'driveandlearn',
+      }),
+    };
   } catch (error) {
     // Firma inválida, token vencido, etc.: verSiErrorAutenticacion lo
     // convierte en ErrorAutenticacion (401). Si no es un error de
@@ -72,11 +81,14 @@ function verificarToken(autorizacion: string | undefined): string | JwtPayload {
 function esPayloadAutenticado(payload: string | JwtPayload): payload is JwtPayload & {
   sub: string;
   role: Rol;
+  exp: number;
 } {
   return (
     typeof payload !== 'string' &&
     typeof payload.sub === 'string' &&
-    ROLES.includes(payload.role)
+    ROLES.includes(payload.role) &&
+    typeof payload.exp === 'number' &&
+    Number.isFinite(payload.exp)
   );
 }
 
@@ -111,17 +123,21 @@ function verificarCamposPropios(
 //  requireAuthentication — exige un JWT válido
 // ============================================================
 // Espera el header "Authorization: Bearer <token>". Si el token es
-// válido, guarda { id, role } en req.auth (tipado en
+// válido, guarda la identidad y los datos necesarios para revocarlo en req.auth (tipado en
 // types/express.d.ts) y sigue. Si falta, está mal formado, tiene
 // otra firma o venció, responde 401.
-export const requireAuthentication: RequestHandler = (req, _res, next) => {
-  const payload = verificarToken(req.header('authorization'));
+export const requireAuthentication: RequestHandler = async (req, _res, next) => {
+  const { token, payload } = verificarToken(req.header('authorization'));
 
   if (!esPayloadAutenticado(payload)) {
     throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
   }
 
-  req.auth = { id: payload.sub, role: payload.role };
+  if (await authService.tokenEstaRevocado(token)) {
+    throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
+  }
+
+  req.auth = { id: payload.sub, role: payload.role, token, exp: payload.exp };
   next();
 };
 

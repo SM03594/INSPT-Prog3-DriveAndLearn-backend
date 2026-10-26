@@ -44,7 +44,16 @@ colección "clases"                                                           �
 | `Auto.ts` | `AutoModel` | `autos` |
 | `Clase.ts` | `ClaseModel` | `clases` |
 | `HorarioEscuela.ts` | `HorarioEscuelaModel` | `horario_escuela` |
+| `TokenRevocado.ts` | `TokenRevocadoModel` | `tokens_revocados` |
 | `CalendarioSemanal.ts`, `Horario.ts` | sub-esquemas y tipos | — (van **dentro** de otros documentos) |
+
+`TokenRevocado` almacena únicamente el hash SHA-256 del JWT y su fecha de
+vencimiento. El hash tiene índice único para que una sesión no genere
+revocaciones duplicadas; `expiraEn` tiene índice TTL para que MongoDB limpie
+los registros vencidos. La consulta de autenticación también filtra por fecha,
+porque la eliminación TTL ocurre periódicamente y no en el instante exacto del
+vencimiento. El detalle funcional está en
+[`../flujos/cerrar-sesion.md`](../flujos/cerrar-sesion.md).
 
 ---
 

@@ -105,6 +105,7 @@ tienen ejemplos más avanzados.
 | Guía | Endpoints principales | Quién |
 |---|---|---|
 | [Registrarse, iniciar sesión y usar el token](flujos/registro-y-login.md) | `POST /api/alumnos`, `POST /api/auth/login` | Cualquiera |
+| [Cerrar sesión y revocar el token](flujos/cerrar-sesion.md) | `POST /api/auth/logout` | Alumno o administrador |
 | [Agendar una clase](flujos/agendar-una-clase.md) | `POST /api/clases`, `GET /api/clases` | Alumno o admin |
 | [Modificar y eliminar una clase](flujos/modificar-y-eliminar-una-clase.md) | `PUT /api/clases/:id`, `DELETE /api/clases/:id` | Alumno (las suyas) o admin |
 | [Dar de alta un profesor y su disponibilidad](flujos/alta-de-profesor-y-disponibilidad.md) | `/api/profesores`, `.../disponibilidad` | Admin |

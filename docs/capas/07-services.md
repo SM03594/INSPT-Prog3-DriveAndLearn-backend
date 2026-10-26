@@ -13,7 +13,7 @@ validado (o argumentos comunes) y devuelve datos, o lanza un error.
 
 | Service | Modelo(s) que usa | Responsabilidad |
 |---|---|---|
-| `auth.service` | — (usa `usuario.service`) | Login: comprobar las credenciales y firmar el JWT. |
+| `auth.service` | `TokenRevocado` (usa `usuario.service`) | Login: comprobar credenciales y firmar JWT único; logout: validar vencimiento, hashear y revocar el token. |
 | `usuario.service` | `UsuarioModel` | Buscar usuarios de **cualquier** rol (por id o por email). |
 | `alumno.service` | `AlumnoModel` | Alta, edición y baja de alumnos, y el saldo de clases. |
 | `administrador.service` | `AdministradorModel` | Alta, edición y baja de admins, y `existe()` para los middlewares. |
@@ -29,7 +29,8 @@ Algunos services usan a otros:
 auth.service ─────────────► usuario.service
 horarioEscuela.service ──┐
 profesor.service ────────┴► calendarioSemanal.service
-auth.middleware ──────────► administrador.service.existe()
+auth.middleware ──────────► auth.service.tokenEstaRevocado()
+                 └────────► administrador.service.existe()
                  └────────► clase.service.obtenerPorIdAlumno()
 clase.service ────────────► alumno.service.sumarClasesPorReservar()   (al eliminar)
                  └────────► los MODELS de los demás, para lo demás

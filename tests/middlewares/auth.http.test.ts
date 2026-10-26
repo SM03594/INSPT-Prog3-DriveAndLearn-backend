@@ -144,6 +144,72 @@ describe('autenticación HTTP', () => {
       .expect(401);
   });
 
+  it('permite a un alumno cerrar su sesión e invalida ese token', async () => {
+    await crearAlumno({
+      email: 'logout-alumno@example.com',
+      password: 'claveSegura123',
+      nomApe: 'Alumna Logout',
+    });
+    const token = await iniciarSesion('logout-alumno@example.com', 'claveSegura123');
+
+    await request(app)
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(app)
+      .get('/api/autos')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
+
+  it('permite a un administrador cerrar su sesión e invalida ese token', async () => {
+    await crearAdministrador({
+      email: 'logout-admin@example.com',
+      password: 'claveAdmin123',
+      nomApe: 'Admin Logout',
+    });
+    const token = await iniciarSesion('logout-admin@example.com', 'claveAdmin123');
+
+    await request(app)
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(204);
+
+    await request(app)
+      .get('/api/autos')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+  });
+
+  it('rechaza logout sin autenticación válida', async () => {
+    await request(app).post('/api/auth/logout').expect(401);
+  });
+
+  it('revocar una sesión no invalida otra sesión del mismo usuario', async () => {
+    await crearAlumno({
+      email: 'dos-sesiones@example.com',
+      password: 'claveSegura123',
+      nomApe: 'Dos Sesiones',
+    });
+    const tokenA = await iniciarSesion('dos-sesiones@example.com', 'claveSegura123');
+    const tokenB = await iniciarSesion('dos-sesiones@example.com', 'claveSegura123');
+
+    await request(app)
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(204);
+
+    await request(app)
+      .get('/api/autos')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(401);
+    await request(app)
+      .get('/api/autos')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .expect(200);
+  });
+
   it.each([
     [{ email: '', password: '' }, 'Email y contraseña son obligatorios'],
     [{ email: 'ana@example.com' }, 'La contraseña es obligatoria'],

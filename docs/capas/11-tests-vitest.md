@@ -6,8 +6,7 @@ Los tests de `tests/` son programas que **ejecutan el código del proyecto y
 comprueban que haga lo que debe**: que un service rechace una patente
 repetida, que una ruta pida token, que una fecha sin zona se rechace. Corren
 con **Vitest**, usan una **MongoDB en memoria** y prueban la API por HTTP **sin
-levantar un servidor**. Son unos 280 tests (283 al 22/10/2026) y tardan
-segundos.
+levantar un servidor**. Hay 439 tests (al 26/10/2026) y tardan segundos.
 
 ---
 
@@ -24,7 +23,7 @@ tests/
 ├── dtos/                              DTOs: también funciones puras
 │   ├── alumno.dto.test.ts  auto.dto.test.ts  clase.dto.test.ts ...
 ├── services/                          SERVICES: con base en memoria y sin HTTP
-│   ├── alumno.service.test.ts  auto.service.test.ts  clase.service.test.ts ...
+│   ├── auth.service.test.ts  alumno.service.test.ts  auto.service.test.ts ...
 ├── middlewares/
 │   ├── validacionDeCuerpo.test.ts     middleware llamado a mano (sin base y sin HTTP)
 │   ├── auth.http.test.ts              HTTP con supertest + base

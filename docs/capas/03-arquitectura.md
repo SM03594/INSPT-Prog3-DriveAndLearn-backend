@@ -143,7 +143,7 @@ ellos **lanza** un error, la cadena se corta y Express salta al `errorHandler`:
 
 | # | Middleware | Qué comprueba | Si falla |
 |---|---|---|---|
-| 1 | `requireAuthentication` | El token es válido → carga `req.auth = { id, role }` | 401 |
+| 1 | `requireAuthentication` | JWT válido y no revocado → carga identidad, token y `exp` en `req.auth` | 401 |
 | 2 | `requireAdministrator` | `role === 'administrador'` **y** que siga existiendo en la base | 403 |
 | 3 | `validacionDeCuerpo` | Hay body y es un objeto JSON | 400 |
 

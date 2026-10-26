@@ -4,6 +4,8 @@ declare global {
       auth?: {
         id: string;
         role: 'alumno' | 'administrador';
+        token: string;
+        exp: number;
       };
     }
   }
