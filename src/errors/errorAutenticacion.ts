@@ -11,6 +11,10 @@
 
 import jwt from 'jsonwebtoken';
 
+// El mensaje de todo 401 por token faltante o inválido. Lo usan
+// auth.middleware y utils/extraerActor.ts, para que respondan igual.
+export const MENSAJE_NO_AUTORIZADO = 'Se requiere autenticación válida';
+
 export class ErrorAutenticacion extends Error {
   readonly status = 401;
 

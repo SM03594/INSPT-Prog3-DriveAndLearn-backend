@@ -8,26 +8,29 @@
 
 import type { Request, Response } from 'express';
 import * as claseService from '../services/clase.service.js';
-import type { ActorClase } from '../services/clase.service.js';
-import { aActualizarClaseDto, aCrearClaseDto } from '../dtos/clase.dto.js';
-
-// La ruta garantiza la autenticación; acá se adapta req.auth al contrato del service.
-function actorDe(req: Request): ActorClase {
-  const auth = req.auth!;
-  return {
-    id: auth.id,
-    rol: auth.role,
-  };
-}
+import {
+  aActualizarClaseDto,
+  aCrearClaseDto,
+  type ActualizarClaseDto,
+  type CrearClaseDto,
+} from '../dtos/clase.dto.js';
+import { extraerActor } from '../utils/extraerActor.js';
+import type { ClaseDoc } from '../models/Clase.js';
+import type { Actor } from '../types/actor.js';
 
 // Los handlers traducen los resultados del service a respuestas HTTP.
 export async function listar(req: Request, res: Response) {
-  const clases = await claseService.listar(actorDe(req));
+  const actor: Actor = extraerActor(req);
+  const clases: ClaseDoc[] = await claseService.listar(actor);
+
   res.json(clases);
 }
 
 export async function obtener(req: Request<{ id: string }>, res: Response) {
-  const clase = await claseService.obtenerPorId(req.params.id, actorDe(req));
+  const idClase: string = req.params.id;
+  const actor: Actor = extraerActor(req);
+  const clase: ClaseDoc | null = await claseService.obtenerPorId(idClase, actor);
+
   if (clase === null) {
     res.status(404).json({ mensaje: 'Clase no encontrada' });
   } else {
@@ -38,17 +41,19 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 export async function crear(req: Request, res: Response) {
   // El DTO valida la forma (qué campos puede mandar cada rol); el
   // service, las reglas de la reserva.
-  const actor = actorDe(req);
-  const clase = await claseService.crear(aCrearClaseDto(req.body, actor.rol), actor);
+  const actor: Actor = extraerActor(req);
+  const datosReserva: CrearClaseDto = aCrearClaseDto(req.body, actor.rol);
+  const clase: ClaseDoc = await claseService.crear(datosReserva, actor);
+
   res.status(201).json(clase);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
-  const clase = await claseService.actualizar(
-    req.params.id,
-    aActualizarClaseDto(req.body),
-    actorDe(req),
-  );
+  const idClase: string = req.params.id;
+  const cambios: ActualizarClaseDto = aActualizarClaseDto(req.body);
+  const actor: Actor = extraerActor(req);
+  const clase: ClaseDoc | null = await claseService.actualizar(idClase, cambios, actor);
+
   if (clase === null) {
     res.status(404).json({ mensaje: 'Clase no encontrada' });
   } else {
@@ -59,7 +64,10 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
 // La ruta ya comprobó que sea el alumno de la clase o un admin. Si la
 // clase todavía no empezó, el service le devuelve el crédito al alumno.
 export async function eliminar(req: Request<{ id: string }>, res: Response) {
-  const clase = await claseService.eliminar(req.params.id, actorDe(req));
+  const idClase: string = req.params.id;
+  const actor: Actor = extraerActor(req);
+  const clase: ClaseDoc | null = await claseService.eliminar(idClase, actor);
+
   if (clase === null) {
     res.status(404).json({ mensaje: 'Clase no encontrada' });
   } else {

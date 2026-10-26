@@ -21,6 +21,7 @@ import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { obtenerJwtSecret } from '../config/env.js';
 import {
   ErrorAutenticacion,
+  MENSAJE_NO_AUTORIZADO,
   verSiErrorAutenticacion,
 } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
@@ -28,8 +29,6 @@ import * as administradorService from '../services/administrador.service.js';
 import * as claseService from '../services/clase.service.js';
 import { verificarCuerpo } from './validacionDeCuerpo.middleware.js';
 import { ROLES, type Rol } from '../types/roles.js';
-
-const MENSAJE_NO_AUTORIZADO = 'Se requiere autenticación válida';
 
 // ============================================================
 //  verificarToken — helper interno

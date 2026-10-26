@@ -19,7 +19,8 @@ import { HorarioEscuelaModel } from '../../src/models/HorarioEscuela.js';
 import { ProfesorModel } from '../../src/models/Profesor.js';
 import { crearCalendarioSemanal, type Dia } from '../../src/models/CalendarioSemanal.js';
 import type { Tramo } from '../../src/models/Tramo.js';
-import { crear as reservar, type ActorClase } from '../../src/services/clase.service.js';
+import { crear as reservar } from '../../src/services/clase.service.js';
+import type { Actor } from '../../src/types/actor.js';
 import { listarTurnosLibres, type TurnosLibres } from '../../src/services/turno.service.js';
 import type { ConsultarTurnosDto } from '../../src/dtos/turno.dto.js';
 import {
@@ -46,9 +47,9 @@ const autos = {
   DD: new Types.ObjectId(),
 };
 
-const ana: ActorClase = { id: anaId.toString(), rol: 'alumno' };
-const beto: ActorClase = { id: betoId.toString(), rol: 'alumno' };
-const admin: ActorClase = { id: adminId.toString(), rol: 'administrador' };
+const ana: Actor = { id: anaId.toString(), rol: 'alumno' };
+const beto: Actor = { id: betoId.toString(), rol: 'alumno' };
+const admin: Actor = { id: adminId.toString(), rol: 'administrador' };
 
 let lunes: FechaCalendario;
 
@@ -219,6 +220,12 @@ describe('listarTurnosLibres', () => {
     expect(res?.turnos).toEqual([]);
   });
 
+  it('un profesor sin ninguna disponibilidad no tiene turnos', async () => {
+    await ProfesorModel.findByIdAndUpdate(juanId, { disponibilidad: crearCalendarioSemanal() });
+
+    expect((await listarTurnosLibres(juanId.toString(), consulta(), ana))?.turnos).toEqual([]);
+  });
+
   // --------------------------------------------------------
   //  Cómo se arman las ventanas
   // --------------------------------------------------------
@@ -272,6 +279,14 @@ describe('listarTurnosLibres', () => {
     expect(horas(res)).toEqual([9, 10]);
   });
 
+  it('un tramo viejo de la escuela de 08:30 a 12:00: arranca en la primera hora en punto', async () => {
+    await HorarioEscuelaModel.findByIdAndUpdate('escuela', {
+      'calendario.lunes': [tramo('08:30', '12:00')],
+    });
+
+    expect(horas(await listarTurnosLibres(martaId.toString(), consulta(), ana))).toEqual([9, 10, 11]);
+  });
+
   // --------------------------------------------------------
   //  Clases ya reservadas
   // --------------------------------------------------------
@@ -296,6 +311,14 @@ describe('listarTurnosLibres', () => {
     await claseGuardada(betoId, juanId, autos.CC, '10:00', '11:00');
 
     expect(horas(await listarTurnosLibres(juanId.toString(), consulta(), ana))).toEqual([9, 11, 12, 15, 16]);
+  });
+
+  it('con el día de Juan lleno, no hay turnos', async () => {
+    for (const inicio of [9, 10, 11, 12, 15, 16]) {
+      await claseGuardada(betoId, juanId, autos.CC, `${inicio}:00`, `${inicio + 1}:00`);
+    }
+
+    expect((await listarTurnosLibres(juanId.toString(), consulta(), ana))?.turnos).toEqual([]);
   });
 
   it('una clase vieja de Juan de 10:30 a 11:30 tapa los turnos de 10 y de 11', async () => {
@@ -329,12 +352,41 @@ describe('listarTurnosLibres', () => {
   });
 
   // --------------------------------------------------------
-  //  Errores, en orden: 400 → 403 → 404 → 409
+  //  Errores, en orden: fecha y rango (400) → cuenta (403) → id (400) → 404 → 409
+  //  La cuenta va antes que el id: una cuenta borrada no recibe nada.
   // --------------------------------------------------------
   it('fecha pasada → 400', async () => {
     await expect(
       listarTurnosLibres(juanId.toString(), consulta({ fecha: { anio: 2020, mes: 1, diaDelMes: 6 } }), ana),
     ).rejects.toMatchObject({ status: 400, message: 'La fecha debe ser hoy o posterior' });
+  });
+
+  it.each([
+    ['12:00', '10:00', 'El desde debe ser anterior al hasta'],
+    ['10:00', '10:00', 'El desde debe ser anterior al hasta'],
+    ['10:00', '10:59', 'El rango debe ser de al menos una hora'],
+  ])('desde %s hasta %s → 400 "%s"', async (desde, hasta, mensaje) => {
+    await expect(
+      listarTurnosLibres(juanId.toString(), consulta({ desde: hora(desde), hasta: hora(hasta) }), ana),
+    ).rejects.toMatchObject({ status: 400, message: mensaje });
+  });
+
+  it('un rango de una hora justa es válido', async () => {
+    const res = await listarTurnosLibres(
+      juanId.toString(),
+      consulta({ desde: hora('10:00'), hasta: hora('11:00') }),
+      ana,
+    );
+
+    expect(horas(res)).toEqual([10]);
+  });
+
+  it('el rango se revisa antes que la cuenta: 400 aunque la cuenta esté borrada', async () => {
+    await AlumnoModel.findByIdAndDelete(anaId);
+
+    await expect(
+      listarTurnosLibres(juanId.toString(), consulta({ desde: hora('12:00'), hasta: hora('10:00') }), ana),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   it('cuenta borrada → 403', async () => {
@@ -344,6 +396,18 @@ describe('listarTurnosLibres', () => {
     await expect(listarTurnosLibres(juanId.toString(), consulta(), ana))
       .rejects.toMatchObject({ status: 403 });
     await expect(listarTurnosLibres(juanId.toString(), consulta(), admin))
+      .rejects.toMatchObject({ status: 403 });
+  });
+
+  it('id de profesor mal formado → CastError (400 "Id inválido" en el errorHandler)', async () => {
+    await expect(listarTurnosLibres('no-es-un-objectid', consulta(), ana))
+      .rejects.toMatchObject({ name: 'CastError' });
+  });
+
+  it('cuenta borrada e id mal formado → 403: la cuenta se revisa primero', async () => {
+    await AlumnoModel.findByIdAndDelete(anaId);
+
+    await expect(listarTurnosLibres('no-es-un-objectid', consulta(), ana))
       .rejects.toMatchObject({ status: 403 });
   });
 

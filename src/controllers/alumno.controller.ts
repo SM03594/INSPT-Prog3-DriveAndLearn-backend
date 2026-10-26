@@ -12,15 +12,21 @@ import {
   aActualizarAlumnoDto,
   aCantidadClasesDto,
   aCrearAlumnoDto,
+  type ActualizarAlumnoDto,
+  type CantidadClasesDto,
+  type CrearAlumnoDto,
 } from '../dtos/alumno.dto.js';
+import type { AlumnoDoc } from '../models/Alumno.js';
 
 export async function listar(_req: Request, res: Response) {
-  const alumnos = await alumnoService.listar();
+  const alumnos: AlumnoDoc[] = await alumnoService.listar();
   res.json(alumnos);
 }
 
 export async function obtener(req: Request<{ id: string }>, res: Response) {
-  const alumno = await alumnoService.obtenerPorId(req.params.id);
+  const idAlumno: string = req.params.id;
+  const alumno: AlumnoDoc | null = await alumnoService.obtenerPorId(idAlumno);
+
   if (alumno === null) {
     res.status(404).json({ mensaje: 'Alumno no encontrado' });
   } else {
@@ -31,17 +37,19 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 export async function crear(req: Request, res: Response) {
   // El DTO valida la forma del body; el service fija el saldo inicial,
   // que no controla el cliente.
-  const alumno = await alumnoService.crear(aCrearAlumnoDto(req.body));
+  const datosAlumno: CrearAlumnoDto = aCrearAlumnoDto(req.body);
+  const alumno: AlumnoDoc = await alumnoService.crear(datosAlumno);
+
   res.status(201).json(alumno);
 }
 
 // aActualizarAlumnoDto: 400 si el body trae campos que no se pueden
 // modificar o de un tipo incorrecto.
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
-  const alumno = await alumnoService.actualizar(
-    req.params.id,
-    aActualizarAlumnoDto(req.body),
-  );
+  const idAlumno: string = req.params.id;
+  const cambios: ActualizarAlumnoDto = aActualizarAlumnoDto(req.body);
+  const alumno: AlumnoDoc | null = await alumnoService.actualizar(idAlumno, cambios);
+
   if (alumno === null) {
     res.status(404).json({ mensaje: 'Alumno no encontrado' });
   } else {
@@ -50,7 +58,9 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function eliminar(req: Request<{ id: string }>, res: Response) {
-  const alumno = await alumnoService.eliminar(req.params.id);
+  const idAlumno: string = req.params.id;
+  const alumno: AlumnoDoc | null = await alumnoService.eliminar(idAlumno);
+
   if (alumno === null) {
     res.status(404).json({ mensaje: 'Alumno no encontrado' });
   } else {
@@ -62,10 +72,9 @@ export async function eliminar(req: Request<{ id: string }>, res: Response) {
 // llega con otros campos. Que sea un entero mayor que 0 lo decide el
 // service.
 export async function sumarClases(req: Request<{ id: string }>, res: Response) {
-  const alumno = await alumnoService.sumarClasesPorReservar(
-    req.params.id,
-    aCantidadClasesDto(req.body).cantidad,
-  );
+  const idAlumno: string = req.params.id;
+  const { cantidad }: CantidadClasesDto = aCantidadClasesDto(req.body);
+  const alumno: AlumnoDoc | null = await alumnoService.sumarClasesPorReservar(idAlumno, cantidad);
 
   if (alumno === null) {
     res.status(404).json({ mensaje: 'Alumno no encontrado' });
@@ -75,10 +84,9 @@ export async function sumarClases(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function restarClases(req: Request<{ id: string }>, res: Response) {
-  const alumno = await alumnoService.restarClasesPorReservar(
-    req.params.id,
-    aCantidadClasesDto(req.body).cantidad,
-  );
+  const idAlumno: string = req.params.id;
+  const { cantidad }: CantidadClasesDto = aCantidadClasesDto(req.body);
+  const alumno: AlumnoDoc | null = await alumnoService.restarClasesPorReservar(idAlumno, cantidad);
 
   if (alumno === null) {
     res.status(404).json({ mensaje: 'Alumno no encontrado' });

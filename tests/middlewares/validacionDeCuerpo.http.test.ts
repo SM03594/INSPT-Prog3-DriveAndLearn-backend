@@ -33,6 +33,7 @@ const RUTAS_CON_CUERPO: [Metodo, string][] = [
   ['patch', `/api/profesores/${ID}/nom-ape`],
   ['post', `/api/profesores/${ID}/disponibilidad`],
   ['delete', `/api/profesores/${ID}/disponibilidad`],
+  ['post', `/api/profesores/${ID}/turnos-libres`],
   ['put', '/api/horario-escuela'],
   ['post', '/api/horario-escuela/agregar'],
   ['post', '/api/horario-escuela/quitar'],

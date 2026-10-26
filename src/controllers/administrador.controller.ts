@@ -11,15 +11,21 @@ import * as administradorService from '../services/administrador.service.js';
 import {
   aActualizarAdministradorDto,
   aCrearAdministradorDto,
+  type ActualizarAdministradorDto,
+  type CrearAdministradorDto,
 } from '../dtos/administrador.dto.js';
+import type { AdministradorDoc } from '../models/Administrador.js';
 
 export async function listar(_req: Request, res: Response) {
-  const administradores = await administradorService.listar();
+  const administradores: AdministradorDoc[] = await administradorService.listar();
   res.json(administradores);
 }
 
 export async function obtener(req: Request<{ id: string }>, res: Response) {
-  const administrador = await administradorService.obtenerPorId(req.params.id);
+  const idAdministrador: string = req.params.id;
+  const administrador: AdministradorDoc | null =
+    await administradorService.obtenerPorId(idAdministrador);
+
   if (administrador === null) {
     res.status(404).json({ mensaje: 'Administrador no encontrado' });
   } else {
@@ -30,15 +36,17 @@ export async function obtener(req: Request<{ id: string }>, res: Response) {
 // El controller arma el DTO a partir del body (400 si no cumple el
 // contrato) y el service recibe datos ya validados.
 export async function crear(req: Request, res: Response) {
-  const administrador = await administradorService.crear(aCrearAdministradorDto(req.body));
+  const datosAdministrador: CrearAdministradorDto = aCrearAdministradorDto(req.body);
+  const administrador: AdministradorDoc = await administradorService.crear(datosAdministrador);
+
   res.status(201).json(administrador);
 }
 
 export async function actualizar(req: Request<{ id: string }>, res: Response) {
-  const administrador = await administradorService.actualizar(
-    req.params.id,
-    aActualizarAdministradorDto(req.body),
-  );
+  const idAdministrador: string = req.params.id;
+  const cambios: ActualizarAdministradorDto = aActualizarAdministradorDto(req.body);
+  const administrador: AdministradorDoc | null =
+    await administradorService.actualizar(idAdministrador, cambios);
 
   if (administrador === null) {
     res.status(404).json({ mensaje: 'Administrador no encontrado' });
@@ -48,7 +56,10 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
 }
 
 export async function eliminar(req: Request<{ id: string }>, res: Response) {
-  const administrador = await administradorService.eliminar(req.params.id);
+  const idAdministrador: string = req.params.id;
+  const administrador: AdministradorDoc | null =
+    await administradorService.eliminar(idAdministrador);
+
   if (administrador === null) {
     res.status(404).json({ mensaje: 'Administrador no encontrado' });
   } else {

@@ -23,14 +23,14 @@ import {
   obtenerPorIdAlumno,
   listarSuperpuestas,
   empiezaEnPunto,
-  type ActorClase,
 } from '../../src/services/clase.service.js';
 import type { CrearClaseDto } from '../../src/dtos/clase.dto.js';
+import type { Actor } from '../../src/types/actor.js';
 
 setupTestDB();
 
-const actor: ActorClase = { id: '', rol: 'alumno' };
-const actorAdministrador: ActorClase = { id: '', rol: 'administrador' };
+const actor: Actor = { id: '', rol: 'alumno' };
+const actorAdministrador: Actor = { id: '', rol: 'administrador' };
 let alumnoId: Types.ObjectId;
 let otroAlumnoId: Types.ObjectId;
 let profesorId: Types.ObjectId;
