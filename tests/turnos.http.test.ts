@@ -197,4 +197,33 @@ describe('POST /api/profesores/:id/turnos-libres', () => {
     const alumno = await AlumnoModel.findById(alumnoId);
     expect(alumno?.clasesPorReservar).toBe(1);
   });
+
+  it('ida y vuelta del alumno: reserva un turno, deja de verlo y, al eliminar la clase, vuelve a aparecer', async () => {
+    const inicios = (respuesta: { body: { turnos: { inicio: string }[] } }) =>
+      respuesta.body.turnos.map((turno) => turno.inicio);
+    const antes = await consultar(tokenAlumno, { fecha: formatearFecha(lunes) }).expect(200);
+    const [primerTurno] = antes.body.turnos;
+
+    const reserva = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .send({
+        profesor: profesorId,
+        auto: primerTurno.autos[0]._id,
+        inicio: primerTurno.inicio,
+        fin: primerTurno.fin,
+      })
+      .expect(201);
+
+    const conLaClase = await consultar(tokenAlumno, { fecha: formatearFecha(lunes) }).expect(200);
+    expect(inicios(conLaClase)).not.toContain(primerTurno.inicio);
+
+    await request(app)
+      .delete(`/api/clases/${reserva.body._id}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(204);
+
+    const sinLaClase = await consultar(tokenAlumno, { fecha: formatearFecha(lunes) }).expect(200);
+    expect(inicios(sinLaClase)).toEqual(inicios(antes));
+  });
 });

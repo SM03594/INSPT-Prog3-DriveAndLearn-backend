@@ -9,7 +9,7 @@ saldo), descuenta un crédito y la guarda. Esta guía sigue ese pedido a través
 de las capas, con las respuestas reales de la API.
 
 > Las respuestas son **reales**: se obtuvieron ejecutando el flujo contra la
-> API con una base en memoria. El escenario es un lunes 26/10/2026, con la
+> API con una base en memoria. El escenario es un lunes 09/11/2026, con la
 > escuela abierta de 08 a 20, el profesor Juan disponible de 09 a 17, y la
 > alumna Ana con 2 clases de saldo.
 
@@ -41,14 +41,14 @@ admin le cargue clases.
 
 ```
 POST /api/clases   Authorization: Bearer <token de Ana>
-{ "profesor": "...", "auto": "...", "inicio": "2026-10-26T10:00:00-03:00", "fin": "2026-10-26T11:00:00-03:00" }
+{ "profesor": "...", "auto": "...", "inicio": "2026-11-09T10:00:00-03:00", "fin": "2026-11-09T11:00:00-03:00" }
  │
  ▼ clase.routes        requireAuthentication → validacionDeCuerpo
- ▼ clase.controller    actorDe(req) → { id: Ana, rol: 'alumno' }
+ ▼ clase.controller    extraerActor(req) → Actor { id: Ana, rol: 'alumno' }
  │   ① aCrearClaseDto           ¿campos de su rol? ¿texto? ¿todos? ¿fechas con zona?  400
  ▼ clase.service.crear
  │   ② validarActor             ¿la cuenta del token sigue existiendo?               403
- │   ③ obtenerInstantes         1 h exacta · sin segundos · futura                    400
+ │   ③ obtenerInstantes         1 h exacta · en punto · futura                        400
  │   ④ objectId                 ¿los ids tienen formato válido?                       400
  │   ⑤ validarDisponibilidad    profesor/auto existen · auto activo · horario escuela
  │                              · cabe en escuela y profesor · sin superposición     404/409
@@ -81,19 +81,22 @@ decide el **DTO** según el rol, y qué puede hacer, el **service**.
 
 ### Paso 2. El controller: quién reserva
 
-`src/controllers/clase.controller.ts:38`:
+`src/controllers/clase.controller.ts:41`:
 
 ```ts
 export async function crear(req: Request, res: Response) {
-  const actor = actorDe(req);
-  const clase = await claseService.crear(aCrearClaseDto(req.body, actor.rol), actor);
+  const actor: Actor = extraerActor(req);
+  const datosReserva: CrearClaseDto = aCrearClaseDto(req.body, actor.rol);
+  const clase: ClaseDoc = await claseService.crear(datosReserva, actor);
+
   res.status(201).json(clase);
 }
 ```
 
-`actorDe` (`:15`) convierte `req.auth` en un `ActorClase { id, rol }`, que es
-lo que entiende el service. Ver
-[`../capas/06-controllers.md`](../capas/06-controllers.md#2-leer-la-entrada).
+`extraerActor` (`src/utils/extraerActor.ts`) convierte `req.auth` en un
+`Actor { id, rol }`, que es lo que entiende el service. El actor va primero
+porque el DTO necesita su rol. Ver
+[`../capas/06-controllers.md`](../capas/06-controllers.md#2-leer-la-entrada-una-constante-con-nombre-por-dato).
 
 ### Paso 3. ① Campos según el rol: el DTO
 
@@ -120,34 +123,38 @@ válidos lo revisa el service, en el paso 6.
 
 ### Paso 4. ② La cuenta sigue activa
 
-`validarActor` (`:43`) busca al alumno o al admin del token. Si lo borraron
+`validarActor` (`clase.service.ts:42`) busca al alumno o al admin del token. Si lo borraron
 mientras el token seguía vigente, responde 403 "La cuenta autenticada ya no
 está activa".
 
 ### Paso 5. ③ Las fechas
 
 Las fechas ya llegan como `Date`: el formato lo validó el DTO en el paso 3.
-`obtenerInstantes` (`:62`) comprueba las reglas:
+`obtenerInstantes` (`:75`) comprueba las reglas:
 
 | Regla | Pedido que la rompe | Respuesta |
 |---|---|---|
-| ISO 8601 **con zona** (en el DTO) | `"2026-10-26T12:00:00"` | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (ej. 2026-09-20T09:00:00-03:00)" |
+| ISO 8601 **con zona** (en el DTO) | `"2026-11-09T12:00:00"` | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (ej. 2026-09-20T09:00:00-03:00)" |
 | Exactamente 1 hora | De 12:00 a 14:00 | 400 "La duración de la clase debe ser exactamente una hora" |
-| Sin segundos | `10:00:30` | 400 "El inicio y el fin deben tener precisión de minutos" |
+| En una hora en punto de la escuela (minuto 0, sin segundos; N3) | `16:30` o `15:00:30` | 400 "La clase debe empezar en una hora en punto (por ejemplo, 08:00)" |
 | En el futuro | `2025-01-06T12:00:00-03:00` | 400 "La clase debe reservarse para una fecha futura" |
+
+Con inicio en punto y una hora exacta, el fin también queda en punto: no hace
+falta otra regla. "En punto" se mira en la hora **de la escuela**
+(`empiezaEnPunto`, `:64`, con `aHoraLocal`), no en la de UTC.
 
 Por qué se exige la zona se explica en
 [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md#2-entrada-la-zona-es-obligatoria).
 
 ### Paso 6. ④ Formato de los ids
 
-`objectId` (`:38`): `"profesor": "abc"` → 400 "profesor debe ser un
+`objectId` (`:37`): `"profesor": "abc"` → 400 "profesor debe ser un
 identificador válido". Un id con formato válido que no existe pasa este paso
 y lo frena el siguiente.
 
 ### Paso 7. ⑤ ¿Es posible esta clase?
 
-`validarDisponibilidad` (`:81`) carga en paralelo el profesor, el auto y el
+`validarDisponibilidad` (`:91`) carga en paralelo el profesor, el auto y el
 horario de la escuela, y comprueba:
 
 ```
@@ -172,9 +179,9 @@ Beto (por admin)                                 [====]                  ← 14�
 Intentos rechazados:
 07–08 ........ 409 fuera del horario de la escuela
 18–19 ........ 409 el profesor no está disponible
-16:30–17:30 .. 409 el profesor no está disponible (se pasa de las 17)
-Beto 10:30–11:30 con Juan ... 409 superposición (Juan ya está con Ana)
-Domingo 10–11 ............... 409 fuera del horario de la escuela (ese día no abre)
+16:30–17:30 .. 400 no empieza en punto (antes de mirar los horarios)
+Beto 10–11 con Juan y otro auto ... 409 superposición (Juan ya está con Ana)
+Domingo 10–11 ...................... 409 fuera del horario de la escuela (ese día no abre)
 ```
 
 Las clases **consecutivas** sí se aceptan (Ana: 10–11 y 11–12). La
@@ -183,7 +190,7 @@ superposición se calcula con `inicio < otro.fin && fin > otro.inicio`, y
 
 ### Paso 8. ⑥ Descontar el crédito
 
-`clase.service.ts:275`:
+`clase.service.ts:271`:
 
 ```ts
 const alumno = await AlumnoModel.findOneAndUpdate(
@@ -205,6 +212,11 @@ saldo 2 → reserva 10–11 → saldo 1 → reserva 11–12 → saldo 0
 tercera reserva → 409 "No tenés clases disponibles para reservar"
 ```
 
+El mensaje depende de **quién** reserva (`mensajeSinSaldo`): si es un admin
+para un alumno sin saldo, responde 409 *"El alumno no tiene clases
+disponibles para reservar"*. Antes se le decía "No tenés…" también al admin
+(I-31, resuelta).
+
 ### Paso 9. ⑦ Guardar, y compensar si falla
 
 ```ts
@@ -225,8 +237,8 @@ problemas, que termina en un 500.
 ```
 201 {
   "alumno": "6ada687f...ef7", "profesor": "6ada687f...ef2", "auto": "6ada687f...ef5",
-  "inicio": "2026-10-26T13:00:00.000Z",
-  "fin":    "2026-10-26T14:00:00.000Z",
+  "inicio": "2026-11-09T13:00:00.000Z",
+  "fin":    "2026-11-09T14:00:00.000Z",
   "_id": "6ada687f...eff", "createdAt": "...", "updatedAt": "..."
 }
 ```
@@ -241,7 +253,7 @@ problemas, que termina en un 500.
 
 ### Paso 11. Consultar las reservas
 
-`GET /api/clases` (`clase.service.ts:222`):
+`GET /api/clases` (`clase.service.ts:218`):
 
 - Un **alumno** recibe solo **sus** clases, ordenadas por `inicio`. Ana ve 2.
 - Un **admin** recibe **todas**: en el ejemplo, 3.
@@ -265,6 +277,7 @@ Ordenado según el paso que lo detecta:
 | `profesor: 123` | 400 "El profesor debe ser un texto" |
 | Fecha sin zona | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
 | 2 horas | 400 "La duración de la clase debe ser exactamente una hora" |
+| No empieza en punto (`16:30`) | 400 "La clase debe empezar en una hora en punto (por ejemplo, 08:00)" |
 | Fecha pasada | 400 "La clase debe reservarse para una fecha futura" |
 | `profesor: "abc"` | 400 "profesor debe ser un identificador válido" (el formato del mensaje está en I-51) |
 | Profesor inexistente | 404 "Profesor no encontrado" |
@@ -273,7 +286,7 @@ Ordenado según el paso que lo detecta:
 | Fuera del horario de la escuela | 409 "La clase queda fuera del horario de la escuela" |
 | Fuera de la disponibilidad del profesor | 409 "El profesor no está disponible en ese horario" |
 | Profesor, auto o alumno ya ocupados | 409 "El alumno, profesor o auto ya tiene una clase en ese horario" |
-| Saldo 0 | 409 "No tenés clases disponibles para reservar" (ver I-31: también se lo dice así a un admin) |
+| Saldo 0 | 409 "No tenés clases disponibles para reservar" (si reserva un admin: "El alumno no tiene clases disponibles para reservar") |
 
 ---
 
@@ -284,7 +297,8 @@ Ordenado según el paso que lo detecta:
 - La ruta solo pide token. El **service** decide según el rol: un alumno
   reserva para sí mismo, y un admin para el alumno que indique.
 - 7 comprobaciones en orden: campos y formato de las fechas (DTO) → cuenta →
-  reglas de las fechas → ids → disponibilidad → saldo → guardar. El crédito se descuenta **al final**, de forma atómica, y
+  reglas de las fechas (1 h, en punto, futura) → ids → disponibilidad →
+  saldo → guardar. El crédito se descuenta **al final**, de forma atómica, y
   se devuelve si falla el guardado.
 - La clase se guarda en UTC y los ids sin `populate`.
 

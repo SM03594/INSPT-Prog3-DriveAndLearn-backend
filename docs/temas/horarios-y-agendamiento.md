@@ -17,7 +17,7 @@ Los horarios se construyen con **piezas que encajan unas dentro de otras**.
 Las mismas piezas sirven para dos cosas distintas:
 
 ```
-models/Horario.ts            HoraDelDia      { hora: 9, minuto: 30 }
+models/Horario.ts            HoraDelDia      { hora: 9, minuto: 0 }
         │
         ▼
 models/Tramo.ts              Tramo           { _id, horaInicio: HoraDelDia, horaFin: HoraDelDia }
@@ -69,6 +69,10 @@ export const aMinutos = (h) => h.hora * 60 + h.minuto;
 
 Así "¿las 9:30 son antes que las 13:00?" se convierte en `570 < 780`.
 
+`HoraDelDia` admite cualquier minuto (es solo una hora de reloj). Los tramos y
+las clases, en cambio, van siempre en horas en punto (normas N4 y N3, ver
+1.2 y 4.1): un tramo de 09:30 no se puede cargar.
+
 ### 1.2 `Tramo`
 
 Un tramo es un intervalo dentro de un día: `{ horaInicio, horaFin }`. El
@@ -110,7 +114,8 @@ calendario en memoria y lo modifica:
 | Función | Qué hace |
 |---|---|
 | `validarDia(dia)` | Lanza un error 400 si `dia` no es uno de los siete días válidos. |
-| `agregarTramo(calendario, dia, tramo)` | Hace `calendario[dia].push(tramo)`. |
+| `agregarTramo(calendario, dia, tramo)` | Comprueba que el tramo sea en punto (`validarTramoEnPunto`) y hace `calendario[dia].push(tramo)`. |
+| `validarTramosEnPunto(calendario)` | Lo mismo para toda la semana: lo usa `PUT /api/horario-escuela`. |
 | `quitarTramo(calendario, dia, tramoId)` | Busca el tramo por `_id` y lo saca. Devuelve `true` o `false`. |
 
 Como no sabe **de quién** es el calendario, lo reutilizan dos services que sí
@@ -151,7 +156,6 @@ Es lo que se conoce como un *singleton*: la escuela tiene un solo horario.
 | `PUT /api/horario-escuela` | `reemplazar(valor)` | Reemplaza **todo** el calendario. Exige los 7 días. |
 | `POST /api/horario-escuela/agregar` `{ dia, tramo }` | `agregarTramo(dia, tramo)` | Agrega un tramo y guarda. Si el documento no existe, lo crea. |
 | `POST /api/horario-escuela/quitar` `{ dia, tramoId }` | `quitarTramo(dia, tramoId)` | Quita un tramo y guarda. Si no lo encuentra, responde 404. |
-| `GET /api/horario-escuela/validar/:dia` | `validarDia` | Solo responde si el nombre del día es válido. |
 
 ### 2.2 La disponibilidad de cada profesor
 
@@ -199,7 +203,7 @@ clase (`clase.dto.ts`) y el segundo, el service:
      │ parsearInstante()      exige una zona (Z o ±HH:MM) y un día que exista en el calendario
      ▼
 Date (instante absoluto)       en MongoDB se guarda como 2026-11-02T13:00:00.000Z  (UTC)
-     │ aHoraLocal()           Intl.DateTimeFormat con ZONA_HORARIA (por defecto Buenos Aires)
+     │ aHoraLocal()           le suma OFFSET_HORA_UTC (por defecto -3) y lee getUTCDay/getUTCHours
      ▼
 { dia: 'lunes', hora: 10, minuto: 0 }   ← esto se compara contra los CalendarioSemanal
 ```
@@ -207,7 +211,8 @@ Date (instante absoluto)       en MongoDB se guarda como 2026-11-02T13:00:00.000
 ¿Por qué no usar `getDay()` / `getHours()`? Porque esas funciones usan la zona
 horaria **del servidor**, y un servidor desplegado suele estar en UTC. Ahí
 13:00Z da las 13 en lugar de las 10, y en clases nocturnas hasta puede dar
-**otro día**. `aHoraLocal` siempre calcula con la zona de la escuela. Por eso
+**otro día**. `aHoraLocal` siempre calcula con el offset de la escuela
+(`OFFSET_HORA_UTC`, del `.env`), nunca con la zona del proceso. Por eso
 los tests corren con `TZ: 'UTC'` (`vitest.config.ts`): si alguien usara
 `getHours()`, el test fallaría en cualquier máquina. La explicación completa
 de las zonas horarias está en
@@ -219,7 +224,7 @@ de las zonas horarias está en
 
 La ruta solo exige el token (`clase.routes.ts:21`). El controller arma el DTO
 de la reserva, y todo lo demás lo decide `crear()` en
-`src/services/clase.service.ts:253`, en este orden:
+`src/services/clase.service.ts:249`, en este orden:
 
 ```
 POST /api/clases  { profesor, auto, inicio, fin }       (+ alumno, si reserva un admin)
@@ -228,28 +233,29 @@ POST /api/clases  { profesor, auto, inicio, fin }       (+ alumno, si reserva un
  │     ¿solo campos permitidos? un alumno NO puede mandar "alumno" ............ 400
  │     inicio y fin: ISO 8601 con zona → Date (parsearInstante) ............... 400
  │     el alumno es: actor.id (si es alumno) o datos.alumno (si es admin)
- ├─ 2. validarActor (:43)    ¿la cuenta del token sigue existiendo? ............. 403
- ├─ 3. obtenerInstantes (:62)
- │     dura EXACTAMENTE 1 h · sin segundos · en el futuro ....................... 400
- ├─ 4. objectId()   ¿los ids tienen formato válido? ............................. 400
- ├─ 5. validarDisponibilidad (:81)
+ ├─ 2. validarActor (:42)    ¿la cuenta del token sigue existiendo? ............. 403
+ ├─ 3. obtenerInstantes (:75)
+ │     dura EXACTAMENTE 1 h · empieza en punto (N3) · en el futuro .............. 400
+ ├─ 4. objectId() (:37)   ¿los ids tienen formato válido? ....................... 400
+ ├─ 5. validarDisponibilidad (:91)
  │     profesor existe 404 · auto existe 404 · auto activo 409
  │     horario de la escuela configurado ........................................ 409
- │     validarHorarioClase (:104)
+ │     validarHorarioClase (:114)
  │        no cruza la medianoche local ........................................... 400
  │        cabe en un tramo de la ESCUELA ese día ................................. 409
  │        cabe en un tramo del PROFESOR ese día .................................. 409
- │     validarAusenciaDeConflictos (:134)
+ │     validarAusenciaDeConflictos (:137)
  │        ni alumno, ni profesor, ni auto tienen otra clase superpuesta ........... 409
- ├─ 6. descontar 1 crédito del alumno (atómico) (:233)
+ ├─ 6. descontar 1 crédito del alumno (atómico) (:271)
  │     alumno inexistente 404 · sin clasesPorReservar ........................... 409
+ │     (el mensaje depende de quién reserva: "No tenés…" / "El alumno no tiene…")
  └─ 7. ClaseModel.create()  → 201 { alumno, profesor, auto, inicio, fin, ... }
-       si falla, devuelve el crédito descontado (:247)
+       si falla, devuelve el crédito descontado (:288)
 ```
 
 ### 4.1 "Cabe en un tramo"
 
-`validarHorarioClase` (`clase.service.ts:118`) comprueba que exista **un**
+`validarHorarioClase` (`clase.service.ts:114`) comprueba que exista **un**
 tramo que contenga a la clase completa:
 
 ```ts
@@ -260,12 +266,14 @@ tramos.some((tramo) =>
 ```
 tramo        ├───────────────┤          08:00–12:00
 clase 10–11       ├────┤          ✓ cabe
-clase 11:30–12:30          ├────┤ ✗ se sale del tramo
+clase 12–13               ├────┤  ✗ se sale del tramo
 ```
 
-Algo para tener en cuenta: con dos tramos **contiguos**, 08–10 y 10–12, una
-clase de 09:30 a 10:30 **no** se acepta, porque no cabe entera en ninguno de
-los dos. Es preferible cargar un solo tramo de 08 a 12.
+Con dos tramos **contiguos**, 08–10 y 10–12, una clase de 09:30 a 10:30 no
+cabría entera en ninguno de los dos (I-23). Hoy ese caso no puede pasar:
+las clases empiezan en punto (N3) y los tramos también (N4), así que toda
+clase cae entera en uno de los dos (09–10 o 10–11). Solo quedaría con tramos
+viejos, cargados antes de N4.
 
 ### 4.2 "No se superpone"
 
@@ -280,15 +288,20 @@ $or: [{ alumno }, { profesor }, { auto }],
 
 ```
 existente     ├──────┤                 10–11
-nueva 10:30–11:30  ├──────┤            ✗ se superponen
-nueva 11–12           ├──────┤         ✓ consecutivas: 11 < 11 es falso
+nueva 10–11   ├──────┤                 ✗ se superponen
+nueva 11–12          ├──────┤          ✓ consecutivas: 11 < 11 es falso
 ```
+
+La misma búsqueda, con `listarSuperpuestas`, la usa la consulta de turnos
+libres. Para que no recorra toda la colección, `Clase` tiene un índice por
+cada rama del `$or`, terminado en `fin` (ver
+[`../guias/indices-de-mongoose.md`](../guias/indices-de-mongoose.md)).
 
 ### 4.3 El crédito del alumno
 
 Cada alumno tiene `clasesPorReservar`, un saldo que carga un admin con
 `PATCH /api/alumnos/:id/sumar-clases`. Reservar descuenta uno. El descuento
-usa una sola operación **condicional** (`:275`):
+usa una sola operación **condicional** (`:271`):
 
 ```ts
 AlumnoModel.findOneAndUpdate(
@@ -315,13 +328,24 @@ condición dentro de la misma operación, MongoDB lo hace de forma atómica.
 - Para ver, modificar o eliminar una clase, la ruta exige que sea **del
   alumno** que pide, o que pida un admin (`requireAlumnoDeLaClaseOAdministrador`).
   La clase de otro alumno responde 403. El service además filtra por alumno
-  (`claseAccesible`, `clase.service.ts:55`).
+  (`claseAccesible`, `clase.service.ts:51`).
 - Una clase no tiene estado: si existe, está reservada.
 
 El recorrido completo, con las respuestas reales, está en
 [`../flujos/modificar-y-eliminar-una-clase.md`](../flujos/modificar-y-eliminar-una-clase.md).
 
-### 4.5 Lo que **no** se revalida
+### 4.5 Antes de reservar: consultar los turnos libres
+
+`POST /api/profesores/:id/turnos-libres` hace el camino al revés: en lugar de
+validar **una** clase, arma todas las que entrarían un día con ese profesor.
+Cruza el horario de la escuela con la disponibilidad del profesor (sin unir
+tramos, igual que 4.1), arma la grilla de horas en punto y saca los turnos en
+los que el profesor (o el alumno que consulta) ya tiene clase o no queda
+ningún auto libre. Como usa las mismas reglas, cualquier turno devuelto se
+puede mandar tal cual a `POST /api/clases`. El recorrido completo está en
+[`../flujos/consultar-turnos-libres.md`](../flujos/consultar-turnos-libres.md).
+
+### 4.6 Lo que **no** se revalida
 
 El horario de la escuela y la disponibilidad del profesor se consultan **solo
 al reservar o modificar**. Si un admin quita un tramo después, las clases ya

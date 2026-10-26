@@ -36,7 +36,7 @@ sección 7.
 ### 1. Anotar tipos: lo mismo que en JS, con etiquetas
 
 Así se ve una función en JavaScript y su versión en TypeScript
-(`src/services/auto.service.ts:64`):
+(`src/services/auto.service.ts:94`):
 
 ```js
 // JavaScript
@@ -61,18 +61,22 @@ export async function actualizar(
   `null`. Por eso el controller hace `if (auto === null) { res.status(404)… } else { … }`.
 
 Las variables casi nunca necesitan anotación: TypeScript **infiere** el tipo a
-partir del valor (`const id = usuario._id.toString()` ya es `string`).
+partir del valor (`const id = usuario._id.toString()` ya es `string`). Los
+controllers las anotan igual, a propósito, para que se lea qué es cada dato
+sin tener que pasar el mouse por encima
+(`const auto: AutoDoc | null = await autoService.obtenerPorId(idAuto);`, ver
+[`06-controllers.md`](06-controllers.md#2-leer-la-entrada-una-constante-con-nombre-por-dato)).
 
 ### 2. `interface` y `type`: describir la forma de un objeto
 
-Un `interface` describe qué campos tiene un objeto (`src/models/Auto.ts:68`):
+Un `interface` describe qué campos tiene un objeto (`src/models/Auto.ts:72`):
 
 ```ts
 export interface Auto {
-  marca: string;
-  modelo: string;
+  marca?: string;     // "?": el campo puede no estar
+  modelo?: string;
   patente: string;
-  cambios: string;
+  cambios: Cambios;   // 'AUTOMATICO' | 'MANUAL' (ver la sección 4)
   activo: boolean;
 }
 ```
@@ -160,11 +164,11 @@ usa tres:
 | Utilitario | Qué hace | Ejemplo en el proyecto |
 |---|---|---|
 | `Partial<T>` | Todos los campos pasan a ser opcionales. | `ActualizarAlumnoDto = Partial<CrearAlumnoDto>`: una edición trae **algunos** campos (`src/dtos/alumno.dto.ts:24`). |
-| `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:119` |
-| `Omit<T, 'a'>` | Saca esos campos. | `Omit<CrearAutoDto, 'activo'>` en `src/dtos/auto.dto.ts:27` |
+| `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:115` |
+| `Omit<T, 'a'>` | Saca esos campos. | `Omit<CrearAutoDto, 'activo'>` en `src/dtos/auto.dto.ts:31` |
 
 Se pueden combinar. Al editar un auto se acepta cualquiera de sus datos
-**menos** `activo`, que tiene su propia ruta (`src/dtos/auto.dto.ts:27`):
+**menos** `activo`, que tiene su propia ruta (`src/dtos/auto.dto.ts:31`):
 
 ```ts
 export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
@@ -172,7 +176,7 @@ export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
 ```
 
 `&` (intersección) **suma** campos. `HoraLocal` toma la hora y los minutos de
-`HoraDelDia` y le agrega el día de la semana (`src/utils/fechas.ts:90`):
+`HoraDelDia` y le agrega el día de la semana (`src/utils/fechas.ts:143`):
 
 ```ts
 export type HoraLocal = { dia: Dia } & HoraDelDia;
@@ -324,7 +328,7 @@ dto                                   CrearAlumnoDto   → el service lo puede u
 
 Otros dos guards que vale la pena leer:
 
-- `esPayloadAutenticado` (`src/middlewares/auth.middleware.ts:72`) confirma
+- `esPayloadAutenticado` (`src/middlewares/auth.middleware.ts:71`) confirma
   que el JWT trae `sub` y un `role` válido.
 - `validarDia` (`src/services/calendarioSemanal.service.ts:21`) usa una
   variante, `asserts dia is Dia`: en lugar de devolver `true`/`false`, lanza
@@ -351,17 +355,29 @@ export const DESCRIPCION_TIPO = {
 ### 9. `as` y `!`: cuando le decís a TypeScript "confiá en mí"
 
 ```ts
-const auth = req.auth!;                          // clase.controller.ts:15
 delete (ret as Record<string, unknown>).__v;     // models/Auto.ts:60
 ```
 
-- `!` significa "esto no es `undefined`". Acá es seguro porque la ruta pasó
-  antes por `requireAuthentication`, que es el que carga `req.auth`.
 - `as` significa "tratá este valor como si fuera este tipo".
+- `!` significa "esto no es `undefined`" (`req.auth!`).
 
 Ninguno de los dos comprueba nada en runtime: si te equivocás, el error
 aparece al ejecutar. Por eso el proyecto los usa poco y siempre con un
-comentario que explica por qué es seguro. En lo posible, preferí un type guard.
+comentario que explica por qué es seguro. En lo posible, preferí un chequeo
+de verdad. Así se fue el único `!` que había: `clase.controller` hacía
+`const auth = req.auth!;` "porque la ruta pasa por `requireAuthentication`".
+Hoy `extraerActor` (`utils/extraerActor.ts`) lo **comprueba**:
+
+```ts
+const auth = req.auth;
+if (auth === undefined) {
+  throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);   // 401, no un 500
+}
+const actor: Actor = { id: auth.id, rol: auth.role };   // acá TS ya sabe que existe
+```
+
+Después del `if`, TypeScript sabe que `auth` no es `undefined`, sin ningún
+`!`: es el mismo estrechamiento de tipos que hace un type guard.
 
 Un caso donde el `as` es inevitable está al final de `validarCampos`
 (`src/utils/validacionCampos.ts:126`):
@@ -448,16 +464,16 @@ import se borra por completo al compilar, así que no carga código en runtime.
 
 | Concepto | Para qué sirve | Ejemplo |
 |---|---|---|
-| Anotación `x: T` | Declarar el tipo de un parámetro o de un retorno | `auto.service.ts:64` |
+| Anotación `x: T` | Declarar el tipo de un parámetro o de un retorno | `auto.service.ts:94` |
 | `interface` / `extends` | La forma de un objeto, y heredar campos | `models/Usuario.ts:76` |
 | Unión `A \| B` | "Una cosa o la otra" | `AutoDoc \| null` |
 | `as const` + `typeof X[number]` | Una sola lista, usable como valor y como tipo | `types/roles.ts:8` |
-| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:27`, `services/clase.service.ts:119`, `utils/fechas.ts:90` |
+| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:31`, `services/clase.service.ts:115`, `utils/fechas.ts:143` |
 | Genéricos `<T>` | Tipos con parámetro | `utils/password.ts:27`, `exigido` y `validarCampos` |
 | *Mapped types* | Calcular un tipo a partir de otro | `DatosValidados` en `utils/validacionCampos.ts:61` |
 | `unknown` + type guards | Validar datos externos de forma segura | `utils/cuerpoPeticion.ts:24` |
 | `satisfies` | Comprobar un tipo sin perder los valores exactos | `utils/validacionTipos.ts:32` |
-| `!` / `as` | Afirmaciones sin chequeo en runtime (usar poco) | `clase.controller.ts:15` |
+| `!` / `as` | Afirmaciones sin chequeo en runtime (usar poco) | `models/Auto.ts:60` (`as`); el `!` se reemplazó por un `if` en `utils/extraerActor.ts` |
 | `declare global` | Agregar campos a tipos de librerías | `types/express.d.ts` |
 
 **Siguiente lectura:** [`03-arquitectura.md`](03-arquitectura.md).

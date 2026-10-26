@@ -55,12 +55,13 @@ Ruta → controller → service:
 ```ts
 router.post('/', requireAdministrator, validacionDeCuerpo, profesorController.crear);   // routes :19
 
-const profesor = await profesorService.crear(aCrearProfesorDto(req.body));            // controller :20
+const datosProfesor: CrearProfesorDto = aCrearProfesorDto(req.body);                  // controller :35
+const profesor: ProfesorDoc = await profesorService.crear(datosProfesor);
 res.status(201).json(profesor);
 ```
 
 `aCrearProfesorDto` (`src/dtos/profesor.dto.ts:26`) acepta **solo** `nomApe`,
-como texto y obligatorio. El service (`src/services/profesor.service.ts:33`)
+como texto y obligatorio. El service (`src/services/profesor.service.ts:36`)
 aplica la regla que falta: que el nombre no quede vacío.
 
 ```ts
@@ -106,11 +107,12 @@ cuándo están disponibles para elegir al reservar. La respuesta incluye la
 
 ### Paso 3. Cambiar el nombre
 
-Controller (`profesor.controller.ts:33`) → service (`profesor.service.ts:49`):
+Controller (`profesor.controller.ts:53`) → service (`profesor.service.ts:52`):
 
 ```ts
-const { nomApe } = aCambiarNomApeDto(req.body);                       // controller
-const profesor = await profesorService.cambiarNomApe(req.params.id, nomApe);
+const idProfesor: string = req.params.id;                             // controller
+const { nomApe }: CambiarNomApeDto = aCambiarNomApeDto(req.body);
+const profesor: ProfesorDoc | null = await profesorService.cambiarNomApe(idProfesor, nomApe);
 
 return ProfesorModel.findByIdAndUpdate(                                // service
   id, { nomApe: nombreObligatorio(nomApe) }, { new: true, runValidators: true },
@@ -138,13 +140,15 @@ respondía 200 sin cambiar nada (I-34, ya resuelta).
 router.post('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo,
             profesorController.agregarDisponibilidad);                        // routes :23
 
-const { dia, tramo } = aAgregarTramoDto(req.body);                             // controller :51
-const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia, tramo);
+const idProfesor: string = req.params.id;                                      // controller :68
+const { dia, tramo }: AgregarTramoDto = aAgregarTramoDto(req.body);
+const profesor: ProfesorDoc | null =
+  await profesorService.agregarDisponibilidad(idProfesor, dia, tramo);
 ```
 
 `aAgregarTramoDto` es el **mismo DTO** que usa el horario de la escuela
 (`src/dtos/calendarioSemanal.dto.ts:63`). Después, el service
-(`src/services/profesor.service.ts:63`):
+(`src/services/profesor.service.ts:66`):
 
 ```
 aAgregarTramoDto ─────── (en el controller)
@@ -198,7 +202,7 @@ DELETE /api/profesores/6ada695b.../disponibilidad
 
 Es un `DELETE` **con body** (ver I-24). El controller usa `aQuitarTramoDto`,
 compartido con el horario: `tramoId` tiene que ser un texto (`123` responde
-400 "El identificador del tramo debe ser un texto"). El service (`:83`) busca el tramo por
+400 "El identificador del tramo debe ser un texto"). El service (`:86`) busca el tramo por
 `_id` **en ese día** y lo saca con `quitarTramo`, que devuelve `true` o
 `false`.
 

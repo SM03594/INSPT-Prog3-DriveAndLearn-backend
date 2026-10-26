@@ -37,6 +37,7 @@ pedido ─► routes ─► middlewares ─► controller ───────�
 | `profesor.dto.ts` | `CrearProfesorDto`, `CambiarNomApeDto` | `POST`, `nom-ape` |
 | `calendarioSemanal.dto.ts` | `AgregarTramoDto`, `QuitarTramoDto`, `ReemplazarCalendarioDto` | disponibilidad del profesor **y** horario de la escuela |
 | `clase.dto.ts` | `CrearClaseDto`, `ActualizarClaseDto` | `POST`, `PUT` |
+| `turno.dto.ts` | `ConsultarTurnosDto` | `POST /profesores/:id/turnos-libres` |
 
 Todos se apoyan en un helper: `validarCampos` (`src/utils/validacionCampos.ts`).
 
@@ -98,7 +99,7 @@ La convención de nombres es `aXDto(body)`: "convertir a XDto".
 ### 3. `validarCampos`: la tabla de campos
 
 Cada DTO declara una tabla con los campos del contrato, el tipo de cada uno y
-cómo nombrarlo en los mensajes (`src/dtos/auto.dto.ts:33`):
+cómo nombrarlo en los mensajes (`src/dtos/auto.dto.ts:37`):
 
 ```ts
 const CAMPOS_DATOS_AUTO = {
@@ -184,13 +185,55 @@ export function aActualizarAlumnoDto(body: unknown): ActualizarAlumnoDto {
 
 Algunos recursos tienen contratos distintos para cada operación. En autos,
 `activo` se acepta al crear, porque un auto puede nacer fuera de servicio,
-pero **no** al editar: tiene su propia ruta (`src/dtos/auto.dto.ts:67`).
+pero **no** al editar: tiene su propia ruta (`src/dtos/auto.dto.ts:31` y
+`:101`).
 
 ```ts
 export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
 // PUT /autos/:id { "activo": false }
 // → 400 "No se pueden modificar estos campos: activo (el estado se cambia con PATCH /autos/:id/activo)"
 ```
+
+### 5b. Validar y además convertir: los `parsear…`
+
+Algunos campos llegan como texto pero el service necesita otra cosa. Para
+esos, el DTO no solo comprueba el tipo: **convierte** el texto con una
+función `parsear…`, que responde 400 si el texto no sirve y deja pasar
+`undefined` (lo obligatorio lo sigue decidiendo `exigido`).
+
+| Función | De dónde | Texto → valor | Lo usan |
+|---|---|---|---|
+| `parsearCambios` | `dtos/auto.dto.ts:62` | `"manual"` → `'MANUAL'` (acepta minúsculas) | autos y turnos |
+| `parsearInstante` | `utils/fechas.ts` | `"2026-11-09T09:00:00-03:00"` → `Date` (exige la zona) | clases |
+| `parsearFecha` | `utils/fechas.ts` | `"2026-11-09"` → `{ anio, mes, diaDelMes }` | turnos |
+| `parsearHoraDelDia` | `utils/fechas.ts` | `"8:00"` u `"08:00"` → `{ hora: 8, minuto: 0 }` | turnos |
+
+Gracias a la conversión, el tipo del DTO es más preciso que "un texto":
+`CrearAutoDto.cambios` es `Cambios` (`'MANUAL' | 'AUTOMATICO'`), igual que en
+el modelo. Por eso `AutoModel.create(datos)` compila: Mongoose 9 tipa
+`create()` con la interfaz del modelo, y un `string` cualquiera no entraría.
+El `enum` del esquema queda como segunda barrera.
+
+El DTO de la consulta de turnos usa tres de estas funciones
+(`src/dtos/turno.dto.ts:50`):
+
+```ts
+export function aConsultarTurnosDto(body: unknown): ConsultarTurnosDto {
+  const datos = validarCampos(body, CAMPOS_CONSULTA, SIN_CAMPOS_DE_MAS);
+  const consulta: ConsultarTurnosDto = {
+    fecha: exigido(parsearFecha(datos.fecha), 'La fecha es obligatoria'),
+    cambios: parsearCambios(datos.cambios),
+    desde: parsearHoraDelDia(datos.desde, 'El desde'),
+    hasta: parsearHoraDelDia(datos.hasta, 'El hasta'),
+  };
+
+  return consulta;
+}
+```
+
+Cada `parsear…` mira **un** dato. Lo que compara datos entre sí o depende de
+hoy ("la fecha no es pasada", "desde es anterior a hasta", "el rango alcanza
+para una clase") es una regla, y está en `turno.service`.
 
 ### 6. Un contrato que depende del rol: clases
 
@@ -239,11 +282,12 @@ El DTO **no** reemplaza al service: cada capa valida una cosa distinta.
 | | DTO (forma) | Service (reglas) | Esquema (dato) |
 |---|---|---|---|
 | Alumno | Campos, texto, obligatorios; `cantidad` número | Saldo inicial 0; `cantidad` entera y > 0 | Formato del email, unique |
-| Auto | Campos, tipos, patente y cambios obligatorios | — | Valores de `cambios` (enum), unique de la patente |
+| Auto | Campos, tipos, patente y cambios obligatorios; `cambios` a mayúsculas y `MANUAL` o `AUTOMATICO` | — | `cambios` (enum, segunda barrera), unique de la patente |
 | Profesor | `nomApe` texto | Nombre no vacío | — |
 | Tramo | `dia` texto, `tramo` objeto | Que el día exista (`validarDia`) | Horas 0–23, fin > inicio |
 | Clase | Campos según el rol, todos texto; `inicio` y `fin` ISO con zona, convertidos a `Date` | Ids válidos, 1 hora, horario, saldo | Fin > inicio |
 | Login | Email y contraseña texto | No vacíos; credenciales (401) | — |
+| Turnos libres | Campos texto; `fecha` AAAA-MM-DD, `desde`/`hasta` H:MM o HH:MM, `cambios` | Fecha no pasada; desde < hasta; rango de al menos 1 hora; cuenta activa; saldo | — |
 
 Una forma práctica de decidir dónde va cada cosa: **si para comprobarlo hay
 que mirar el valor o la base, es una regla.** "Es un texto" es forma. "Es un
@@ -293,7 +337,10 @@ por endpoint (ver [`12-tests-postman.md`](12-tests-postman.md)).
 2. Escribir `aXDto(body: unknown): XDto`: `validarCampos` con
    `SIN_CAMPOS_DE_MAS` (alta) o `AL_MODIFICAR` (actualización), y `exigido`
    para cada obligatorio.
-3. En el controller, `service.operacion(aXDto(req.body))`.
+3. En el controller, `const datos: XDto = aXDto(req.body);` y después
+   `service.operacion(datos)` (ver [`06-controllers.md`](06-controllers.md)).
+   Si un campo de texto tiene que llegar convertido (una fecha, una hora, un
+   valor de una lista cerrada), usar o escribir un `parsear…`.
 4. En el service, recibir `XDto` y dejar solo las reglas.
 5. Agregar el test en `tests/dtos/` y un caso en la carpeta `09` de Postman.
 
@@ -310,6 +357,7 @@ Todos los DTO responden con el mismo formato (400 en todos los casos):
 | Campo que no es del contrato, al editar | "No se pueden modificar estos campos: rol" |
 | Tipo incorrecto | "La marca debe ser un texto" / "La cantidad debe ser un número" / "El campo activo debe ser verdadero o falso" / "El tramo debe ser un objeto" / "El lunes debe ser una lista" |
 | Falta un obligatorio | "La patente es obligatoria" |
+| Texto que no se puede convertir | "El tipo de cambios debe ser MANUAL o AUTOMATICO" / "La fecha debe tener el formato AAAA-MM-DD" / "El desde debe tener el formato HH:MM" / "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
 | Edición vacía | "Debe indicarse al menos un campo para actualizar" |
 
 ---
@@ -322,7 +370,7 @@ Todos los DTO responden con el mismo formato (400 en todos los casos):
 | Un body con campos de más se guarda sin error | El controller le pasó `req.body` al service sin pasar por el DTO (compila porque `req.body` es `any`). |
 | `"2"` es rechazado aunque "es un número" | En JSON los números van sin comillas. El DTO no convierte tipos: es justamente lo que evita. |
 | TypeScript no deja asignar el resultado al tipo del DTO | Falta un `exigido` para un campo obligatorio: `validarCampos` los devuelve todos opcionales. |
-| Un mensaje dice "debe ser un texto" pero el problema es el formato | Es lo esperado: el DTO solo mira la forma. El formato (email, fecha, id) lo valida la regla del service o del esquema, con su propio mensaje. |
+| Un mensaje dice "debe ser un texto" pero el problema es el formato | Es lo esperado: primero se mira el tipo. Si es texto, el formato lo revisa el `parsear…` del DTO (fechas, horas, `cambios`) o la regla del service o del esquema (email, ids), cada uno con su mensaje. |
 
 ---
 
@@ -335,6 +383,9 @@ Todos los DTO responden con el mismo formato (400 en todos los casos):
   llegan nunca a la base. `exigido` hace obligatorio un campo.
 - El **controller** arma el DTO, y el **service** recibe datos tipados y se
   queda con las **reglas**. El **esquema**, con las validaciones del dato.
+- Algunos campos además se **convierten** (`parsearCambios`,
+  `parsearInstante`, `parsearFecha`, `parsearHoraDelDia`), así el service
+  recibe valores con el tipo exacto.
 - El tipo del DTO solo protege al compilar. Por eso todo body tiene que pasar
   por su DTO en el controller.
 

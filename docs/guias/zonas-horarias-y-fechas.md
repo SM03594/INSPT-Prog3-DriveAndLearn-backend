@@ -46,9 +46,9 @@ Argentina**:
 |---|---|---|
 | ① Texto → `Date` | **Sí**: hay que saber de qué zona es la hora | `utils/fechas.ts:37` (`parsearInstante`), lo llama `dtos/clase.dto.ts:56` |
 | ② Guardar | No | MongoDB guarda el número de milisegundos (UTC) |
-| ③ `Date` → día y hora de reloj | **Sí**: se usa la zona **de la escuela** | `utils/fechas.ts:92` (`aHoraLocal`), lo usa `services/clase.service.ts:123` |
-| ③ al revés: hora de reloj → `Date` | **Sí**: el mismo offset de la escuela | `utils/fechas.ts:159` (`instanteLocal`), lo usa la consulta de turnos libres |
-| ④ Comparar y medir | No | `clase.service.ts:84`, `:91`, `:197`, `:368` y la consulta de superposición |
+| ③ `Date` → día y hora de reloj | **Sí**: se usa la zona **de la escuela** | `utils/fechas.ts:145` (`aHoraLocal`), lo usa `services/clase.service.ts:119` |
+| ③ al revés: hora de reloj → `Date` | **Sí**: el mismo offset de la escuela | `utils/fechas.ts:212` (`instanteLocal`), lo usa la consulta de turnos libres |
+| ④ Comparar y medir | No | `clase.service.ts:80`, `:87`, `:193`, `:364` y la consulta de superposición |
 | ⑤ `Date` → JSON | No | `res.json` siempre escribe ISO en UTC |
 
 ---
@@ -117,14 +117,14 @@ profesor están escritos en hora de reloj (`{ hora: 9, minuto: 0 }` el lunes),
 así que para saber si una clase entra hay que traducir el instante a la hora
 **de la escuela**.
 
-Eso hace `aHoraLocal` (`src/utils/fechas.ts:92`). La hora de la escuela se
+Eso hace `aHoraLocal` (`src/utils/fechas.ts:145`). La hora de la escuela se
 define con **un solo dato**, `OFFSET_HORA_UTC`: las horas de diferencia con
 UTC (`-3` en Argentina). Sale del `.env` y la lee `src/config/env.ts:83`; si
 no está o está sin valor, vale `-3`. Es la **única** fuente de la hora de la escuela en
 toda la app.
 
 La cuenta es sumarle el offset al instante y leer el resultado "como si fuera
-UTC" (`relojDeLaEscuela`, `:80`):
+UTC" (`relojDeLaEscuela`, `:133`):
 
 ```
 2026-11-10T01:00:00Z  +  (-03:00)  =  2026-11-09T22:00 "en UTC"
@@ -142,9 +142,9 @@ hora con los métodos `getUTC*`, que no dependen de la zona del proceso.
 (Los dos resultados son los mismos con el proceso de Node en Tokio: la zona del
 proceso no interviene.)
 
-`validarHorarioClase` (`src/services/clase.service.ts:118`) llama a
+`validarHorarioClase` (`src/services/clase.service.ts:114`) llama a
 `aHoraLocal` para el inicio y para el fin (`:123-124`). Primero comprueba que
-caigan el mismo día (`:125`, "La clase no puede cruzar el cambio de día"), y
+caigan el mismo día (`:121`, "La clase no puede cruzar el cambio de día"), y
 después que la franja entre en un tramo de la escuela y en uno del profesor.
 
 Lo que pasaría con `getDay()` y `getHours()`, que usan la zona del proceso,
@@ -162,10 +162,10 @@ Cuando se comparan dos `Date`, JavaScript compara **los dos números**. Por eso
 estas líneas son correctas en cualquier servidor, sin mirar la zona:
 
 ```ts
-fin.getTime() - inicio.getTime() === DURACION_CLASE_MS   // clase.service.ts:84   dura 1 hora
-inicio > new Date()                                      // clase.service.ts:91   es a futuro
-clase.inicio <= new Date()                               // clase.service.ts:197  ya comenzó
-const todaviaNoEmpezo = clase.inicio > new Date();       // clase.service.ts:368  ¿se devuelve el crédito?
+fin.getTime() - inicio.getTime() === DURACION_CLASE_MS   // clase.service.ts:80   dura 1 hora
+inicio > new Date()                                      // clase.service.ts:87   es a futuro
+clase.inicio <= new Date()                               // clase.service.ts:193  ya comenzó
+const todaviaNoEmpezo = clase.inicio > new Date();       // clase.service.ts:364  ¿se devuelve el crédito?
 ```
 
 `new Date()` es el instante actual del reloj del servidor. La misma
@@ -179,7 +179,7 @@ comparación, hecha a las 10:30 de Argentina, con una clase que empieza a las
 | `Tokio` | 22:30 | 1794144600000 | `true` |
 
 Lo mismo pasa con la consulta de superposición de `validarAusenciaDeConflictos`
-(`clase.service.ts:141`): `{ inicio: { $lt: fin }, fin: { $gt: inicio } }`
+(`clase.service.ts:137`): `{ inicio: { $lt: fin }, fin: { $gt: inicio } }`
 compara instantes, ahora dentro de MongoDB.
 
 De lo único que dependen estas comparaciones es de que **el reloj del
@@ -187,7 +187,7 @@ servidor esté en hora** (sincronizado por NTP). Eso no tiene nada que ver con
 la zona.
 
 La regla de "la clase empieza en una hora en punto" (`empiezaEnPunto`,
-`clase.service.ts:68`) es la excepción de esta sección: mira el **minuto de
+`clase.service.ts:64`) es la excepción de esta sección: mira el **minuto de
 la escuela** (`aHoraLocal(inicio).minuto === 0`), no el de UTC. Con `-03:00`
 da lo mismo, pero con un offset como `+05:30`, las 09:00 en la escuela son
 las 03:30 en UTC. Los segundos y milisegundos sí se miran en UTC
@@ -252,9 +252,9 @@ desde las 08:00 **en la escuela**"), así que necesita el camino inverso de
 
 | Función | Qué hace | Ejemplo con `-03:00` |
 |---|---|---|
-| `instanteLocal(fecha, hora)` (`:159`) | fecha + hora de la escuela → `Date` | 8/11/2026 08:00 → `2026-11-08T11:00:00.000Z` |
-| `hoyEnLaEscuela(ahora)` (`:135`) | qué día es hoy en la escuela | a las `2026-11-10T01:00Z` todavía es el **9/11** |
-| `diaDeLaSemana(fecha)` (`:125`) | qué día de la semana es una fecha | 9/11/2026 → lunes |
+| `instanteLocal(fecha, hora)` (`:212`) | fecha + hora de la escuela → `Date` | 8/11/2026 08:00 → `2026-11-08T11:00:00.000Z` |
+| `hoyEnLaEscuela(ahora)` (`:188`) | qué día es hoy en la escuela | a las `2026-11-10T01:00Z` todavía es el **9/11** |
+| `diaDeLaSemana(fecha)` (`:178`) | qué día de la semana es una fecha | 9/11/2026 → lunes |
 
 `instanteLocal` le **resta** el offset a la fecha y hora escritas como si
 fueran UTC, justo lo contrario de `aHoraLocal`. Por eso
@@ -266,6 +266,14 @@ el mundo.
 Las fechas de calendario se representan con `FechaCalendario`
 (`{ anio, mes, diaDelMes }`, el mes de 1 a 12), no con un `Date`: un día no es
 un instante.
+
+Ese día y esas horas llegan como texto, y los convierte el DTO de la consulta
+(`dtos/turno.dto.ts`) con dos funciones más de `fechas.ts`: `parsearFecha`
+(`"2026-11-09"` → `{ anio: 2026, mes: 11, diaDelMes: 9 }`, rechaza el
+`2026-02-31`) y `parsearHoraDelDia` (`"8:00"` u `"08:00"` →
+`{ hora: 8, minuto: 0 }`). Ninguna de las dos necesita la zona: un día del
+calendario y una hora de reloj no son instantes. La zona aparece recién
+cuando `instanteLocal` los junta.
 
 ---
 

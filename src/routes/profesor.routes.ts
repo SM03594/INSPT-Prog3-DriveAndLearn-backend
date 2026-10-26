@@ -22,5 +22,6 @@ router.get('/:id', profesorController.obtener);
 router.patch('/:id/nom-ape', requireAdministrator, validacionDeCuerpo, profesorController.cambiarNomApe);
 router.post('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo, profesorController.agregarDisponibilidad);
 router.delete('/:id/disponibilidad', requireAdministrator, validacionDeCuerpo, profesorController.quitarDisponibilidad);
+router.post('/:id/turnos-libres', validacionDeCuerpo, profesorController.turnosLibres);
 
 export default router;

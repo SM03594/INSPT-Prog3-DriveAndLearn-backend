@@ -4,7 +4,7 @@
 
 La colección de `postman/` prueba la API **de punta a punta, como lo haría el
 frontend**: con el servidor levantado de verdad, contra una base real,
-haciendo login y encadenando pedidos. Son 194 requests, organizados en 11
+haciendo login y encadenando pedidos. Son 231 requests, organizados en 12
 carpetas que se ejecutan en orden, y cada uno tiene scripts que comprueban la
 respuesta.
 
@@ -26,7 +26,7 @@ respuesta.
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   11 carpetas, 194 requests
+├── DriveAndLearn.postman_collection.json   12 carpetas, 231 requests
 ├── environments/
 │   ├── local.postman_environment.json      baseUrl = http://localhost:3000/api
 │   └── remoto.postman_environment.json     baseUrl = https://<servidor>/api
@@ -39,16 +39,23 @@ Las carpetas, en el orden en que se ejecutan:
 00 Setup (15) ──► 01 Auth (9) ──► 02 Alumnos (32) ──► 03 Administradores (12)
    │ login admin, crea alumnos,                                     │
    │ autos, profesor, tramos;                                       ▼
-   │ guarda tokens e ids            04 Autos (15) ──► 05 Profesores (17) ──► 06 Horario de la escuela (13)
+   │ guarda tokens e ids            04 Autos (15) ──► 05 Profesores (18) ──► 06 Horario de la escuela (12)
    │                                                                │
    │ (variables de colección)                                       ▼
-   └────────────────────────────►  07 Clases (34) ──► 08 Errores generales (5) ──► 09 Validación de campos y tipos (30)
-                                                                                         │
-                                                                                         ▼
-                                                                                   99 Teardown (12)
+   └────────────────────────────►  07 Clases (41) ──► 07b Turnos libres (24) ──► 08 Errores generales (5)
+                                                                                  │
+                                                                                  ▼
+                                          09 Validación de campos y tipos (33) ──► 99 Teardown (15)
                                                                      deja el horario como estaba,
                                                                      borra clases y alumnos, saca autos de servicio
 ```
+
+`07b Turnos libres` prueba `POST /profesores/:id/turnos-libres`: los errores
+del pedido, los filtros (`cambios`, `desde`, `hasta`) y una ida y vuelta
+(consultar → reservar el primer turno → no verlo → eliminar la clase → verlo
+otra vez). Comprueba los turnos **exactos** que tienen que salir, así que
+depende de lo que deja `07 Clases`: el profesor del Setup ocupado a las 11 y a
+las 13, un segundo auto (automático) y el alumno 1 sin saldo.
 
 ---
 
@@ -73,7 +80,7 @@ Clic derecho en la colección → **Run collection** → orden por defecto →
 **Run**. Para correr **una carpeta suelta**, hay que correr antes `00 Setup`,
 que es el que genera los tokens y los ids. `07 Clases` además supone que el
 alumno 1 tiene exactamente 2 clases de saldo: para repetirla, volvé a correr
-el Setup.
+el Setup. `07b Turnos libres` supone que se corrió `07 Clases` justo antes.
 
 **Tests que fallan a propósito.** Si se encuentra un problema en la API, la
 convención es escribir la request con el comportamiento **correcto** y poner
@@ -148,6 +155,8 @@ define un objeto `utils`:
 | `utils.guardarId(pm, 'autoId')` | Test: la respuesta trae `_id`, y lo guarda en una variable. |
 | `utils.ultimoTramoId(calendario, dia)` | El `_id` del último tramo de un día (el recién agregado). |
 | `utils.fechaIso(pm, fecha, hh, mm)` | Arma `"2026-10-29T10:00:00-03:00"` usando `offsetZona`. |
+| `utils.inicioIso(pm, fecha, hh)` | El instante en ISO UTC, como lo devuelve la API (`"2026-10-29T13:00:00.000Z"`). Para comparar con los turnos. |
+| `utils.iniciosDeTurnos(respuesta)` | Los `inicio` de los turnos de una respuesta de `turnos-libres`. |
 | `utils.saltearSiModoSeguro(pm)` | Saltea el request si `modoSeguro = true`. |
 
 Dos detalles de JavaScript en Postman:
@@ -193,17 +202,19 @@ lo que hace `toJSON.transform` en el modelo `Usuario` (ver
 
 La corrida deja la base lo más parecida posible a como estaba:
 
-- Saca de servicio los autos creados (el tercero ya quedó inactivo en el
-  Setup).
-- Quita la disponibilidad del profesor y el tramo que agregó al horario, y
-  **verifica** que el horario de la escuela quede igual al original, que se
-  guardó al principio en `horarioOriginal`.
+- Saca de servicio los autos creados: el del Setup, el de `04 Autos` y el
+  segundo auto de `07 Clases` (el inactivo del Setup ya quedó así).
+- Quita la disponibilidad del profesor del Setup, la del profesor 2 (que le
+  dio `07 Clases`) y el tramo que agregó al horario, y **verifica** que el
+  horario de la escuela quede igual al original, que se guardó al principio
+  en `horarioOriginal`.
 - Borra las 2 clases que quedaron de `07 Clases`: la que reservó el admin y
   la del horario liberado. La primera clase del alumno 1 ya se eliminó en esa
   carpeta.
 - Borra los 4 alumnos: el admin borra a dos, y los otros dos se borran a sí
   mismos. El admin extra ya se había borrado en `03 Administradores`.
-- Por último, comprueba que el token de un alumno borrado ya no sirve (403).
+- Por último, comprueba que el token de un alumno borrado ya no sirve (403),
+  ni para ver clases ni para consultar turnos.
 
 La API no tiene `DELETE` para profesores ni autos, así que quedan en la base,
 marcados con `[POSTMAN]` o con una patente que empieza con `PM`.
@@ -238,6 +249,8 @@ requieren una versión reciente de Newman.
 |---|---|
 | Todo da 401, o URLs con `{{autoId}}` vacío | No se corrió `00 Setup` antes, o falló el login del admin (mirá la consola de Postman). |
 | `07 Clases` falla por saldo | Se repitió la carpeta sin volver a correr el Setup (el alumno 1 ya gastó sus 2 clases). |
+| `07b Turnos libres` espera otros turnos | Se corrió la carpeta suelta: necesita lo que deja `07 Clases` justo antes. |
+| Las reservas caen "fuera del horario de la escuela" | `offsetZona` del environment no coincide con `OFFSET_HORA_UTC` del servidor (`-03:00` en Postman es `-3` en el `.env`). |
 | `[global] Tiempo de respuesta` falla | El servidor está lento (por ejemplo, un deploy gratuito que "despierta"). Subí `maxTiempoMs` en el environment. |
 | La contraseña del admin aparece en el repo | Se cargó como *Initial value* y se exportó el environment. |
 | El horario de la escuela quedó distinto | Se cortó la corrida antes del Teardown. Corré solo `99 Teardown` (necesita las variables del Setup). |

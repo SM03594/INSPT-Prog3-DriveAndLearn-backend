@@ -59,7 +59,7 @@ Todos los archivos siguen los mismos cuatro pasos:
 const autoSchema = new Schema({ marca: {...}, patente: {...}, ... }, { timestamps: true, ... });
 
 // ② El tipo de TypeScript: los mismos campos, escritos a mano
-export interface Auto { marca: string; modelo: string; patente: string; cambios: string; activo: boolean; }
+export interface Auto { marca?: string; modelo?: string; patente: string; cambios: Cambios; activo: boolean; }
 
 // ③ El tipo del documento "vivo" (con _id, .save(), .toJSON()...)
 export type AutoDoc = HydratedDocument<Auto>;
@@ -114,9 +114,28 @@ el duplicado es **MongoDB**, al intentar insertarlo, con el error crudo
 y lo traduce a `ErrorClaveDuplicada` (409). Se explica en
 [`07-services.md`](07-services.md#4-traducir-errores-de-la-base-claves-duplicadas).
 
+### 3b. Índices propios: `schema.index()`
+
+Un índice no tiene por qué ser `unique`: también sirve para que una búsqueda
+no tenga que leer la colección entera. `Clase.ts` declara tres, uno por cada
+rama del `$or` con el que la reserva y la consulta de turnos buscan
+superposiciones (`Clase.ts:69-71`):
+
+```ts
+claseSchema.index({ profesor: 1, fin: 1 });
+claseSchema.index({ alumno: 1, fin: 1 });
+claseSchema.index({ auto: 1, fin: 1 });
+```
+
+Van por `fin` porque "`fin` > inicio pedido" deja afuera, de una, todas las
+clases que ya terminaron. Medido con 500 clases pasadas y 5 futuras, la
+búsqueda pasa de leer 505 documentos a leer 5. Cómo funcionan y por qué hacen
+falta tres está en
+[`../guias/indices-de-mongoose.md`](../guias/indices-de-mongoose.md).
+
 ### 4. Reglas entre campos: `pre('validate')`
 
-Algunas reglas comparan **dos campos** entre sí. `Clase.ts:57`:
+Algunas reglas comparan **dos campos** entre sí. `Clase.ts:76`:
 
 ```ts
 claseSchema.pre('validate', async function () {
@@ -236,17 +255,31 @@ se produce un import circular al ejecutar.
 
 ### 8. Los tipos escritos a mano y sus desajustes
 
-Como el esquema y la interfaz se escriben por separado, pueden **no coincidir**.
-Hoy pasa en `Auto`:
+Como el esquema y la interfaz se escriben por separado, pueden **no
+coincidir**, y TypeScript no se da cuenta. Pasó en `Auto` (I-06, ya
+resuelta):
 
-| Campo | Esquema (lo que valida al ejecutar) | Interfaz (lo que cree TypeScript) |
-|---|---|---|
-| `marca`, `modelo` | Opcionales (no tienen `required`) | `string`, obligatorios |
-| `cambios` | Solo `'AUTOMATICO'` o `'MANUAL'` | Cualquier `string` |
+| Campo | Esquema (lo que valida al ejecutar) | Interfaz antes | Interfaz hoy |
+|---|---|---|---|
+| `marca`, `modelo` | Opcionales (no tienen `required`) | `string`, obligatorios | `string` opcionales (`?`) |
+| `cambios` | Solo `'AUTOMATICO'` o `'MANUAL'` | Cualquier `string` | `Cambios` |
 
-Para `cambios`, el tipo podría derivarse de la constante que ya existe:
-`cambios: (typeof CAMBIOS)[number]`, igual que se hace con `Rol` y `Dia`. Ver
-[`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md#4-derivar-el-tipo-desde-un-valor-as-const--typeof).
+`Cambios` se deriva de la constante que ya usa el `enum` del esquema,
+igual que `Rol` y `Dia` (ver
+[`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md#4-derivar-el-tipo-desde-un-valor-as-const--typeof)):
+
+```ts
+export const CAMBIOS = ['AUTOMATICO', 'MANUAL'] as const;
+export type Cambios = (typeof CAMBIOS)[number];
+```
+
+Corregir la interfaz tuvo una consecuencia en otra capa: Mongoose 9 tipa
+`AutoModel.create()` con la interfaz, así que un `cambios` de tipo `string`
+dejó de compilar. Por eso el DTO de autos ahora **convierte** `cambios`
+(`"manual"` → `'MANUAL'`) en lugar de dejárselo al esquema (ver
+[`06b-dtos.md`](06b-dtos.md#5b-validar-y-además-convertir-los-parsear)). Que la
+interfaz diga la verdad hizo que TypeScript encontrara el lugar donde llegaba
+un valor sin revisar.
 
 ### 9. Referencias entre colecciones
 
@@ -283,6 +316,7 @@ búsquedas ni listas.
 | Una validación de rango no se aplica en un update | Falta `runValidators: true`. |
 | Aparece el `password` en una respuesta | Se envió algo que no pasa por `toJSON`, por ejemplo un resultado de `.lean()` o un objeto armado a mano. |
 | TypeScript dice que un campo existe pero viene `undefined` | La interfaz no coincide con el esquema (sección 8). |
+| Reservar o consultar turnos se vuelve más lento a medida que pasan los meses | Falta un índice para alguna rama de la búsqueda de superposiciones (sección 3b). |
 
 ---
 
@@ -293,6 +327,8 @@ búsquedas ni listas.
 - Las opciones de cada campo validan (`required`, `enum`, `min`, `validate`) y
   limpian (`trim`, `lowercase`, `default`). `unique` es un **índice**, no un
   validador.
+- `schema.index()` declara índices propios: `Clase` tiene uno por cada rama
+  de la búsqueda de superposiciones, terminados en `fin`.
 - `pre('validate')` permite reglas entre campos, pero no corre en los
   `findByIdAndUpdate`.
 - `toJSON.transform` quita `__v` y `password` de todas las respuestas.

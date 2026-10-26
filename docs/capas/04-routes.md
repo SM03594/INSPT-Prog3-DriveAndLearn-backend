@@ -83,9 +83,9 @@ URL:   /665f1c2a9b1e4a0012345678/activo
 ```
 
 El controller lo lee así: `req.params.id`. Algunos ejemplos del proyecto:
-`/:id`, `/:id/activo`, `/:id/disponibilidad`, `/validar/:dia`.
+`/:id`, `/:id/activo`, `/:id/disponibilidad`, `/:id/turnos-libres`.
 
-Los segmentos sin `:` (`activo`, `validar`, `sumar-clases`) son **literales**:
+Los segmentos sin `:` (`activo`, `disponibilidad`, `sumar-clases`) son **literales**:
 tienen que coincidir exactamente.
 
 ### 4. `router.use(...)`: un middleware para todo lo que sigue
@@ -150,7 +150,7 @@ funciona se explica en [`05-middlewares.md`](05-middlewares.md).
 | Verbo | Uso en el proyecto | Ejemplo |
 |---|---|---|
 | `GET` | Leer (una lista o un elemento) | `GET /api/autos`, `GET /api/autos/:id` |
-| `POST` | Crear | `POST /api/profesores` |
+| `POST` | Crear (y una consulta que lleva body, ver ‡ abajo) | `POST /api/profesores` |
 | `PUT` | Actualizar un recurso con los campos enviados | `PUT /api/alumnos/:id` |
 | `PATCH` | Una **acción** puntual sobre un recurso | `PATCH /api/autos/:id/activo` |
 | `DELETE` | Borrar | `DELETE /api/alumnos/:id`, `DELETE /api/clases/:id` |
@@ -198,6 +198,7 @@ pasa por `validacionDeCuerpo`.
 | PATCH | `/api/profesores/:id/nom-ape` | 🛡️ | ✓ |
 | POST | `/api/profesores/:id/disponibilidad` | 🛡️ | ✓ |
 | DELETE | `/api/profesores/:id/disponibilidad` | 🛡️ | ✓ |
+| POST | `/api/profesores/:id/turnos-libres` | 🔑 ‡ | ✓ |
 | **clases** | | | |
 | GET | `/api/clases` | 🔑 \* | |
 | GET | `/api/clases/:id` | 👤 † | |
@@ -207,14 +208,20 @@ pasa por `validacionDeCuerpo`.
 | **horario-escuela** | | | |
 | GET | `/api/horario-escuela` | 🔑 | |
 | PUT | `/api/horario-escuela` | 🛡️ | ✓ |
-| GET | `/api/horario-escuela/validar/:dia` | 🔑 | |
 | POST | `/api/horario-escuela/agregar`, `/api/horario-escuela/quitar` | 🛡️ | ✓ |
 
 \* En `GET /api/clases` y `POST /api/clases`, el router solo exige el token.
 Lo demás lo decide el **service**, que recibe quién hace el pedido:
-`clase.service.ts:222` (`listar`) filtra con `{ alumno: actor.id }` si el
+`clase.service.ts:218` (`listar`) filtra con `{ alumno: actor.id }` si el
 usuario no es admin, y al reservar, un alumno solo puede hacerlo para sí
 mismo. Se explica en [`../flujos/agendar-una-clase.md`](../flujos/agendar-una-clase.md).
+
+‡ La consulta de turnos libres es un `POST` aunque no crea nada (responde
+200): lleva body (`fecha`, `cambios`, `desde`, `hasta`) y el navegador no deja
+mandar un `GET` con body (`fetch` lanza *"Request with GET/HEAD method cannot
+have body"*). La pueden usar alumnos y admins; si consulta un alumno, el
+service le saca los horarios en los que ya tiene clase. Se explica en
+[`../flujos/consultar-turnos-libres.md`](../flujos/consultar-turnos-libres.md).
 
 † Las rutas con el `:id` de una clase pasan por
 `requireAlumnoDeLaClaseOAdministrador`: el **alumno de la clase** o un admin.

@@ -23,6 +23,7 @@ validado (o argumentos comunes) y devuelve datos, o lanza un error.
 | `tramo.service` | — (no toca la base) | Reglas de un tramo: que empiece y termine en una hora en punto. |
 | `horarioEscuela.service` | `HorarioEscuelaModel` | El horario único de la escuela. |
 | `clase.service` | `Clase`, `Alumno`, `Profesor`, `Auto`, `HorarioEscuela`, `Administrador` | Reservar, modificar y eliminar clases. |
+| `turno.service` | — (usa **solo** otros services) | Consultar los turnos libres de un profesor para un día. |
 
 Algunos services usan a otros:
 
@@ -33,8 +34,16 @@ profesor.service ────────┴► calendarioSemanal.service ──
 auth.middleware ──────────► administrador.service.existe()
                  └────────► clase.service.obtenerPorIdAlumno()
 clase.service ────────────► alumno.service.sumarClasesPorReservar()   (al eliminar)
+                 ├────────► tramo.service.entraEnAlgunTramo()
                  └────────► los MODELS de los demás, para lo demás
+turno.service ────────────► profesor, horarioEscuela, auto (listarActivos),
+                            clase (listarSuperpuestas, DURACION_CLASE_MS),
+                            alumno, administrador y tramo.service
 ```
+
+`turno.service` es el único que no toca ningún model: todo lo pide a otros
+services. Así la consulta de turnos usa **las mismas reglas** que la reserva
+(la duración de una clase, las cuentas con tramos) y no puede contradecirla.
 
 ---
 
@@ -89,11 +98,28 @@ Algunos ejemplos de lo que queda en cada lugar:
 | `cantidad` es un número | `cantidad` es entera y mayor que 0 |
 | `nomApe` es un texto | El nombre no puede quedar vacío (`"   "`) |
 | `dia` es un texto, `tramo` es un objeto | El día existe (`validarDia`) |
-| La reserva trae `profesor`, `auto`, `inicio`, `fin` | Ids válidos, fecha ISO, 1 hora, horario, saldo |
+| La reserva trae `profesor`, `auto`, `inicio`, `fin` | Ids válidos, 1 hora, en punto, horario, saldo |
+| La consulta trae `fecha` AAAA-MM-DD y horas H:MM | Fecha no pasada, `desde` < `hasta`, rango de al menos 1 hora |
 
 El service confía en el tipo del DTO. Esa confianza solo existe al compilar:
 si alguien le pasara `req.body` directamente, compilaría igual, porque es
 `any`. Por eso todo body tiene que pasar por su DTO en el controller.
+
+**Quién hace el pedido.** Cuando una regla depende del usuario, el service
+recibe un `Actor` (`src/types/actor.ts`), no `req`:
+
+```ts
+export interface Actor {
+  id: string;
+  rol: Rol;   // 'alumno' | 'administrador'
+}
+```
+
+Lo usan `clase.service` (un alumno solo ve y reserva sus clases) y
+`turno.service` (a un alumno no se le ofrecen turnos en los que ya tiene
+clase, y se le revisa el saldo). El controller lo arma con `extraerActor(req)`.
+Vive en `types/` y no en un service porque lo usan varios y ninguno es su
+dueño.
 
 ### 3. Romper una regla: `ErrorDeNegocio`
 
@@ -129,9 +155,11 @@ exigir(auto.activo, 'El auto no está disponible para reservas', 409);
 
 El email de un usuario y la patente de un auto son `unique` en el esquema. Si
 se repiten, MongoDB lanza un error **crudo** (`code: 11000`). El service lo
-atrapa y lo convierte en un error del proyecto (`auto.service.ts:50`):
+atrapa y lo convierte en un error del proyecto (`auto.service.ts:78`):
 
 ```ts
+await verificarPatenteLibre(datos.patente);   // primero, buscar el duplicado
+
 try {
   return await AutoModel.create(datos);
 } catch (err) {
@@ -143,6 +171,14 @@ try {
 campo** se repitió y qué mensaje tiene sentido ("La patente ya está en uso"). Si
 el error no es de clave duplicada, `verSiErrorClaveDuplicada` lo devuelve sin
 cambios y sigue su camino.
+
+`auto.service` además **busca** la patente antes de guardar
+(`verificarPatenteLibre`, `auto.service.ts:34`), y si ya la tiene otro auto
+lanza el mismo `ErrorClaveDuplicada`. No confía solo en el índice porque, si
+el índice no se pudo crear, Mongoose no avisa y los duplicados entran (ver
+[`../guias/indices-de-mongoose.md`](../guias/indices-de-mongoose.md#6-unique-es-un-índice-no-una-validación)).
+El `try/catch` queda para cuando dos altas con la misma patente llegan a la
+vez: las dos pasan la búsqueda y el índice frena a la segunda.
 
 ### 5. Contraseñas: siempre hasheadas antes de guardar
 
@@ -160,13 +196,15 @@ una edición que solo cambia el nombre, devuelve los datos sin tocarlos.
 
 ### 6. Dos formas de modificar un documento
 
-**A. `findByIdAndUpdate`, en un solo paso** (`auto.service.ts:69`):
+**A. `findByIdAndUpdate`, en un solo paso** (`auto.service.ts:103`):
 
 ```ts
 AutoModel.findByIdAndUpdate(id, cambios, { new: true, runValidators: true });
 ```
 
-- `new: true` devuelve el documento **después** del cambio.
+- `new: true` devuelve el documento **después** del cambio. Mongoose 9 lo
+  marca como deprecado: la forma nueva es `returnDocument: 'after'`, que ya
+  usa `clase.service`. Los demás services todavía usan `new: true` (I-05).
 - `runValidators: true` hace que corran las validaciones del esquema. Sin esa
   opción, un update se las saltea.
 - Ojo: los hooks `pre('validate')` del esquema **no** corren en un update.
@@ -195,7 +233,7 @@ La forma B tiene un punto débil. Entre el `findById` y el `.save()` pasa
 tiempo: si dos pedidos llegan a la vez, los dos leen el mismo saldo. Para
 operaciones administrativas poco frecuentes, como sumar clases, no es un
 problema. Para **reservar**, donde muchos alumnos compiten, `clase.service`
-usa una operación **condicional y atómica** (`clase.service.ts:275`):
+usa una operación **condicional y atómica** (`clase.service.ts:271`):
 
 ```ts
 AlumnoModel.findOneAndUpdate(

@@ -25,7 +25,6 @@ además pide admin:
 | Pedido | Quién | Service (`horarioEscuela.service.ts`) | Qué hace |
 |---|---|---|---|
 | `GET /api/horario-escuela` | 🔑 | `obtener` (`:19`) | Devuelve el calendario |
-| `GET /api/horario-escuela/validar/:dia` | 🔑 | `validarDia` | ¿Es un nombre de día válido? |
 | `PUT /api/horario-escuela` | 🛡️ | `reemplazar` (`:36`) | Reemplaza **toda** la semana |
 | `POST /api/horario-escuela/agregar` `{ dia, tramo }` | 🛡️ | `agregarTramo` (`:48`) | Agrega un tramo |
 | `POST /api/horario-escuela/quitar` `{ dia, tramoId }` | 🛡️ | `quitarTramo` (`:60`) | Quita un tramo |
@@ -74,22 +73,14 @@ GET /api/horario-escuela   (recién instalado)
 Lo pueden consultar también los alumnos: el frontend lo necesita para mostrar
 cuándo abre la escuela.
 
-### Paso 2. Validar un día
+### Paso 2. Agregar un tramo
 
-```
-GET /api/horario-escuela/validar/lunes    → 200 { "valido": true, "dia": "lunes" }
-GET /api/horario-escuela/validar/feriado  → 400 'Día inválido: "feriado". Debe ser uno de: lunes, martes, miercoles, jueves, viernes, sabado, domingo.'
-```
-
-Solo comprueba el nombre: no mira si ese día la escuela abre.
-
-### Paso 3. Agregar un tramo
-
-Controller (`horarioEscuela.controller.ts:29`) → service (`:45`):
+Controller (`horarioEscuela.controller.ts:31`) → service (`horarioEscuela.service.ts:48`):
 
 ```ts
-const { dia, tramo } = aAgregarTramoDto(req.body);     // controller
-res.json(await horarioService.agregarTramo(dia, tramo));
+const { dia, tramo }: AgregarTramoDto = aAgregarTramoDto(req.body);                // controller
+const calendario: CalendarioSemanal = await horarioService.agregarTramo(dia, tramo);
+res.json(calendario);
 
 const horario =                                        // service
   (await HorarioEscuelaModel.findById('escuela')) ??
@@ -142,9 +133,9 @@ dato mal armado no rompió el pedido que lo mandó, sino **otros** pedidos,
 después. Si en una base quedó un `null` guardado de antes, la forma de
 limpiarlo es un `PUT` con la semana completa.
 
-### Paso 4. Quitar un tramo
+### Paso 3. Quitar un tramo
 
-Controller (`:34`) → service (`:60`). El controller usa `aQuitarTramoDto`:
+Controller (`horarioEscuela.controller.ts:38`) → service (`:60`). El controller usa `aQuitarTramoDto`:
 `dia` y `tramoId`, los dos como texto.
 
 ```http
@@ -161,7 +152,7 @@ Se usa `POST` con el verbo en la URL (`/quitar`), no `DELETE`.
 | `tramoId: 123` | 400 "El identificador del tramo debe ser un texto" (DTO) |
 | El documento todavía no existe | 404, el mismo mensaje |
 
-### Paso 5. Reemplazar la semana completa
+### Paso 4. Reemplazar la semana completa
 
 `aReemplazarCalendarioDto` (`src/dtos/calendarioSemanal.dto.ts:93`) exige un
 objeto con una **lista para cada uno de los 7 días**, en la que cada elemento
@@ -209,7 +200,7 @@ saltea esos requests (`modoSeguro`).
 | Cerrar una franja | `quitar` (hay que conocer el `_id` del tramo: `GET` primero) |
 | Cambiar todo el esquema de horarios | `PUT` |
 
-### Paso 6. Qué efecto tiene en las reservas
+### Paso 5. Qué efecto tiene en las reservas
 
 - Cada reserva, y cada modificación de una clase, consulta el horario
   **en ese momento**. Un tramo agregado habilita reservas de inmediato, y uno

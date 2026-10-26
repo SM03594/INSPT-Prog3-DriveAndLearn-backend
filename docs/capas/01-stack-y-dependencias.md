@@ -176,11 +176,13 @@ funcionan los routers y los middlewares lo explican las guías
 lanzaba un error, había que atraparlo con `try/catch` y pasarlo a mano con
 `next(error)`. Si no se hacía, la petición quedaba colgada. En Express 5 esto
 es automático: el error llega solo al `errorHandler`. Por eso los controllers
-del proyecto son tan cortos (`src/controllers/auto.controller.ts:27`):
+del proyecto son tan cortos (`src/controllers/auto.controller.ts:37`):
 
 ```ts
 export async function crear(req: Request, res: Response) {
-  const auto = await autoService.crear(req.body);   // si lanza → errorHandler
+  const datosAuto: CrearAutoDto = aCrearAutoDto(req.body);   // si lanza → errorHandler
+  const auto: AutoDoc = await autoService.crear(datosAuto);   // si lanza → errorHandler
+
   res.status(201).json(auto);
 }
 ```
@@ -277,7 +279,7 @@ qué rol tiene. En cada pedido siguiente, el cliente lo envía en la cabecera
                      │
                      ▼
               jwt.verify(token, secreto, { algorithms: ['HS256'], ... })
-              src/middlewares/auth.middleware.ts:51
+              src/middlewares/auth.middleware.ts:50
                      │
           firma válida y no vencido? ── no ──► 401
                      │ sí

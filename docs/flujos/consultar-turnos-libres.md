@@ -9,22 +9,19 @@ disponibilidad del profesor y las clases ya reservadas, y devuelve los turnos
 de una hora en los que se puede reservar, cada uno con los autos libres para
 elegir.
 
-> **Endpoint planificado, todavía no implementado.** Esta guía resume el plan
-> de [`../plan-turnos-libres.txt`](../plan-turnos-libres.txt). Las respuestas
-> son las que el plan define, **no** salidas reales de la API, y los archivos
-> nuevos (`turno.service.ts`, `turno.dto.ts`) se citan sin número de línea.
-> Cuando se implemente, hay que reemplazarlas por respuestas reales, como en
-> el resto de los flujos.
+> Todas las respuestas de esta guía son **salidas reales** de la API, con el
+> escenario de abajo cargado en una base en memoria. El plan con todas las
+> decisiones está en [`../plan-turnos-libres.txt`](../plan-turnos-libres.txt).
 
-Responde a I-20 ("No hay forma de consultar turnos libres") de
+Resolvió I-20 ("No hay forma de consultar turnos libres") de
 [`../inconsistencias.md`](../inconsistencias.md).
 
 ---
 
 ## Antes de consultar: las normas que el endpoint da por hechas
 
-El plan cambia o confirma cinco reglas de la reserva. La consulta se apoya en
-ellas para no ofrecer nunca un turno que `POST /api/clases` vaya a rechazar:
+La consulta se apoya en cinco reglas de la reserva para no ofrecer nunca un
+turno que `POST /api/clases` vaya a rechazar:
 
 | Norma | Qué dice | Qué le aporta a la consulta |
 |---|---|---|
@@ -45,18 +42,19 @@ explica en [`../temas/horarios-y-agendamiento.md`](../temas/horarios-y-agendamie
 POST /api/profesores/:id/turnos-libres   Authorization: Bearer <token de Ana>
 { "fecha": "2026-11-09", "cambios": "MANUAL", "desde": "08:00", "hasta": "18:00" }
  │
- ▼ profesor.routes        requireAuthentication → validacionDeCuerpo
- ▼ profesor.controller    actorDe(req) → { id: Ana, rol: 'alumno' }
- │   ① aConsultarTurnosDto        campos · fecha AAAA-MM-DD · HH:MM · rango ≥ 1 h   400
+ ▼ profesor.routes        requireAuthentication → validacionDeCuerpo           401 · 400
+ ▼ profesor.controller    turnosLibres
+ │   ① aConsultarTurnosDto        campos · fecha AAAA-MM-DD · H:MM · cambios    400
+ │   ② extraerActor(req)          → Actor { id: Ana, rol: 'alumno' }
  ▼ turno.service.listarTurnosLibres
- │   ② cuenta y saldo             ¿la cuenta existe? ¿el alumno tiene saldo?    403/409
- │   ③ en paralelo                profesor · horario de la escuela · autos       404
- │   ④ ventanas                   tramo del profesor ∩ escuela ∩ desde/hasta
- │   ⑤ una sola consulta          clases del día: profesor, alumno, autos
- │   ⑥ restar ocupados            del profesor y (si consulta un alumno) del alumno
- │   ⑦ partir en turnos           de 1 h, desde la primera hora en punto
- │   ⑧ autos libres               por turno; un turno sin autos se saca
- │   ⑨ hoy · repetidos · instante sacar los ya empezados, sin inicios repetidos
+ │   ③ reglas del pedido          fecha no pasada · desde < hasta · rango ≥ 1 h 400
+ │   ④ la cuenta                  ¿sigue existiendo?                            403
+ │   ⑤ en paralelo                profesor · horario de la escuela · autos      400 · 404
+ │   ⑥ el saldo                   solo si consulta un alumno                    409
+ │   ⑦ ventanas                   tramo del profesor ∩ escuela ∩ desde/hasta
+ │   ⑧ la grilla                  turnos de 1 h en punto · sin repetidos · sin los ya empezados
+ │   ⑨ una sola consulta          clases que pisan esos turnos (profesor, alumno, autos)
+ │   ⑩ autos libres               se sacan los turnos ocupados y los que no tienen auto
  ▼
 200 { fecha, dia, turnos: [ { inicio, fin, autos: [...] } ] }
 ```
@@ -87,7 +85,7 @@ Ana + Marta                                      [CC333CC]           ← 15–16
 
 ### Paso 1. La ruta: un POST que no crea nada
 
-En `src/routes/profesor.routes.ts`, junto a las demás rutas del profesor:
+`src/routes/profesor.routes.ts:25`, junto a las demás rutas del profesor:
 
 ```ts
 router.post('/:id/turnos-libres', validacionDeCuerpo, profesorController.turnosLibres);
@@ -98,65 +96,97 @@ router.post('/:id/turnos-libres', validacionDeCuerpo, profesorController.turnosL
 - **¿Por qué POST si solo consulta?** Porque los datos van en un body JSON, y
   el navegador no permite un GET con body: `fetch` lanza *"Request with
   GET/HEAD method cannot have body"*. Responde **200**, no 201: no crea nada.
-- Lleva `validacionDeCuerpo`, así que un pedido sin body responde 400 antes de
-  llegar al controller.
+- Lleva `validacionDeCuerpo`: un pedido sin body responde
+  400 *"La petición debe incluir un cuerpo JSON"* antes de llegar al controller.
 
 ### Paso 2. El controller
 
-`profesorController.turnosLibres` arma el DTO, llama al service y responde
-`res.json(...)`. Si el profesor no existe, el service devuelve `null` y el
-controller responde 404 "Profesor no encontrado", con `if / else` (sin
-`return`), como el resto de los controllers.
+`src/controllers/profesor.controller.ts:102`:
+
+```ts
+export async function turnosLibres(req: Request<{ id: string }>, res: Response) {
+  const idProfesor: string = req.params.id;
+  const consulta: ConsultarTurnosDto = aConsultarTurnosDto(req.body);
+  const actor: Actor = extraerActor(req);
+  const turnos: TurnosLibres | null =
+    await turnoService.listarTurnosLibres(idProfesor, consulta, actor);
+
+  if (turnos === null) {
+    res.status(404).json({ mensaje: 'Profesor no encontrado' });
+  } else {
+    res.json(turnos);
+  }
+}
+```
+
+Cada dato va en su constante, en el orden en que los recibe el service. El
+DTO va antes que el actor, así que un body mal armado responde 400 antes de
+mirar quién consulta. `extraerActor` (`src/utils/extraerActor.ts`) traduce
+`req.auth` (`{ id, role }`) al `Actor { id, rol }` que entienden los services
+(ver [`../capas/06-controllers.md`](../capas/06-controllers.md)).
 
 ### Paso 3. ① El DTO: la forma del pedido
 
-`aConsultarTurnosDto` (`src/dtos/turno.dto.ts`, nuevo) usa `validarCampos`
-con `SIN_CAMPOS_DE_MAS`:
+`aConsultarTurnosDto` (`src/dtos/turno.dto.ts:50`) usa `validarCampos` con
+`SIN_CAMPOS_DE_MAS`, y convierte cada texto con su `parsear…`:
 
 | Campo | Obligatorio | Formato | Sale convertido a |
 |---|---|---|---|
-| `fecha` | Sí | `AAAA-MM-DD`, hoy o posterior | `{ año, mes, día }` (`parsearFecha`) |
-| `cambios` | No | `MANUAL` o `AUTOMATICO` (también en minúsculas) | `'MANUAL' \| 'AUTOMATICO'` |
-| `desde` | No | `HH:MM`, hora de la escuela | `HoraDelDia` (`parsearHoraDelDia`) |
-| `hasta` | No | `HH:MM`, hora de la escuela | `HoraDelDia` |
+| `fecha` | Sí | `AAAA-MM-DD`, un día que exista | `{ anio, mes, diaDelMes }` (`parsearFecha`) |
+| `cambios` | No | `MANUAL` o `AUTOMATICO`, también en minúsculas | `'MANUAL' \| 'AUTOMATICO'` (`parsearCambios`) |
+| `desde` | No | `H:MM` o `HH:MM`, hora de la escuela (`8:00` vale) | `{ hora, minuto }` (`parsearHoraDelDia`) |
+| `hasta` | No | Ídem | Ídem |
 
-Si vienen `desde` y `hasta`, el primero tiene que ser anterior y el rango, de
-al menos una hora.
+El DTO mira cada dato **por separado**. Que la fecha no sea pasada o que
+`desde` sea anterior a `hasta` son reglas: las revisa el service (paso 4).
 
 **No existe el campo `alumno`**, ni para el alumno ni para el admin: la
 consulta muestra en qué horarios está libre el profesor. Un admin que lo
-manda recibe 400 "No se pueden enviar estos campos: alumno", como con
+manda recibe 400 *"No se pueden enviar estos campos: alumno"*, como con
 cualquier campo de más.
 
-### Paso 4. ② La cuenta y el saldo
+### Paso 4. ③ Las reglas del pedido
 
-`turno.service.listarTurnosLibres(idProfesor, consulta, actor)`:
+`turno.service.listarTurnosLibres(idProfesor, consulta, actor)`
+(`src/services/turno.service.ts:276`) empieza por las reglas que no necesitan
+la base:
 
-| Quién consulta | Qué se comprueba |
-|---|---|
-| Alumno | Que la cuenta exista (403) y que tenga saldo ≥ 1 (409 "No tenés clases disponibles para reservar") |
-| Admin | Solo que la cuenta exista (403). No se revisa ningún saldo: no indica alumno |
+| Regla | Dónde | Si no se cumple |
+|---|---|---|
+| La fecha es hoy o posterior, **en la escuela** (`hoyEnLaEscuela`) | `exigirFechaNoPasada` (`:81`) | 400 *"La fecha debe ser hoy o posterior"* |
+| Si vienen los dos, `desde` < `hasta` | `exigirRangoValido` (`:92`) | 400 *"El desde debe ser anterior al hasta"* |
+| Y el rango alcanza para una clase (`DURACION_CLASE_MS`) | ídem | 400 *"El rango debe ser de al menos una hora"* |
 
-Que un alumno sin saldo no pueda ni consultar evita mostrarle turnos que
-después no va a poder reservar.
+"Al menos una hora" sale de la misma constante con la que la reserva mide una
+clase: si algún día las clases duraran otra cosa, las dos cambian juntas.
 
-### Paso 5. ③ Los datos, en paralelo
-
-El service solo usa otros **services**, nunca models ajenos:
+### Paso 5. ④ ⑤ ⑥ La cuenta, los datos y el saldo
 
 ```
-profesorService.obtenerPorId        → null = 404 "Profesor no encontrado"
-horarioEscuelaService.obtener       → si no se configuró, un calendario vacío (horarioEscuela.service.ts:19)
-autoService.listarActivos(cambios?) → NUEVA: autos activos, del tipo pedido o de los dos
+cuentaQueConsulta(actor)              (:108)  alumno: ¿existe? · admin: ¿existe?    403
+  │
+  ▼ en paralelo, solo con services (nunca models ajenos):
+profesorService.obtenerPorId          id mal formado → 400 "Id inválido" · null → 404
+horarioEscuelaService.obtener         si no se configuró, un calendario vacío
+autoService.listarActivos(cambios?)   autos en servicio, del tipo pedido o de los dos
+  │
+  ▼
+exigirSaldo(alumno)                   (:128)  solo si consulta un alumno: saldo ≥ 1  409
 ```
 
-El día de la semana sale de la fecha con `Date.UTC(año, mes - 1, día)`: un día
-de calendario no depende de la zona horaria.
+- La cuenta se revisa **antes** que el id del profesor: una cuenta borrada no
+  recibe información sobre ids.
+- El saldo va **después** del profesor: con un profesor inexistente responde
+  404, aunque el alumno tampoco tenga saldo.
+- Un alumno sin saldo no puede ni consultar: no tiene sentido mostrarle turnos
+  que no va a poder reservar. Al admin no se le revisa ningún saldo, porque no
+  indica alumno.
 
-### Paso 6. ④ Las ventanas: cruzar tres horarios
+### Paso 6. ⑦ Las ventanas: cruzar tres horarios
 
-Cada tramo del profesor ese día se cruza con los tramos de la escuela y con
-`desde`/`hasta`, en minutos (`aMinutos`, `src/models/Horario.ts:40`):
+`ventanasDelDia` (`:147`) cruza cada tramo del profesor ese día con cada tramo
+de la escuela y con `desde`/`hasta`, en minutos (`aIntervalo` y
+`cruzarIntervalos`, de `tramo.service.ts`):
 
 ```
 Juan 09–13  ∩  escuela 08–20  ∩  desde 08 / hasta 18   →  09–13
@@ -165,88 +195,66 @@ Juan 15–17  ∩  escuela 08–20  ∩  desde 08 / hasta 18   →  15–17
 
 Los tramos **no se unen**: cada uno se procesa por separado. Así se respeta la
 misma regla que la reserva, donde una clase tiene que entrar entera en **un**
-tramo (`validarHorarioClase`, `clase.service.ts:118`). Si dos tramos se
-superponen y producen el mismo turno, se muestra una sola vez (paso 10).
+tramo (`validarHorarioClase`, `clase.service.ts:114`). Si el profesor se sale
+del horario de la escuela (por ejemplo, 06–10), solo queda la parte común:
+08–10 (I-21).
 
-Si el profesor se sale del horario de la escuela (por ejemplo, 06–10), solo
-queda la parte común: 08–10 (I-21).
+### Paso 7. ⑧ La grilla: turnos de una hora, en punto
 
-### Paso 7. ⑤ Una sola consulta de clases
-
-`claseService.listarSuperpuestas({ inicio, fin, profesor, alumno?, autos })`
-(NUEVA) trae en **una** consulta las clases de ese día que sean del profesor,
-del alumno (solo si consulta un alumno) o de alguno de los autos candidatos.
-Es la misma idea que `validarAusenciaDeConflictos` (`clase.service.ts:141`),
-pero para un día entero en vez de una hora.
-
-### Paso 8. ⑥ Restar los horarios ocupados
-
-De cada ventana se restan las clases del **profesor** y, si consulta un
-alumno, las del **alumno** (con cualquier profesor):
+`iniciosEnPunto` (`:172`) parte cada ventana en clases de una hora **desde su
+primera hora en punto** (N3), y `turnosDelDia` (`:192`) junta todas, sin
+inicios repetidos, las pasa a instantes y saca las que ya empezaron:
 
 ```
-ventana 09–13  −  Juan 11–12         →  09–11 y 12–13
-ventana 15–17  −  Ana 15–16          →  16–17
+09–13  →  09, 10, 11, 12
+15–17  →  15, 16
 ```
 
-Las clases de los autos todavía no se restan: un auto ocupado no saca el
-turno, solo ese auto (paso 9).
+Si una ventana no empieza en punto (un `desde` de `8:30`, o un tramo
+guardado antes de N4), se arranca en la hora en punto siguiente:
+`09:30–12:00` da 10 y 11.
 
-Si consulta un **admin**, no se resta ningún alumno: la ventana 15–17 queda
-entera.
-
-### Paso 9. ⑦ y ⑧ Partir en turnos y elegir autos
-
-Cada ventana se parte en clases de una hora **desde su primera hora en
-punto** (N3):
+**De hora de la escuela a instante** con `instanteLocal` y `OFFSET_HORA_UTC`
+(N5), la misma constante que usa la reserva para el camino inverso
+(`aHoraLocal`):
 
 ```
-09–11  →  09, 10
-12–13  →  12
-16–17  →  16
+2026-11-09 a las 09:00 en la escuela (-3)  →  2026-11-09T12:00:00.000Z
 ```
 
-Por cada turno se buscan los autos sin una clase que se superponga:
+**Si la fecha es hoy**, se sacan los turnos que ya empezaron (`inicio >
+ahora`, la misma condición de la reserva). A las 10:20, la ventana 09–13 da 11
+y 12: la grilla no se corre a 10:20–11:20.
 
-| Turno | AA111AA | BB222BB | Autos que se ofrecen |
-|---|---|---|---|
-| 09–10 | libre | con Carla | `AA111AA` |
-| 10–11 | libre | libre | `AA111AA`, `BB222BB` |
-| 12–13 | libre | libre | `AA111AA`, `BB222BB` |
-| 16–17 | libre | libre | `AA111AA`, `BB222BB` |
+### Paso 8. ⑨ ⑩ Una sola consulta y los autos libres
 
-Un turno sin ningún auto libre **no se muestra**.
+`clasesQuePisan` (`:214`) trae en **una** consulta las clases que pisan
+cualquier turno del día: las del profesor, las del alumno (solo si consulta un
+alumno) y las de los autos candidatos. Usa `claseService.listarSuperpuestas`
+(`clase.service.ts:173`), la misma búsqueda que la reserva
+(`validarAusenciaDeConflictos`, `:137`), que aprovecha los índices de `Clase`
+(ver [`../guias/indices-de-mongoose.md`](../guias/indices-de-mongoose.md)).
 
-Si una ventana no empieza en punto (un `desde` de 08:30, o un tramo o una
-clase guardados antes de N3/N4), se arranca en la hora en punto siguiente:
+Después, `conAutosLibres` (`:241`) recorre la grilla turno por turno:
 
-```
-ventana 09:00–13:00  →  09, 10, 11, 12
-ventana 09:30–12:00  →  10, 11          (09:30 no es en punto)
-ventana 08:20–09:10  →  []              (no entra ninguna hora en punto)
-```
+| Turno | ¿Profesor o alumno ocupado? | AA111AA | BB222BB | Resultado para Ana |
+|---|---|---|---|---|
+| 09–10 | no | libre | con Carla | `AA111AA` |
+| 10–11 | no | libre | libre | `AA111AA`, `BB222BB` |
+| 11–12 | **Juan, con Beto** | — | — | se saca |
+| 12–13 | no | libre | libre | `AA111AA`, `BB222BB` |
+| 15–16 | **Ana, con Marta** | — | — | se saca (para un admin, queda) |
+| 16–17 | no | libre | libre | `AA111AA`, `BB222BB` |
 
-### Paso 10. ⑨ Hoy, repetidos e instantes
+- Un auto ocupado no saca el turno, solo ese auto. Un turno **sin ningún auto
+  libre** no se muestra.
+- Si consulta un **admin**, no se mira a ningún alumno: el turno de las 15
+  queda.
 
-- **Si la fecha es hoy**, se sacan los turnos que ya empezaron. A las 10:20,
-  la ventana 09–13 da 11 y 12 (la grilla no se corre a 10:20–11:20).
-- **Inicios repetidos**: si dos tramos superpuestos dieron el mismo turno, se
-  deja uno.
-- **De hora de la escuela a instante** con `OFFSET_HORA_UTC`, las horas de
-  diferencia con UTC que se configuran en el `.env` (`-3` si no se indica, norma N5):
+### Paso 9. La respuesta
 
-```
-"2026-11-09" + "09:00"  →  "2026-11-09T09:00:00-03:00"  →  2026-11-09T12:00:00.000Z
-```
-
-La reserva usa la **misma** constante para el camino inverso, de instante a
-hora de la escuela (`aHoraLocal`, `src/utils/fechas.ts:92`). Como hay una sola
-fuente de verdad, la consulta y la reserva no pueden desfasarse. "Hoy" (para
-rechazar fechas pasadas y sacar los turnos ya empezados) también se calcula
-con `OFFSET_HORA_UTC`. Por qué hace falta esa conversión está en
-[`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md).
-
-### Paso 11. La respuesta
+Ana, con `{ "fecha": "2026-11-09", "cambios": "MANUAL", "desde": "08:00",
+"hasta": "18:00" }` (cada auto abreviado a su patente, salvo el primero):
 
 ```
 200 {
@@ -254,7 +262,7 @@ con `OFFSET_HORA_UTC`. Por qué hace falta esa conversión está en
   "dia": "lunes",
   "turnos": [
     { "inicio": "2026-11-09T12:00:00.000Z", "fin": "2026-11-09T13:00:00.000Z",
-      "autos": [ { "_id": "…", "marca": "Fiat", "modelo": "Cronos", "patente": "AA111AA", "cambios": "MANUAL" } ] },
+      "autos": [ { "_id": "6adf…", "marca": "Fiat", "modelo": "Cronos", "patente": "AA111AA", "cambios": "MANUAL" } ] },
     { "inicio": "2026-11-09T13:00:00.000Z", "fin": "2026-11-09T14:00:00.000Z", "autos": [ AA111AA, BB222BB ] },
     { "inicio": "2026-11-09T15:00:00.000Z", "fin": "2026-11-09T16:00:00.000Z", "autos": [ AA111AA, BB222BB ] },
     { "inicio": "2026-11-09T19:00:00.000Z", "fin": "2026-11-09T20:00:00.000Z", "autos": [ AA111AA, BB222BB ] }
@@ -264,14 +272,21 @@ con `OFFSET_HORA_UTC`. Por qué hace falta esa conversión está en
 
 - `inicio` y `fin` salen en UTC, como en el resto de la API: 12:00Z son las
   09:00 en la escuela.
-- Cada auto trae `_id`, `marca`, `modelo`, `patente` y `cambios`.
-- Si consultara un admin, aparecería además el turno de las 15 (18:00Z): no se
-  restan las clases de Ana.
+- Cada auto trae solo lo necesario para elegirlo: `_id`, `marca`, `modelo`,
+  `patente` y `cambios`. Ni `activo` ni las fechas de alta.
+- El mismo pedido hecho por un **admin** devuelve además el turno de las 15
+  (`18:00Z`).
+- Sin `cambios`, cada turno suma `CC333CC`. `DD444DD` no aparece nunca: está
+  fuera de servicio.
+- Con `"cambios": "manual"` y `"desde": "8:30"`, la respuesta es la misma: las
+  minúsculas valen y la grilla arranca a las 09.
 
-### Paso 12. Después: reservar
+### Paso 10. Después: reservar
 
 `inicio`, `fin` y el `_id` de uno de los autos se mandan **tal cual** a
-`POST /api/clases` (ver [`agendar-una-clase.md`](agendar-una-clase.md)):
+`POST /api/clases` (ver [`agendar-una-clase.md`](agendar-una-clase.md)). Ana
+reserva el primer turno con `AA111AA`: **201**. Si consulta otra vez, el turno
+de las 09 (`12:00Z`) ya no aparece.
 
 | Quién reserva | Body | Respuesta |
 |---|---|---|
@@ -288,25 +303,25 @@ elige (saldo, otra clase a la misma hora) se comprueban recién en la reserva.
 
 ## Qué puede salir mal
 
-Ordenado según el paso que lo detecta (respuestas definidas en el plan):
+En el orden en que se comprueban (respuestas reales):
 
-| Pedido | Respuesta |
-|---|---|
-| Sin token | 401 "Se requiere autenticación válida" |
-| Sin body o body que no es objeto | 400 (`validacionDeCuerpo`) |
-| Campo de más (`alumno`, `auto`…) | 400 "No se pueden enviar estos campos: …" |
-| `"fecha": 20261109` | 400 "La fecha debe ser un texto" |
-| Falta `fecha` | 400 "La fecha es obligatoria" |
-| `fecha` con otro formato o inexistente (`2026-02-31`) | 400 "La fecha debe tener el formato AAAA-MM-DD" |
-| `fecha` pasada | 400 "La fecha debe ser hoy o posterior" |
-| `cambios` inválido | 400 "El tipo de cambios debe ser MANUAL o AUTOMATICO" |
-| `desde` o `hasta` mal formados | 400 "El desde debe tener el formato HH:MM" |
-| `desde` ≥ `hasta` | 400 "El desde debe ser anterior al hasta" |
-| Rango menor a una hora | 400 "El rango debe ser de al menos una hora" |
-| Id de profesor mal formado | 400 "Id inválido" |
-| Token de una cuenta borrada | 403 "La cuenta autenticada ya no está activa" |
-| Profesor inexistente | 404 "Profesor no encontrado" |
-| Alumno sin saldo | 409 "No tenés clases disponibles para reservar" |
+| Pedido | Lo detecta | Respuesta |
+|---|---|---|
+| Sin token | `requireAuthentication` | 401 "Se requiere autenticación válida" |
+| Sin body | `validacionDeCuerpo` | 400 "La petición debe incluir un cuerpo JSON" |
+| Campo de más (`alumno`, `auto`…) | DTO | 400 "No se pueden enviar estos campos: alumno" |
+| `"fecha": 20261109` | DTO | 400 "La fecha debe ser un texto" |
+| Falta `fecha` | DTO | 400 "La fecha es obligatoria" |
+| `fecha` con otro formato o inexistente (`2026-02-31`) | DTO | 400 "La fecha debe tener el formato AAAA-MM-DD" |
+| `cambios` inválido | DTO | 400 "El tipo de cambios debe ser MANUAL o AUTOMATICO" |
+| `desde` o `hasta` mal formados (`24:00`) | DTO | 400 "El desde debe tener el formato HH:MM" |
+| `fecha` pasada | service | 400 "La fecha debe ser hoy o posterior" |
+| `desde` ≥ `hasta` | service | 400 "El desde debe ser anterior al hasta" |
+| Rango menor a una hora | service | 400 "El rango debe ser de al menos una hora" |
+| Token de una cuenta borrada | service | 403 "La cuenta autenticada ya no está activa" |
+| Id de profesor mal formado | service (`CastError`) | 400 "Id inválido" |
+| Profesor inexistente | service (`null`) | 404 "Profesor no encontrado" |
+| Alumno sin saldo | service | 409 "No tenés clases disponibles para reservar" |
 
 Y casos que **no** son errores, pero devuelven `"turnos": []`: la escuela
 cierra ese día, la escuela no cargó su horario, el profesor no trabaja ese
@@ -319,13 +334,16 @@ la fecha es hoy y ya pasó el horario.
 
 - `POST /api/profesores/:id/turnos-libres` es una **consulta**: responde 200 y
   no guarda nada. Es POST porque el navegador no manda un GET con body.
+- El DTO valida y convierte cada dato (`parsearFecha`, `parsearHoraDelDia`,
+  `parsearCambios`); el service aplica las reglas que comparan datos o
+  dependen de hoy.
 - Pueden consultar alumnos y admins, y ninguno manda `alumno`. Si consulta un
   alumno, se revisa su saldo y se sacan sus clases; si consulta un admin, no.
 - Los turnos salen de cruzar tres horarios (escuela, profesor y
-  `desde`/`hasta`), restar las clases del profesor (y del alumno), partir en
-  horas en punto y quedarse con los turnos que tienen algún auto libre.
-- La consulta y la reserva usan las mismas reglas, así que cualquier turno
-  devuelto se puede mandar tal cual a `POST /api/clases`. Si otro lo reservó
-  antes, la reserva responde 409.
+  `desde`/`hasta`), armar la grilla de horas en punto y descartar los turnos
+  en los que el profesor (o el alumno) está ocupado o no queda ningún auto.
+- `turno.service` solo usa otros services, así que aplica las mismas reglas
+  que la reserva: cualquier turno devuelto se puede mandar tal cual a
+  `POST /api/clases`. Si otro lo reservó antes, la reserva responde 409.
 
 **Siguiente lectura:** [`agendar-una-clase.md`](agendar-una-clase.md).

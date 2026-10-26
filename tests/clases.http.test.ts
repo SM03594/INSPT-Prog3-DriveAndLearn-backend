@@ -6,6 +6,7 @@ import { crear as crearAlumno } from '../src/services/alumno.service.js';
 import { sumarClasesPorReservar } from '../src/services/alumno.service.js';
 import { crear as crearAdministrador } from '../src/services/administrador.service.js';
 import { crearCalendarioSemanal } from '../src/models/CalendarioSemanal.js';
+import { AlumnoModel } from '../src/models/Alumno.js';
 import { AutoModel } from '../src/models/Auto.js';
 import { ClaseModel } from '../src/models/Clase.js';
 import { ProfesorModel } from '../src/models/Profesor.js';
@@ -147,6 +148,81 @@ describe('reservas HTTP de clases', () => {
       .expect(400);
 
     expect(respuesta.body.mensaje).toBe('La clase debe empezar en una hora en punto (por ejemplo, 08:00)');
+  });
+
+  it('un alumno no puede tener dos clases a la misma hora, aunque sean con otro profesor y otro auto (409)', async () => {
+    const otroProfesor = await ProfesorModel.create({
+      nomApe: 'Otro profesor',
+      disponibilidad: {
+        lunes: [{ horaInicio: { hora: 9, minuto: 0 }, horaFin: { hora: 17, minuto: 0 } }],
+      },
+    });
+    const otroAuto = await AutoModel.create({ patente: 'ZZ999ZZ', cambios: 'MANUAL' });
+    const horario = {
+      inicio: inicio.toISOString(),
+      fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+    };
+
+    await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .send({ profesor: profesorId, auto: autoId, ...horario })
+      .expect(201);
+
+    const respuesta = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .send({ profesor: otroProfesor._id.toString(), auto: otroAuto._id.toString(), ...horario })
+      .expect(409);
+
+    expect(respuesta.body.mensaje).toBe('El alumno, profesor o auto ya tiene una clase en ese horario');
+  });
+
+  it('sin saldo, el mensaje depende de quién reserva: el alumno o un admin para él (409)', async () => {
+    await AlumnoModel.findByIdAndUpdate(alumnoId, { clasesPorReservar: 0 });
+    const reserva = {
+      profesor: profesorId,
+      auto: autoId,
+      inicio: inicio.toISOString(),
+      fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+    };
+
+    const delAlumno = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .send(reserva)
+      .expect(409);
+    const delAdmin = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ ...reserva, alumno: alumnoId })
+      .expect(409);
+
+    expect(delAlumno.body.mensaje).toBe('No tenés clases disponibles para reservar');
+    expect(delAdmin.body.mensaje).toBe('El alumno no tiene clases disponibles para reservar');
+  });
+
+  it('un admin tiene que indicar para qué alumno reserva, y que exista', async () => {
+    const reserva = {
+      profesor: profesorId,
+      auto: autoId,
+      inicio: inicio.toISOString(),
+      fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+    };
+
+    const sinAlumno = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send(reserva)
+      .expect(400);
+    const alumnoInexistente = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({ ...reserva, alumno: new Types.ObjectId().toString() })
+      .expect(404);
+
+    expect(sinAlumno.body.mensaje).toBe('El alumno es obligatorio');
+    expect(alumnoInexistente.body.mensaje).toBe('Alumno no encontrado');
   });
 
   it('limita consultas de clases al alumno y permite al administrador ver todas', async () => {

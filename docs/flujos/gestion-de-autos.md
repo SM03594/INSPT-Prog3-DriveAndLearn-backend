@@ -45,26 +45,31 @@ POST /api/autos                     PATCH .../activo { "activo": false }
 
 ### Paso 1. Crear: el DTO filtra, el modelo normaliza y valida
 
-El controller convierte el body en un `CrearAutoDto` (`auto.controller.ts:27`):
+El controller convierte el body en un `CrearAutoDto` (`auto.controller.ts:37`):
 
 ```ts
-const auto = await autoService.crear(aCrearAutoDto(req.body));
+const datosAuto: CrearAutoDto = aCrearAutoDto(req.body);
+const auto: AutoDoc = await autoService.crear(datosAuto);
 ```
 
-`aCrearAutoDto` (`src/dtos/auto.dto.ts:49`) define el **contrato** del alta:
+`aCrearAutoDto` (`src/dtos/auto.dto.ts:81`) define el **contrato** del alta:
 
 | Campo | En el DTO |
 |---|---|
-| `patente`, `cambios` | Obligatorios, texto |
+| `patente` | Obligatoria, texto |
+| `cambios` | Obligatorio, texto, y se **convierte**: `parsearCambios` lo pasa a mayúsculas y exige `MANUAL` o `AUTOMATICO` |
 | `marca`, `modelo` | Opcionales, texto |
 | `activo` | Opcional, booleano: un auto puede **nacer** fuera de servicio |
 | Cualquier otro (`color`, `_id`, `createdAt`...) | 400 "No se pueden enviar estos campos: …" |
 
-El service guarda el DTO dentro de un `try/catch` para traducir una patente
-repetida (`auto.service.ts:50`):
+El service primero se fija si otro auto ya tiene esa patente
+(`verificarPatenteLibre`, `auto.service.ts:34`), y después guarda el DTO dentro
+de un `try/catch` (`auto.service.ts:78`):
 
 ```ts
 export async function crear(datos: CrearAutoDto): Promise<AutoDoc> {
+  await verificarPatenteLibre(datos.patente);   // 409 si ya está en uso
+
   try {
     return await AutoModel.create(datos);
   } catch (err) {
@@ -73,12 +78,24 @@ export async function crear(datos: CrearAutoDto): Promise<AutoDoc> {
 }
 ```
 
+¿Por qué buscar el duplicado si el esquema ya tiene `unique`? Porque el índice
+`unique` puede **faltar**: si no se pudo crear (por ejemplo, porque la
+colección ya tenía patentes repetidas), Mongoose no avisa y los duplicados
+entran igual. La consulta no depende del índice. Y el `try/catch` sigue
+haciendo falta para el caso contrario: si llegan **dos altas a la vez** con la
+misma patente, las dos pasan la consulta y es el índice el que frena a la
+segunda.
+
+La consulta no pasa la patente a mayúsculas a mano: Mongoose aplica el
+`uppercase` y el `trim` del esquema también al **filtro**, así que buscar
+`"  ab123cd "` encuentra `"AB123CD"`.
+
 Las reglas sobre los **valores** están en el **esquema** (`src/models/Auto.ts`):
 
 | Campo | Reglas |
 |---|---|
 | `patente` | Obligatoria, `trim`, `uppercase`, **única** |
-| `cambios` | Obligatorio, `uppercase`, solo `'AUTOMATICO'` o `'MANUAL'` |
+| `cambios` | Obligatorio, `uppercase`, solo `'AUTOMATICO'` o `'MANUAL'` (segunda barrera: el DTO ya lo convirtió) |
 | `marca`, `modelo` | Opcionales, `trim` |
 | `activo` | `default: true` |
 
@@ -93,15 +110,19 @@ POST /api/autos
       "activo": true, "_id": "6ada6a9a...", "createdAt": "...", "updatedAt": "..." }
 ```
 
-`uppercase` se aplica **antes** del `enum`: por eso `"manual"` se acepta y se
-guarda como `"MANUAL"`.
+`"manual"` se acepta y se guarda como `"MANUAL"`: lo convierte el DTO
+(`parsearCambios`, `src/dtos/auto.dto.ts:62`). El DTO tiene que hacerlo porque
+el service le pasa los datos a `AutoModel.create()`, y Mongoose 9 tipa
+`create()` con la interfaz `Auto`, donde `cambios` es `'AUTOMATICO' |
+'MANUAL'`. Un `string` cualquiera no compilaría (ver
+[`../capas/08-models.md`](../capas/08-models.md#8-los-tipos-escritos-a-mano-y-sus-desajustes)).
 
 | Body | Respuesta |
 |---|---|
-| `cambios: "secuencial"` | 400 'Atributo "cambios" debe ser "AUTOMATICO" o "MANUAL" (recibido: "SECUENCIAL")' |
+| `cambios: "secuencial"` | 400 "El tipo de cambios debe ser MANUAL o AUTOMATICO" (el DTO) |
 | Solo `{ "marca": "Ford" }` | 400 "La patente es obligatoria" (lo frena el DTO, con el primer faltante) |
 | `{ ..., "marca": 123 }` | 400 "La marca debe ser un texto" (antes se guardaba `"123"`) |
-| Patente repetida, aunque cambien mayúsculas o espacios de los extremos | 409 "La patente ingresada ya está en uso" |
+| Patente repetida, aunque cambien mayúsculas o espacios de los extremos | 409 "La patente ya está en uso" (`verificarPatenteLibre`) |
 | Con `"color": "rojo"` | 400 "No se pueden enviar estos campos: color" |
 | Con `"_id"` y `"createdAt"` elegidos por el cliente | 400 "No se pueden enviar estos campos: _id, createdAt" |
 | Con `"activo": false` | 201: el auto **nace** fuera de servicio |
@@ -124,7 +145,9 @@ GET /api/autos  (como alumna)
 ```
 
 No hay un filtro del estilo `?activo=true`, así que el frontend tiene que
-filtrar los inactivos para no ofrecerlos.
+filtrar los inactivos para no ofrecerlos. La consulta de turnos libres, en
+cambio, ofrece solo los autos activos (`auto.service.listarActivos`, ver
+[`consultar-turnos-libres.md`](consultar-turnos-libres.md)).
 
 | Pedido | Respuesta |
 |---|---|
@@ -133,26 +156,34 @@ filtrar los inactivos para no ofrecerlos.
 
 ### Paso 3. Modificar con `PUT`
 
-El controller usa otro DTO, `aActualizarAutoDto` (`src/dtos/auto.dto.ts:67`):
+El controller usa otro DTO, `aActualizarAutoDto` (`src/dtos/auto.dto.ts:101`):
 los mismos datos del auto, todos opcionales, pero **al menos uno**, y **sin**
-`activo`. El service (`auto.service.ts:64`) los guarda:
+`activo`. El service (`auto.service.ts:94`) los guarda. Si viene una
+`patente`, antes comprueba que no la tenga **otro** auto (la del mismo auto no
+cuenta, así que mandar la patente que ya tenía no es un error):
 
 ```ts
+if (cambios.patente !== undefined) {
+  await verificarPatenteLibre(cambios.patente, id);
+}
+
 return await AutoModel.findByIdAndUpdate(id, cambios, {
-  new: true,           // devolver el documento ya modificado
+  new: true,           // devolver el documento ya modificado (deprecado: I-05)
   runValidators: true, // aplicar las reglas del esquema también acá
 });
 ```
 
 Aunque es un `PUT`, funciona como un **cambio parcial**: solo se modifican los
-campos enviados. Gracias a `runValidators`, el `enum` y el `required` se
-aplican igual que al crear:
+campos enviados. Si no viene `cambios`, el DTO no agrega esa clave, así que el
+update no la toca. Gracias a `runValidators`, el `required` y el `enum` del
+esquema se aplican igual que al crear:
 
 | Body | Respuesta |
 |---|---|
 | `{ "modelo": "Cronos Drive" }` | 200, solo cambia el modelo |
-| `{ "cambios": "x" }` | 400 'Atributo "cambios" debe ser …' |
-| `{ "patente": "ae456fg" }` (la de otro auto) | 409 "La patente ingresada ya está en uso" |
+| `{ "cambios": "x" }` | 400 "El tipo de cambios debe ser MANUAL o AUTOMATICO" |
+| `{ "cambios": "automatico" }` | 200, guardado como `"AUTOMATICO"` |
+| `{ "patente": "ae456fg" }` (la de otro auto) | 409 "La patente ya está en uso" |
 | `{ "patente": "" }` | 400 "La patente es obligatoria" (el `required` del esquema) |
 | `{ "activo": false }` | 400 "No se pueden modificar estos campos: activo (el estado se cambia con PATCH /autos/:id/activo)" |
 | `{}` | 400 "Debe indicarse al menos un campo para actualizar" |
@@ -166,11 +197,13 @@ contrato. Por qué `activo` tiene su propia ruta se ve en el paso 4.
 
 ### Paso 4. Sacar de servicio y volver a ponerlo
 
-`auto.controller.ts:41` → `auto.service.ts:84`:
+`auto.controller.ts:56` → `auto.service.ts:118`:
 
 ```ts
 // controller: el DTO garantiza que "activo" es un booleano de verdad
-const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
+const idAuto: string = req.params.id;
+const { activo }: CambiarActivoDto = aCambiarActivoDto(req.body);
+const auto: AutoDoc | null = await autoService.cambiarEstado(idAuto, activo);
 
 // service
 export async function cambiarEstado(id: string, estadoNuevo: boolean) {
@@ -178,7 +211,7 @@ export async function cambiarEstado(id: string, estadoNuevo: boolean) {
 }
 ```
 
-`aCambiarActivoDto` (`src/dtos/auto.dto.ts:78`) exige `activo` como booleano:
+`aCambiarActivoDto` (`src/dtos/auto.dto.ts:116`) exige `activo` como booleano:
 no acepta `"false"` como texto (que Mongoose convertiría a `false`). El
 service recibe un `boolean` y solo lo guarda.
 
@@ -226,9 +259,9 @@ lugar de borrarlos.
 | Pedido | Respuesta real |
 |---|---|
 | Un alumno crea o modifica | 403 "Se requieren permisos de administrador" |
-| `cambios` con otro valor | 400 'Atributo "cambios" debe ser "AUTOMATICO" o "MANUAL" (recibido: …)' |
-| Sin `patente` ni `cambios` | 400 con los dos mensajes juntos |
-| Patente repetida | 409 "La patente ingresada ya está en uso" |
+| `cambios` con otro valor | 400 "El tipo de cambios debe ser MANUAL o AUTOMATICO" |
+| Sin `patente` ni `cambios` | 400 "La patente es obligatoria" (el DTO frena con el primer faltante) |
+| Patente repetida | 409 "La patente ya está en uso" |
 | La misma patente con otros espacios internos | **201**: se crea un duplicado (I-39) |
 | Campos desconocidos | 400 "No se pueden enviar estos campos: …" / "No se pueden modificar estos campos: …" |
 | `marca` o `modelo` que no son texto | 400 "La marca debe ser un texto" |

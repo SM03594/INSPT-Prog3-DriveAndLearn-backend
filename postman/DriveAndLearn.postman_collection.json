@@ -76,6 +76,17 @@
           "    return dias[new Date(fecha + 'T12:00:00Z').getUTCDay()];",
           "  },",
           "",
+          "  // 'YYYY-MM-DD' + hora de la escuela -> instante en ISO UTC, como",
+          "  // lo devuelve la API (\"2026-11-09T12:00:00.000Z\").",
+          "  inicioIso: function (pm, fecha, hh) {",
+          "    return new Date(utils.fechaIso(pm, fecha, hh, 0)).toISOString();",
+          "  },",
+          "",
+          "  // Los inicios de los turnos de una respuesta de turnos-libres.",
+          "  iniciosDeTurnos: function (respuesta) {",
+          "    return respuesta.turnos.map(function (turno) { return turno.inicio; });",
+          "  },",
+          "",
           "  // Los requests destructivos (PUT /horario) se saltean en el",
           "  // servidor remoto (modoSeguro = true en el environment).",
           "  saltearSiModoSeguro: function (pm) {",
@@ -284,6 +295,26 @@
     },
     {
       "key": "relleno",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "auto2Id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "turnoInicio",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "turnoFin",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "claseTurnoId",
       "value": "",
       "type": "string"
     }
@@ -4535,6 +4566,49 @@
           }
         },
         {
+          "name": "[400] Tramo que no es en punto (09:00–12:30)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"Los tramos deben empezar y terminar en una hora en punto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"martes\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 12,\n      \"minuto\": 30\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "[400] Día inválido",
           "event": [
             {
@@ -4638,87 +4712,6 @@
               ],
               "path": [
                 "horario-escuela"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAlumno}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "[200] Validar un día válido",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.test('valido = true', function () {",
-                  "  pm.expect(pm.response.json()).to.eql({ valido: true, dia: 'lunes' });",
-                  "});"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/horario-escuela/validar/lunes",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "horario-escuela",
-                "validar",
-                "lunes"
-              ]
-            },
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAlumno}}",
-                  "type": "string"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "name": "[400] Validar un día inválido",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "utils.esperarError(pm, 400, \"Día inválido\");"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/horario-escuela/validar/feriado",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "horario-escuela",
-                "validar",
-                "feriado"
               ]
             },
             "auth": {
@@ -4969,6 +4962,49 @@
                 }
               }
             }
+          }
+        },
+        {
+          "name": "[400] Agregar un tramo que no es en punto (08:30–12:00)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"Los tramos deben empezar y terminar en una hora en punto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/horario-escuela/agregar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "horario-escuela",
+                "agregar"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"{{diaClase}}\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 8,\n      \"minuto\": 30\n    },\n    \"horaFin\": {\n      \"hora\": 12,\n      \"minuto\": 0\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Se rechaza antes de guardar: el horario de la escuela no cambia."
           }
         },
         {
@@ -5428,6 +5464,67 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        },
+        {
+          "name": "[400] Clase que no empieza en punto (10:20–11:20)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('inicio', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 10, 20));",
+                  "pm.collectionVariables.set('fin', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 11, 20));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La clase debe empezar en una hora en punto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{inicio}}\",\n  \"fin\": \"{{fin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -6025,6 +6122,160 @@
           }
         },
         {
+          "name": "[201] Admin crea un segundo auto (automático)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 201);",
+                  "utils.guardarId(pm, 'auto2Id');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/autos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "autos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": \"VW\",\n  \"modelo\": \"Gol\",\n  \"patente\": \"PM{{runId}}D\",\n  \"cambios\": \"AUTOMATICO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Para el caso siguiente (otro auto) y para 07b Turnos libres. El Teardown lo saca de servicio."
+          }
+        },
+        {
+          "name": "[200] Admin da disponibilidad al profesor 2 (09:00–17:00)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var dia = pm.collectionVariables.get('diaClase');",
+                  "pm.collectionVariables.set(",
+                  "  'tramoProfesor2Id',",
+                  "  utils.ultimoTramoId(pm.response.json().disponibilidad, dia),",
+                  ");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"{{diaClase}}\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 17,\n      \"minuto\": 0\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Para el caso siguiente (otro profesor). El Teardown quita este tramo."
+          }
+        },
+        {
+          "name": "[409] Alumno 1 reserva otra clase a la misma hora (otro profesor y otro auto)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('inicio', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 10, 0));",
+                  "pm.collectionVariables.set('fin', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 11, 0));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 409, \"ya tiene una clase en ese horario\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesor2Id}}\",\n  \"auto\": \"{{auto2Id}}\",\n  \"inicio\": \"{{inicio}}\",\n  \"fin\": \"{{fin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "El alumno 1 ya tiene la clase de 10:00 a 11:00: un alumno no puede tener dos clases a la misma hora, aunque sean con otro profesor y otro auto."
+          }
+        },
+        {
           "name": "[409] Mismo profesor y auto en el mismo horario",
           "event": [
             {
@@ -6139,6 +6390,160 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{inicio}}\",\n  \"fin\": \"{{fin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[409] Admin reserva para un alumno sin saldo (alumno 2)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('inicio', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 12, 0));",
+                  "pm.collectionVariables.set('fin', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 13, 0));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 409, \"El alumno no tiene clases disponibles para reservar\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{inicio}}\",\n  \"fin\": \"{{fin}}\",\n  \"alumno\": \"{{alumno2Id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El mensaje depende de quién reserva: al admin no se le dice \"No tenés…\"."
+          }
+        },
+        {
+          "name": "[400] Admin reserva sin indicar el alumno",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('inicio', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 12, 0));",
+                  "pm.collectionVariables.set('fin', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 13, 0));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El alumno es obligatorio\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{inicio}}\",\n  \"fin\": \"{{fin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[404] Admin reserva para un alumno que no existe",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('inicio', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 12, 0));",
+                  "pm.collectionVariables.set('fin', utils.fechaIso(pm, pm.collectionVariables.get('fechaClase'), 13, 0));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 404, \"Alumno no encontrado\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{inicio}}\",\n  \"fin\": \"{{fin}}\",\n  \"alumno\": \"000000000000000000000000\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -6974,6 +7379,1314 @@
                   "language": "json"
                 }
               }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07b Turnos libres",
+      "description": "POST /profesores/:id/turnos-libres: errores del pedido (tabla 4.1 del plan), filtros (cambios, desde, hasta) y una ida y vuelta: consultar, reservar el primer turno, no verlo, eliminar la clase y verlo otra vez. Supone que se corrió 07 Clases antes: usa sus clases (el profesor del Setup está ocupado a las 11 y a las 13), el auto 2 que crea y el saldo en 0 del alumno 1.",
+      "item": [
+        {
+          "name": "[401] Sin token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 401, \"Se requiere autenticación válida\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "[400] Sin body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La petición debe incluir un cuerpo JSON\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Admin manda \"alumno\"",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: alumno\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"alumno\": \"{{alumno3Id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "La consulta no recibe \"alumno\" para ningún rol: muestra en qué horarios está libre el profesor."
+          }
+        },
+        {
+          "name": "[400] Fecha numérica",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La fecha debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": 20261109\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Falta la fecha",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La fecha es obligatoria\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cambios\": \"MANUAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Fecha con otro formato (09/11/2026)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La fecha debe tener el formato AAAA-MM-DD\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"09/11/2026\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Fecha que no existe (2026-02-31)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La fecha debe tener el formato AAAA-MM-DD\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"2026-02-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] cambios inválido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El tipo de cambios debe ser MANUAL o AUTOMATICO\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"cambios\": \"cohete\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] desde mal formado (24:00)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El desde debe tener el formato HH:MM\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"desde\": \"24:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Fecha pasada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"La fecha debe ser hoy o posterior\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"2020-01-06\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] desde posterior al hasta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El desde debe ser anterior al hasta\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"desde\": \"12:00\",\n  \"hasta\": \"10:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Rango menor a una hora (10:00–10:30)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El rango debe ser de al menos una hora\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"desde\": \"10:00\",\n  \"hasta\": \"10:30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[400] Id de profesor mal formado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"Id inválido\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/abc/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "abc",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[404] Profesor que no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 404, \"Profesor no encontrado\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[409] Alumno sin saldo (alumno 1)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 409, \"No tenés clases disponibles para reservar\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Al alumno 1 no le quedan clases después de 07 Clases."
+          }
+        },
+        {
+          "name": "[200] Alumno 3 consulta (MANUAL): turnos en punto, sin las horas ocupadas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var respuesta = pm.response.json();",
+                  "var fecha = pm.collectionVariables.get('fechaClase');",
+                  "var esperados = [9, 10, 12, 14, 15, 16].map(function (h) { return utils.inicioIso(pm, fecha, h); });",
+                  "",
+                  "pm.test('Devuelve la fecha y el día pedidos', function () {",
+                  "  pm.expect(respuesta.fecha).to.equal(fecha);",
+                  "  pm.expect(respuesta.dia).to.equal(pm.collectionVariables.get('diaClase'));",
+                  "});",
+                  "pm.test('Turnos de 09 a 16, sin las 11 ni las 13 (clases del alumno 1)', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(respuesta)).to.eql(esperados);",
+                  "});",
+                  "pm.test('Cada turno dura una hora', function () {",
+                  "  respuesta.turnos.forEach(function (turno) {",
+                  "    pm.expect(new Date(turno.fin) - new Date(turno.inicio)).to.equal(3600000);",
+                  "  });",
+                  "});",
+                  "pm.test('Solo autos manuales: el del Setup sí, el fuera de servicio no', function () {",
+                  "  respuesta.turnos.forEach(function (turno) {",
+                  "    var ids = turno.autos.map(function (auto) { return auto._id; });",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('autoId'));",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get('autoInactivoId'));",
+                  "    turno.autos.forEach(function (auto) { pm.expect(auto.cambios).to.equal('MANUAL'); });",
+                  "  });",
+                  "});",
+                  "pm.test('Cada auto trae solo los datos para elegirlo', function () {",
+                  "  var permitidos = ['_id', 'marca', 'modelo', 'patente', 'cambios'];",
+                  "  respuesta.turnos[0].autos.forEach(function (auto) {",
+                  "    Object.keys(auto).forEach(function (clave) { pm.expect(permitidos).to.include(clave); });",
+                  "  });",
+                  "});",
+                  "",
+                  "// El primer turno se reserva más abajo (ida y vuelta).",
+                  "pm.collectionVariables.set('turnoInicio', respuesta.turnos[0].inicio);",
+                  "pm.collectionVariables.set('turnoFin', respuesta.turnos[0].fin);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"cambios\": \"manual\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "\"cambios\" en minúsculas también vale. El alumno 3 tiene saldo (lo carga 02 Alumnos)."
+          }
+        },
+        {
+          "name": "[200] Admin consulta sin \"cambios\": autos de los dos tipos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var respuesta = pm.response.json();",
+                  "var fecha = pm.collectionVariables.get('fechaClase');",
+                  "var esperados = [9, 10, 12, 14, 15, 16].map(function (h) { return utils.inicioIso(pm, fecha, h); });",
+                  "",
+                  "pm.test('Los mismos turnos que para el alumno 3', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(respuesta)).to.eql(esperados);",
+                  "});",
+                  "pm.test('El turno de las 09 trae el auto manual y el automático', function () {",
+                  "  var ids = respuesta.turnos[0].autos.map(function (auto) { return auto._id; });",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('autoId'));",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('auto2Id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[200] AUTOMATICO: solo autos automáticos en servicio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var respuesta = pm.response.json();",
+                  "var fecha = pm.collectionVariables.get('fechaClase');",
+                  "var esperados = [9, 10, 12, 14, 15, 16].map(function (h) { return utils.inicioIso(pm, fecha, h); });",
+                  "",
+                  "pm.test('Los mismos turnos, con el auto 2 y sin el fuera de servicio', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(respuesta)).to.eql(esperados);",
+                  "  respuesta.turnos.forEach(function (turno) {",
+                  "    var ids = turno.autos.map(function (auto) { return auto._id; });",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get('auto2Id'));",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get('autoInactivoId'));",
+                  "    turno.autos.forEach(function (auto) { pm.expect(auto.cambios).to.equal('AUTOMATICO'); });",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"cambios\": \"AUTOMATICO\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[200] Desde 14:00 hasta 16:00: solo los turnos que entran completos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var fecha = pm.collectionVariables.get('fechaClase');",
+                  "pm.test('Turnos de las 14 y de las 15', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(pm.response.json())).to.eql([",
+                  "    utils.inicioIso(pm, fecha, 14),",
+                  "    utils.inicioIso(pm, fecha, 15),",
+                  "  ]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"desde\": \"14:00\",\n  \"hasta\": \"16:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[200] Desde 8:30 (un dígito): arranca en la primera hora en punto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var fecha = pm.collectionVariables.get('fechaClase');",
+                  "var esperados = [9, 10, 12, 14, 15, 16].map(function (h) { return utils.inicioIso(pm, fecha, h); });",
+                  "pm.test('El primer turno es el de las 09', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(pm.response.json())).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"desde\": \"8:30\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[201] Alumno 3 reserva el primer turno devuelto, tal cual",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 201);",
+                  "utils.guardarId(pm, 'claseTurnoId');",
+                  "pm.test('A nombre del alumno 3', function () {",
+                  "  pm.expect(pm.response.json().alumno).to.equal(pm.collectionVariables.get('alumno3Id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{turnoInicio}}\",\n  \"fin\": \"{{turnoFin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "inicio y fin se mandan como los devolvió la consulta: la consulta y la reserva no se contradicen."
+          }
+        },
+        {
+          "name": "[200] El turno reservado ya no aparece",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "pm.test('No aparece el turno reservado', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(pm.response.json()))",
+                  "    .to.not.include(pm.collectionVariables.get('turnoInicio'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[204] Alumno 3 elimina esa clase",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 204);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseTurnoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseTurnoId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[200] El turno vuelve a aparecer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);",
+                  "var fecha = pm.collectionVariables.get('fechaClase');",
+                  "var esperados = [9, 10, 12, 14, 15, 16].map(function (h) { return utils.inicioIso(pm, fecha, h); });",
+                  "pm.test('Están otra vez todos los turnos', function () {",
+                  "  pm.expect(utils.iniciosDeTurnos(pm.response.json())).to.eql(esperados);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno3}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         }
@@ -8467,6 +10180,138 @@
               }
             }
           }
+        },
+        {
+          "name": "[400] Turnos libres con un campo de más (auto)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: auto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"auto\": \"{{autoId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Turnos libres con desde numérico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"El desde debe ser un texto\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"desde\": 800\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
+        },
+        {
+          "name": "[400] Turnos libres con un operador ($where)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"No se pueden enviar estos campos: $where\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/000000000000000000000000/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "000000000000000000000000",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\",\n  \"$where\": \"1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El DTO rechaza el body en el controller, antes de buscar el recurso: por eso alcanza con un id que no existe, y el pedido no toca datos aunque la validación fallara."
+          }
         }
       ]
     },
@@ -8561,6 +10406,49 @@
           }
         },
         {
+          "name": "[200] Sacar de servicio el auto 2 de 07 Clases",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/autos/{{auto2Id}}/activo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "autos",
+                "{{auto2Id}}",
+                "activo"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "[200] Quitar la disponibilidad del profesor del Setup",
           "event": [
             {
@@ -8595,6 +10483,49 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"dia\": \"{{diaClase}}\",\n  \"tramoId\": \"{{tramoProfesorId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "[200] Quitar la disponibilidad del profesor 2 (la de 07 Clases)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 200);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesor2Id}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesor2Id}}",
+                "disponibilidad"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dia\": \"{{diaClase}}\",\n  \"tramoId\": \"{{tramoProfesor2Id}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8888,6 +10819,59 @@
               "path": [
                 "clases"
               ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[403] El token del alumno borrado ya no sirve para consultar turnos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 403, \"ya no está activa\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
             "auth": {
               "type": "bearer",

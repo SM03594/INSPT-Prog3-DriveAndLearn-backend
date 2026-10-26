@@ -84,7 +84,7 @@ Están en `src/app.ts:22-23` y se ejecutan en **todos** los pedidos:
 
 ### 3. `requireAuthentication`: ¿quién sos?
 
-`src/middlewares/auth.middleware.ts:117`:
+`src/middlewares/auth.middleware.ts:116`:
 
 ```ts
 export const requireAuthentication: RequestHandler = (req, _res, next) => {
@@ -97,18 +97,23 @@ export const requireAuthentication: RequestHandler = (req, _res, next) => {
 };
 ```
 
+`MENSAJE_NO_AUTORIZADO` (*"Se requiere autenticación válida"*) viene de
+`src/errors/errorAutenticacion.ts`, junto a la clase del error: así todos los
+401 por token faltante o inválido dicen lo mismo, los lance este middleware o
+`extraerActor`.
+
 Paso a paso:
 
 ```
 Authorization: Bearer eyJhbGciOi...
        │
-       ├─ ¿tiene la forma "Bearer <token>"?            (regex, :38)    no → 401
-       ├─ jwt.verify(token, secreto, {                  (:48)
+       ├─ ¿tiene la forma "Bearer <token>"?            (regex, :40)    no → 401
+       ├─ jwt.verify(token, secreto, {                  (:50)
        │     algorithms: ['HS256'],                     ← no acepta otro algoritmo
        │     audience: 'driveandlearn-api',             ← emitido para esta API
        │     issuer:   'driveandlearn' })               ← emitido por nosotros
        │     firma mala / vencido → JsonWebTokenError → ErrorAutenticacion → 401
-       ├─ ¿el payload trae sub (string) y un role válido? (:69)       no → 401
+       ├─ ¿el payload trae sub (string) y un role válido? (:71)       no → 401
        ▼
 req.auth = { id, role }  ──►  next()
 ```
@@ -118,12 +123,16 @@ lo que sigue en la cadena**. Los otros middlewares y los controllers lo leen
 para saber quién hace el pedido. Que TypeScript acepte `req.auth` se explica
 en [`02-typescript-en-el-proyecto.md`](02-typescript-en-el-proyecto.md#10-ampliar-los-tipos-de-una-librería-reqauth).
 
+Los controllers no leen `req.auth` directamente: lo pasan por `extraerActor`
+(`src/utils/extraerActor.ts`), que lo convierte en el `Actor { id, rol }` que
+reciben los services (ver [`06-controllers.md`](06-controllers.md)).
+
 `_res` lleva guion bajo porque no se usa: es la convención para indicar "este
 parámetro existe, pero no lo necesito".
 
 ### 4. `requireAdministrator`: ¿podés?
 
-`src/middlewares/auth.middleware.ts:134`:
+`src/middlewares/auth.middleware.ts:133`:
 
 ```ts
 export const requireAdministrator: RequestHandler = async (req, _res, next) => {
@@ -151,7 +160,7 @@ además del token, se comprueba que el administrador siga existiendo. Es el
 
 Lo usan las rutas `/:id` de alumnos y administradores. Es una **fábrica**: una
 función que recibe una configuración y **devuelve** el middleware
-(`src/middlewares/auth.middleware.ts:160`):
+(`src/middlewares/auth.middleware.ts:159`):
 
 ```ts
 export function requireSelfOrAdministrator(
@@ -213,7 +222,7 @@ o de un admin.
 Lo usan las rutas con el `:id` de una **clase**: `GET`, `PUT` y `DELETE`
 `/api/clases/:id` (`clase.routes.ts:20-23`). Hace el mismo trabajo que el
 anterior, pero el dueño no es el `:id`: hay que **buscar la clase** para saber
-de qué alumno es (`src/middlewares/auth.middleware.ts:201`):
+de qué alumno es (`src/middlewares/auth.middleware.ts:200`):
 
 ```ts
 const idAlumnoDeLaClase = await claseService.obtenerPorIdAlumno(req.params.id);
@@ -331,7 +340,7 @@ error se explican en [`09-errores.md`](09-errores.md).
 |---|---|
 | La respuesta de error es HTML en lugar de `{ mensaje }` | El `errorHandler` no tiene los **4** parámetros (aunque `_next` no se use, tiene que estar), o no está al final de `app.ts`. |
 | El pedido queda colgado | Un middleware no llama a `next()`, no responde y no lanza. |
-| `req.auth` es `undefined` en un controller | La ruta no pasa por `requireAuthentication`. |
+| Un controller responde 401 "Se requiere autenticación válida" con un token válido | La ruta no pasa por `requireAuthentication`: `req.auth` es `undefined` y `extraerActor` lo rechaza. |
 | Un admin recién borrado sigue pudiendo crear autos | Una ruta de admin usa solo `requireAuthentication` y le falta `requireAdministrator`. |
 | Un alumno recibe 403 con su **propia** clase | La ruta usa `requireSelfOrAdministrator`, que compara contra el `:id` (la clase). En las rutas de clases va `requireAlumnoDeLaClaseOAdministrador`. |
 | *"Cannot set headers after they are sent"* | Un middleware respondió **y** después llamó a `next()`. En este proyecto se evita porque los middlewares lanzan en lugar de responder. |

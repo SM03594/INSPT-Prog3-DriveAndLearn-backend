@@ -27,7 +27,7 @@ docs/
 │
 ├── temas/                       UN TEMA EN PROFUNDIDAD, que cruza varias capas
 │
-├── guias/                       UN CONCEPTO EXPLICADO DESDE CERO (zonas horarias...)
+├── guias/                       UN CONCEPTO EXPLICADO DESDE CERO (zonas horarias, índices)
 │
 └── inconsistencias.md           registro de bugs, desajustes y decisiones a revisar
 ```
@@ -66,7 +66,8 @@ completa funcionando antes de entrar al detalle de cada capa.
 | Agregar una regla de negocio | [07 Services](capas/07-services.md) → [09 Errores](capas/09-errores.md) |
 | Agregar o cambiar un campo de la base | [08 Models](capas/08-models.md) → [06b DTOs](capas/06b-dtos.md) (si el cliente lo puede mandar) → [02 TypeScript](capas/02-typescript-en-el-proyecto.md) (tipos escritos a mano) |
 | Cambiar permisos | [05 Middlewares](capas/05-middlewares.md) → [04 Routes](capas/04-routes.md) (tabla de endpoints) |
-| Tocar algo de horarios o reservas | [temas/horarios-y-agendamiento](temas/horarios-y-agendamiento.md) → [guias/zonas-horarias-y-fechas](guias/zonas-horarias-y-fechas.md) → [10 Fechas](capas/10-utils-y-fechas.md) |
+| Tocar algo de horarios o reservas | [temas/horarios-y-agendamiento](temas/horarios-y-agendamiento.md) → [guias/zonas-horarias-y-fechas](guias/zonas-horarias-y-fechas.md) → [10 Fechas](capas/10-utils-y-fechas.md) → [flujos/consultar-turnos-libres](flujos/consultar-turnos-libres.md) (la consulta usa las mismas reglas que la reserva) |
+| Una búsqueda se vuelve lenta | [guias/indices-de-mongoose](guias/indices-de-mongoose.md) → [08 Models](capas/08-models.md) (sección 3b) |
 | Escribir tests | [11 Vitest](capas/11-tests-vitest.md) → [12 Postman](capas/12-tests-postman.md) |
 | Instalar o deployar | [01 Stack](capas/01-stack-y-dependencias.md) → [flujos/primer-administrador](flujos/primer-administrador.md) |
 | Corregir un bug conocido | [inconsistencias.md](inconsistencias.md) |
@@ -91,21 +92,21 @@ tienen ejemplos más avanzados.
 | 03 | [Arquitectura](capas/03-arquitectura.md) | Cómo se encadenan las capas, la regla de dependencias, cómo arranca el servidor y el camino de un pedido y de un error. |
 | 04 | [Routes](capas/04-routes.md) | Routers, prefijos, `:id`, `router.use`, el orden de la cadena. **Tabla de todos los endpoints con sus permisos.** |
 | 05 | [Middlewares](capas/05-middlewares.md) | `requireAuthentication`, `requireAdministrator`, `requireSelfOrAdministrator()`, `validacionDeCuerpo`, el 404 y el `errorHandler`. |
-| 06 | [Controllers](capas/06-controllers.md) | De `req` a DTO y de resultados a status: 200, 201, 204 y 404. |
-| 06b | [DTOs](capas/06b-dtos.md) | El contrato de cada operación: `validarCampos`, `exigido`, crear vs. actualizar, el DTO según el rol, forma vs. reglas. Receta para agregar uno. |
-| 07 | [Services](capas/07-services.md) | Reglas de negocio sobre un DTO ya validado, claves duplicadas, operaciones atómicas y compensación. |
-| 08 | [Models](capas/08-models.md) | Esquemas, validadores, `unique`, `pre('validate')`, `toJSON`, sub-esquemas y discriminators. |
+| 06 | [Controllers](capas/06-controllers.md) | De `req` a DTO y de resultados a status: 200, 201, 204 y 404. Una constante con nombre y tipo por dato, y `extraerActor`. |
+| 06b | [DTOs](capas/06b-dtos.md) | El contrato de cada operación: `validarCampos`, `exigido`, crear vs. actualizar, el DTO según el rol, los `parsear…` que además convierten, forma vs. reglas. Receta para agregar uno. |
+| 07 | [Services](capas/07-services.md) | Reglas de negocio sobre un DTO ya validado, el `Actor`, un service que solo usa services (`turno.service`), claves duplicadas, operaciones atómicas y compensación. |
+| 08 | [Models](capas/08-models.md) | Esquemas, validadores, `unique` e índices propios, `pre('validate')`, `toJSON`, sub-esquemas, discriminators y la interfaz que tiene que coincidir con el esquema. |
 | 09 | [Errores](capas/09-errores.md) | La jerarquía de errores, los traductores, y cómo un `throw` termina siendo `{ mensaje }`. |
-| 10 | [Utils y fechas](capas/10-utils-y-fechas.md) | `cuerpoComoObjeto`, `esDelTipo`, `validarCampos`, `conPasswordHasheada`, y fechas sin errores de zona horaria. |
-| 11 | [Tests con Vitest](capas/11-tests-vitest.md) | Los 4 tipos de test (los DTO son funciones puras), MongoDB en memoria, supertest, `vi.fn()`, y fechas en los tests. |
-| 12 | [Tests con Postman](capas/12-tests-postman.md) | La colección de punta a punta: carpetas, variables, helpers, tests globales y Teardown. |
+| 10 | [Utils y fechas](capas/10-utils-y-fechas.md) | `cuerpoComoObjeto`, `esDelTipo`, `validarCampos`, `conPasswordHasheada`, `extraerActor`, y fechas sin errores de zona horaria (instantes, días del calendario y horas de reloj). |
+| 11 | [Tests con Vitest](capas/11-tests-vitest.md) | Los 4 tipos de test (los DTO son funciones puras), MongoDB en memoria, supertest, `vi.fn()`, `vi.stubEnv` para el `.env`, `explain` para los índices, y fechas en los tests. |
+| 12 | [Tests con Postman](capas/12-tests-postman.md) | La colección de punta a punta: carpetas (incluida `07b Turnos libres`), variables, helpers, tests globales y Teardown. |
 
 ### `flujos/`: cómo se hace
 
 | Guía | Endpoints principales | Quién |
 |---|---|---|
 | [Registrarse, iniciar sesión y usar el token](flujos/registro-y-login.md) | `POST /api/alumnos`, `POST /api/auth/login` | Cualquiera |
-| [Consultar los turnos libres de un profesor](flujos/consultar-turnos-libres.md) (planificado, no implementado) | `POST /api/profesores/:id/turnos-libres` | Alumno o admin |
+| [Consultar los turnos libres de un profesor](flujos/consultar-turnos-libres.md) | `POST /api/profesores/:id/turnos-libres` | Alumno o admin |
 | [Agendar una clase](flujos/agendar-una-clase.md) | `POST /api/clases`, `GET /api/clases` | Alumno o admin |
 | [Modificar y eliminar una clase](flujos/modificar-y-eliminar-una-clase.md) | `PUT /api/clases/:id`, `DELETE /api/clases/:id` | Alumno (las suyas) o admin |
 | [Dar de alta un profesor y su disponibilidad](flujos/alta-de-profesor-y-disponibilidad.md) | `/api/profesores`, `.../disponibilidad` | Admin |
@@ -127,7 +128,8 @@ autos → registro del alumno (y que el admin le cargue saldo) → agendar.**
 
 | Guía | De qué trata |
 |---|---|
-| [Zonas horarias y fechas](guias/zonas-horarias-y-fechas.md) | Qué guarda un `Date` (un instante, sin zona); en qué dos momentos importa la zona (la entrada y la hora de reloj de la escuela); por qué comparar fechas no la necesita; salida en UTC, nombres IANA y horario de verano, tests en UTC. |
+| [Zonas horarias y fechas](guias/zonas-horarias-y-fechas.md) | Qué guarda un `Date` (un instante, sin zona); en qué dos momentos importa la zona (la entrada y la hora de reloj de la escuela); por qué comparar fechas no la necesita; salida en UTC, el offset fijo (`OFFSET_HORA_UTC`) y el horario de verano, tests en UTC. |
+| [Índices de MongoDB (y cómo los declara Mongoose)](guias/indices-de-mongoose.md) | Qué es un índice y qué es un COLLSCAN; índices compuestos (igualdad primero, rango después); por qué los de `Clase` terminan en `fin`; un índice por rama de un `$or`; cómo los crea Mongoose; `unique` no es una validación; medido con `explain`. |
 
 ### Registro de inconsistencias
 

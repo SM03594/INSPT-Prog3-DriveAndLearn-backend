@@ -43,8 +43,8 @@ el esquema, y Mongoose los crea en la base al conectar.
 ### 1. Sin índice: COLLSCAN
 
 La reserva de una clase (`validarAusenciaDeConflictos`,
-`src/services/clase.service.ts:141`) y la consulta de turnos libres
-(`listarSuperpuestas`, `clase.service.ts:188`) hacen esta búsqueda:
+`src/services/clase.service.ts:137`) y la consulta de turnos libres
+(`listarSuperpuestas`, `clase.service.ts:184`) hacen esta búsqueda:
 
 ```js
 {
@@ -163,11 +163,18 @@ Funcionan distinto de las validaciones del esquema:
   validación sin error.
 - Quien rechaza el duplicado es **MongoDB, al guardar**, con el código
   `11000`. Mongoose lo envuelve en un error con el mensaje del esquema, y
-  `verSiErrorClaveDuplicada` (`src/errors/errorClaveDuplicada.ts:43`) lo
+  `verSiErrorClaveDuplicada` (`src/errors/errorClaveDuplicada.ts:44`) lo
   convierte en un 409.
 - Si la colección ya tiene duplicados cuando Mongoose intenta crear el índice,
   la creación falla y **la colección queda sin el `unique`**. Como Mongoose no
   espera a los índices, el servidor arranca igual y acepta duplicados.
+
+Por eso `auto.service` no confía solo en el índice: antes de guardar **busca**
+si otro auto ya tiene la patente (`verificarPatenteLibre`,
+`src/services/auto.service.ts:34`) y responde 409 aunque el índice falte. El
+índice sigue sirviendo para el caso que la búsqueda no cubre: dos altas con la
+misma patente al mismo tiempo. El email de los usuarios todavía depende solo
+del índice.
 
 Los tres índices de `clases` no son `unique`, así que no pueden fallar por los
 datos.
@@ -190,7 +197,7 @@ consulta que lo usa.
 |---|---|
 | Reservar se vuelve más lento a medida que pasan los meses | La búsqueda hace COLLSCAN: falta un índice, o le falta a una rama del `$or`. |
 | El plan dice `IXSCAN` pero igual lee casi todo | El índice termina en un campo con cota por arriba (`inicio`) en vez de por abajo (`fin`). |
-| Se guardan dos autos con la misma patente | El índice `unique` no se pudo crear (la colección ya tenía duplicados) y Mongoose no esperó a que fallara. |
+| Se guardan dos usuarios con el mismo email | El índice `unique` no se pudo crear (la colección ya tenía duplicados) y Mongoose no esperó a que fallara. Con la patente ya no pasa: `auto.service` la busca antes de guardar. |
 | Un test que mira el plan falla a veces | El índice todavía se estaba creando: falta `await Modelo.init()`. |
 | Se sacó un índice del esquema y sigue en la base | Mongoose no borra índices: hay que usar `syncIndexes()` o borrarlo a mano. |
 

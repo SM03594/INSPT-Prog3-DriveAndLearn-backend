@@ -4,8 +4,8 @@
 
 `src/utils/` reúne funciones chicas que **no pertenecen a ninguna capa** en
 particular y que otras capas reutilizan: comprobar el body, comprobar tipos,
-hashear contraseñas y, la más delicada, **interpretar fechas y horas sin
-equivocarse de zona horaria**.
+hashear contraseñas, saber quién hace el pedido y, la más delicada,
+**interpretar fechas y horas sin equivocarse de zona horaria**.
 
 ---
 
@@ -17,7 +17,8 @@ equivocarse de zona horaria**.
 | `validacionTipos.ts` | `esDelTipo`, `DESCRIPCION_TIPO`, `NombreTipo`, `TipoSegunNombre` | `validacionCampos` |
 | `validacionCampos.ts` | `validarCampos`, `exigido` y sus tipos | todos los DTO (`src/dtos/`) |
 | `password.ts` | `conPasswordHasheada` | `alumno.service`, `administrador.service` |
-| `fechas.ts` | `parsearInstante`, `aHoraLocal`, `HoraLocal` | `clase.dto` (`parsearInstante`), `clase.service` (`aHoraLocal`) |
+| `fechas.ts` | `parsearInstante`, `parsearFecha`, `parsearHoraDelDia`, `aHoraLocal`, `instanteLocal`, `hoyEnLaEscuela`, `diaDeLaSemana`, `compararFechas`, `formatearFecha` y sus tipos | `clase.dto` y `turno.dto` (los `parsear…`), `clase.service` (`aHoraLocal`), `turno.service` (el resto) |
+| `extraerActor.ts` | `extraerActor` | `clase.controller`, `profesor.controller` |
 
 Cada uno tiene su test en `tests/utils/`. Como son funciones puras (o casi),
 son lo más fácil de testear del proyecto.
@@ -52,7 +53,7 @@ middleware `validacionDeCuerpo`.
 `cuerpoComoObjeto` usa ese guard para **lanzar** un error 400 si el body no es
 un objeto. Es el primer paso de `validarCampos` (sección 3). Por qué existe si
 `validacionDeCuerpo` ya hace ese chequeo en la ruta se explica en
-[`06-controllers.md`](06-controllers.md#2-leer-la-entrada).
+[`06-controllers.md`](06-controllers.md#2-leer-la-entrada-una-constante-con-nombre-por-dato).
 
 ### 2. `validacionTipos.ts`: comprobar tipos usando un texto
 
@@ -243,9 +244,29 @@ cambiado.
 
 Todos estos casos están en `tests/utils/fechas.test.ts`.
 
+#### 5.2b `parsearFecha` y `parsearHoraDelDia`: un día y una hora, sin instante
+
+La consulta de turnos libres no recibe instantes sino **un día del
+calendario** y **horas de reloj** de la escuela (`"fecha": "2026-11-09"`,
+`"desde": "08:00"`). Para eso hay dos funciones con la misma forma que
+`parsearInstante`: reciben el texto, dejan pasar `undefined` y responden 400 si
+el texto no sirve.
+
+| Función | Acepta | Devuelve | Rechaza (400) |
+|---|---|---|---|
+| `parsearFecha` (`fechas.ts:73`) | `AAAA-MM-DD` de un día que existe | `{ anio, mes, diaDelMes }` | `2026-02-31`, `09/11/2026`, `2026-11-9` → *"La fecha debe tener el formato AAAA-MM-DD"* |
+| `parsearHoraDelDia` (`fechas.ts:96`) | `H:MM` o `HH:MM`, de `0:00` a `23:59` | `{ hora, minuto }` | `24:00`, `08:60`, `8:0` → *"El desde debe tener el formato HH:MM"* |
+
+La hora puede tener uno o dos dígitos (`8:00` vale); los minutos, siempre dos.
+`24:00` no se acepta, igual que en `horaDelDiaSchema`, que llega hasta las 23.
+
+Una fecha de calendario **no es un `Date`**: es un día, no un instante. Por eso
+tiene su propio tipo, `FechaCalendario`, y sus propias funciones:
+`diaDeLaSemana`, `compararFechas` y `formatearFecha` (`"2026-11-09"`).
+
 #### 5.3 `aHoraLocal`: ¿qué día y qué hora es en la escuela?
 
-`fechas.ts:92` convierte un instante en `{ dia, hora, minuto }` **tal como lo
+`fechas.ts:145` convierte un instante en `{ dia, hora, minuto }` **tal como lo
 vería un reloj en la escuela**, sin depender de la zona del servidor. La hora
 de la escuela se define con un solo dato: `OFFSET_HORA_UTC`, las horas de
 diferencia con UTC (`-3` por defecto), que se lee del `.env` en `config/env.ts`.
@@ -254,7 +275,7 @@ La cuenta es corta: se le suma el offset al instante y se leen el día y la
 hora con los métodos `getUTC*`, que nunca miran la zona del proceso:
 
 ```ts
-function relojDeLaEscuela(instante: Date): Date {        // fechas.ts:80
+function relojDeLaEscuela(instante: Date): Date {        // fechas.ts:133
   const reloj = new Date(instante.getTime() + OFFSET_HORA_UTC * MS_POR_HORA);
   return reloj;
 }
@@ -281,8 +302,9 @@ Para `2026-11-02T13:00:00Z` con `-3`:
   [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md#7-por-qué-un-offset-fijo-y-qué-se-pierde).
 
 El camino inverso (de una fecha y una hora de la escuela a un instante) lo
-hace `instanteLocal` (`:159`), con el mismo offset. Lo usa la consulta de
-turnos libres, junto con `hoyEnLaEscuela` y `diaDeLaSemana`.
+hace `instanteLocal` (`:212`), con el mismo offset. Lo usa la consulta de
+turnos libres, junto con `hoyEnLaEscuela` (`:188`, qué día es hoy en la
+escuela) y `diaDeLaSemana` (`:178`).
 
 #### 5.4 Cómo se combinan en una reserva
 
@@ -307,6 +329,21 @@ en lugar de `aHoraLocal`, en una máquina en Argentina el test podría **pasar
 por casualidad**, porque la zona coincide. En UTC falla en **todas** las
 máquinas. Así se simula el servidor real y el error no llega a producción.
 
+### 6. `extraerActor.ts`: quién hace el pedido
+
+Los services no reciben `req`: reciben un `Actor { id, rol }`
+(`src/types/actor.ts`). `extraerActor(req)` (`src/utils/extraerActor.ts:16`)
+lo arma con lo que dejó `requireAuthentication` en `req.auth`, y traduce
+`role` (el nombre del dato en el token) a `rol`.
+
+Si `req.auth` no existe, porque la ruta se montó sin `requireAuthentication`,
+lanza `ErrorAutenticacion` con el mismo mensaje que el middleware (401 *"Se
+requiere autenticación válida"*), en vez de leer `.id` de `undefined` y
+responder 500. El mensaje sale de `MENSAJE_NO_AUTORIZADO`, en
+`errors/errorAutenticacion.ts`, para que `utils/` no dependa de
+`middlewares/`. Lo usan los controllers: ver
+[`06-controllers.md`](06-controllers.md).
+
 ---
 
 ## Qué puede salir mal
@@ -315,7 +352,7 @@ máquinas. Así se simula el servidor real y el error no llega a producción.
 |---|---|
 | Las clases quedan 3 horas corridas | Se aceptó una fecha **sin zona**, o se usó `getHours()` en lugar de `aHoraLocal`. |
 | Una clase del domingo a la noche figura como lunes | Se usó `getDay()`: en UTC ya es el día siguiente. |
-| Se acepta una fecha como "31 de febrero" | Se usó `new Date(texto)` sin `parsearInstante`. |
+| Se acepta una fecha como "31 de febrero" | Se usó `new Date(texto)` sin `parsearInstante` o `parsearFecha`. |
 | El servidor no arranca: "OFFSET_HORA_UTC debe ser un número de horas" | `OFFSET_HORA_UTC` está mal escrito en el `.env` (`-03:00`, `UTC` o un nombre de zona). |
 | La contraseña se guarda en texto plano | El service no pasó los datos por `conPasswordHasheada`. |
 | Un mensaje de error dice "debe ser undefined" | Se usó un `tipo` que no está en `DESCRIPCION_TIPO`. `satisfies` lo impide al compilar, siempre que no se use un `as` para saltearlo. |
@@ -335,5 +372,9 @@ máquinas. Así se simula el servidor real y el error no llega a producción.
 - Fechas: **entrada con zona** (`parsearInstante`) → **guardado en UTC** →
   **cálculos con el offset de la escuela** (`OFFSET_HORA_UTC` en `aHoraLocal`, nunca
   `getDay`/`getHours`) → **salida en ISO UTC**.
+- Un día del calendario (`parsearFecha`) y una hora de reloj
+  (`parsearHoraDelDia`) no son instantes: se pasan a instante con
+  `instanteLocal`, con el mismo offset.
+- `extraerActor` traduce `req.auth` al `Actor` que reciben los services.
 
 **Siguiente lectura:** [`11-tests-vitest.md`](11-tests-vitest.md).

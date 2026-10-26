@@ -1,11 +1,12 @@
 // ============================================================
 //  errorClaveDuplicada.ts — Error de índice unique violado
 // ============================================================
-// A diferencia de ErrorDeNegocio (que el service lanza directo ante una
-// condición que él mismo evalúa, ej. "cantidad < 0"), a ErrorClaveDuplicada
-// no la arma el service "a mano": se construye a partir del error CRUDO
-// que tira Mongoose/MongoDB al repetir un valor que estaba marcado como
-// unique.
+// Un valor marcado como unique que ya usa otro documento. Casi siempre
+// se construye a partir del error CRUDO que tira Mongoose/MongoDB al
+// repetirlo (verSiErrorClaveDuplicada, abajo). Un service también puede
+// lanzarla "a mano" si busca el duplicado antes de guardar (ej.
+// auto.service.ts): así el cliente recibe el mismo error por los dos
+// caminos.
 
 import { ErrorDeNegocio } from './errorDeNegocio.js';
 

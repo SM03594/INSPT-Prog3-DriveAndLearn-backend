@@ -62,11 +62,15 @@ lo decide el DTO, en el paso 2.
 
 #### Paso 2. El controller arma el DTO
 
-`src/controllers/alumno.controller.ts:31`:
+`src/controllers/alumno.controller.ts:37`:
 
 ```ts
 export async function crear(req: Request, res: Response) {
-  const alumno = await alumnoService.crear(aCrearAlumnoDto(req.body));
+  // El DTO valida la forma del body; el service fija el saldo inicial,
+  // que no controla el cliente.
+  const datosAlumno: CrearAlumnoDto = aCrearAlumnoDto(req.body);
+  const alumno: AlumnoDoc = await alumnoService.crear(datosAlumno);
+
   res.status(201).json(alumno);
 }
 ```
@@ -162,13 +166,15 @@ El `toJSON.transform` del modelo `Usuario` quitó `password` y `__v`.
 
 #### Paso 7. Ruta y controller
 
-`src/routes/auth.routes.ts:7` → `src/controllers/auth.controller.ts:6`:
+`src/routes/auth.routes.ts:7` → `src/controllers/auth.controller.ts:7`:
 
 ```ts
 router.post('/login', validacionDeCuerpo, authController.login);
 
 export async function login(req: Request, res: Response) {
-  const resultado = await authService.autenticar(aLoginDto(req.body));
+  const credenciales: LoginDto = aLoginDto(req.body);
+  const resultado: ResultadoAutenticacion = await authService.autenticar(credenciales);
+
   res.status(200).json(resultado);
 }
 ```
@@ -276,7 +282,7 @@ GET /api/alumnos/6ada67d6a1255f5aab347d4b
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-`requireAuthentication` (`src/middlewares/auth.middleware.ts:117`) verifica
+`requireAuthentication` (`src/middlewares/auth.middleware.ts:116`) verifica
 el token **con las mismas opciones con que se firmó** (algoritmo, audiencia,
 emisor) y carga `req.auth = { id: payload.sub, role: payload.role }`. A partir
 de ahí, los siguientes middlewares y el controller saben quién es. Se explica

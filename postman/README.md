@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 11 carpetas, 194 requests
+├── DriveAndLearn.postman_collection.json   # 12 carpetas, 231 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado
@@ -34,7 +34,7 @@ environment `remoto` (reemplazar `https://<servidor>/api`).
 |---|---|
 | `baseUrl` | Prefijo de todas las URLs. |
 | `adminEmail` / `adminPassword` | Admin con el que arranca la corrida. |
-| `offsetZona` | Offset de la zona de la escuela (`-03:00`) para armar las fechas de las clases. |
+| `offsetZona` | Offset de la zona de la escuela (`-03:00`) para armar las fechas de las clases y de los turnos. Tiene que ser el mismo que `OFFSET_HORA_UTC` del servidor, escrito como `±HH:MM` (`-3` en el `.env` es `-03:00` acá); si no, las reservas caen fuera de horario. |
 | `modoSeguro` | `true` en remoto: saltea los `PUT /horario-escuela`, que reemplazan el horario completo de la escuela. |
 | `maxTiempoMs` | Tiempo máximo de respuesta aceptado (test global). |
 
@@ -50,16 +50,19 @@ Clic derecho en la colección → **Run collection** → dejar el orden por defe
 | `02 Alumnos` | Registro, permisos propios / de admin, saldo de clases. |
 | `03 Administradores` | Alta, edición, baja y token de un admin borrado. |
 | `04 Autos` | CRUD y puesta fuera de servicio. |
-| `05 Profesores` | Alta, edición y disponibilidad. |
-| `06 Horario de la escuela` | Horario semanal de la escuela: ver, reemplazar, agregar y quitar tramos. |
-| `07 Clases` | Reservas: fechas, horarios, solapamientos, saldo, permisos, eliminación. |
+| `05 Profesores` | Alta, edición y disponibilidad (tramos en punto). |
+| `06 Horario de la escuela` | Horario semanal de la escuela: ver, reemplazar, agregar y quitar tramos (en punto). |
+| `07 Clases` | Reservas: fechas, clases en punto, horarios, solapamientos (también del alumno con otro profesor y otro auto), saldo según quién reserva, permisos, eliminación. |
+| `07b Turnos libres` | `POST /profesores/:id/turnos-libres`: errores del pedido, filtros (`cambios`, `desde`, `hasta`) y una ida y vuelta: consultar, reservar el primer turno, no verlo, eliminar la clase y verlo otra vez. |
 | `08 Errores generales` | Ruta inexistente y bodies ilegibles. |
-| `09 Validación de campos y tipos` | Un pedido por endpoint con body JSON que manda un campo de más, un tipo incorrecto o un operador (`$set`). Todos dan 400: los rechaza el DTO de cada endpoint. |
+| `09 Validación de campos y tipos` | Un pedido por endpoint con body JSON que manda un campo de más, un tipo incorrecto o un operador (`$set`, `$where`). Todos dan 400: los rechaza el DTO de cada endpoint. |
 | `99 Teardown` | Limpieza: deja el horario como estaba y borra las clases y los alumnos. |
 
 **Correr una carpeta suelta**: correr antes `00 Setup` (genera los tokens y los
 ids que usan las demás). `07 Clases` además supone que el alumno 1 tiene 2 clases:
-para repetirla, volver a correr el Setup.
+para repetirla, volver a correr el Setup. `07b Turnos libres` supone que se corrió
+`07 Clases` justo antes: usa sus clases (el profesor del Setup queda ocupado a las 11
+y a las 13), el auto 2 que crea y el saldo en 0 del alumno 1.
 
 ### Tests que fallan a propósito
 
@@ -79,7 +82,8 @@ tipos` pasaron a verde cuando cada endpoint tuvo su DTO (`src/dtos/`).
 - **Datos únicos**: todo lo que crea una corrida lleva `{{runId}}` (la hora en
   milisegundos), así se puede correr muchas veces contra la misma base.
 - **Helpers**: el *Pre-request* de la colección define `utils` (`esperarStatus`,
-  `esperarError`, `guardarId`, `fechaIso`, `diaSemana`…), disponible en todos los scripts.
+  `esperarError`, `guardarId`, `fechaIso`, `diaSemana`, `inicioIso`, `iniciosDeTurnos`…),
+  disponible en todos los scripts.
   Los que usan `pm` lo reciben como primer parámetro: `utils.esperarStatus(pm, 200)`.
   En Postman cada script tiene su propio `pm`, y el del pre-request de la colección
   no tiene `response`; si el helper usara ese, el test fallaría con
@@ -91,8 +95,8 @@ tipos` pasaron a verde cuando cada endpoint tuvo su DTO (`src/dtos/`).
 ## 5. Qué queda en la base
 
 La API no tiene `DELETE` para profesores ni autos, así que después de cada corrida
-quedan, marcados con `[POSTMAN]` / patente `PM…`: 2 profesores y 3 autos fuera de
-servicio. Las clases, los alumnos y el admin de prueba se borran, y el horario de la
+quedan, marcados con `[POSTMAN]` / patente `PM…`: 2 profesores (sin disponibilidad)
+y 4 autos fuera de servicio. Las clases, los alumnos y el admin de prueba se borran, y el horario de la
 escuela vuelve a ser el original (el Teardown lo verifica).
 
 ## 6. Modificar la colección

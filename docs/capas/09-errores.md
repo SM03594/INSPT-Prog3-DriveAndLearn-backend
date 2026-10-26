@@ -88,6 +88,11 @@ export class ErrorPeticionSinCuerpo extends ErrorPeticionInvalida {
 permisos.** Los lanza `auth.middleware`, y también `auth.service` cuando el
 login falla. La diferencia se explica en
 [`05-middlewares.md`](05-middlewares.md#4-requireadministrator-podés).
+`ErrorAutenticacion` lo lanza además `extraerActor` (`utils/extraerActor.ts`)
+si una ruta se montó sin `requireAuthentication`. Los dos usan el mismo
+mensaje, `MENSAJE_NO_AUTORIZADO` (*"Se requiere autenticación válida"*), que
+se exporta desde `errorAutenticacion.ts`, junto a la clase: así `utils/` no
+tiene que importar nada de `middlewares/`.
 
 **`ErrorDeNegocio`: una regla del dominio.** Lo lanzan los services, y también
 los DTO cuando el body no cumple el contrato ("La marca debe ser un texto"). Por
@@ -116,7 +121,7 @@ devuelvo sin cambios.*
 | `verSiErrorAutenticacion` | `errorAutenticacion.ts` | `jwt.JsonWebTokenError` (firma inválida, vencido...) | `ErrorAutenticacion` (401) | `auth.middleware` |
 | `verSiErrorLecturaCuerpo` | `errorLecturaCuerpo.ts` | Error de `express.json()` | `ErrorJsonInvalido` o `ErrorLecturaCuerpo` | `errorHandler` |
 
-Así se usa uno (`src/services/auto.service.ts:50`):
+Así se usa uno (`src/services/auto.service.ts:78`):
 
 ```ts
 try {
@@ -146,13 +151,10 @@ POST /api/autos { "patente": "AB123CD", "cambios": "MANUAL" }
  ▼ auto.controller.crear → autoService.crear(aCrearAutoDto(req.body))
  │    (el DTO deja pasar el body: los campos y los tipos están bien)
  │
- ▼ AutoModel.create(...)
- │    MongoDB rechaza: índice único violado
- │    Mongoose lanza MongooseError("La patente ingresada ya está en uso")
- │                   con .cause = { code: 11000, ... }
- ▼ catch → verSiErrorClaveDuplicada(err, ...)
- │    err.cause.code === 11000  → new ErrorClaveDuplicada(err.message)   (status 409)
- │    throw
+ ▼ verificarPatenteLibre("AB123CD")
+ │    AutoModel.exists({ patente: "AB123CD" }) encuentra otro auto
+ │    throw new ErrorClaveDuplicada("La patente ya está en uso")   (status 409)
+ │    (create() ni se llega a llamar)
  ▼ el controller no lo atrapa → la promesa del handler se rechaza
  ▼ Express 5 se lo pasa al errorHandler
  │
@@ -160,8 +162,14 @@ POST /api/autos { "patente": "AB123CD", "cambios": "MANUAL" }
  │    ¿ValidationError? no · ¿CastError? no · ¿error HTTP? no
  │    ¿instanceof ErrorDeNegocio? SÍ (ErrorClaveDuplicada extiende de él)
  ▼
-409 { "mensaje": "La patente ingresada ya está en uso" }
+409 { "mensaje": "La patente ya está en uso" }
 ```
+
+El camino por `verSiErrorClaveDuplicada` (el error crudo envuelto por
+Mongoose, con el mensaje del esquema) se ve cuando se repite un **email**, y
+con autos solo si llegan dos altas iguales a la vez: las dos pasan la
+búsqueda y el índice `unique` rechaza la segunda con
+`409 "La patente ingresada ya está en uso"`.
 
 ### 5. El `errorHandler`: un solo lugar decide
 

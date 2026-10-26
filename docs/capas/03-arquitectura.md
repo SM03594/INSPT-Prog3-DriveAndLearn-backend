@@ -45,7 +45,7 @@ Cada capa importa solo a la que tiene **debajo**, nunca a la de arriba:
  routes ──────► middlewares ──► services (solo auth: ¿el admin existe?)
    │
    ▼
- controllers ─► dtos ────────► utils (validarCampos) · errors · types
+ controllers ─► dtos ────────► utils (validarCampos, extraerActor) · errors · types
    │
    ▼
  services ────► errors · utils · config · types
@@ -58,7 +58,9 @@ Cada capa importa solo a la que tiene **debajo**, nunca a la de arriba:
 Algunas consecuencias que podés verificar en el código:
 
 - Ningún service toca `req` ni `res`: no sabe que existe HTTP.
-- Ningún controller importa un `Model`: siempre pasa por un service.
+- Ningún controller usa un `Model`: siempre pasa por un service. Como mucho
+  importa sus **tipos** (`import type { AutoDoc }`), que desaparecen al
+  compilar.
 - Ningún service llama a una función `aXDto`: solo importa los **tipos** de los
   DTO. La conversión del body la hace el controller.
 - `models/` no importa services ni controllers.
@@ -153,11 +155,14 @@ función". Los middlewares se explican en detalle en
 
 ### 4. El controller: de HTTP a función
 
-`src/controllers/auto.controller.ts:41`:
+`src/controllers/auto.controller.ts:56`:
 
 ```ts
 export async function cambiarActivo(req: Request<{ id: string }>, res: Response) {
-  const auto = await autoService.cambiarEstado(req.params.id, aCambiarActivoDto(req.body).activo);
+  const idAuto: string = req.params.id;
+  const { activo }: CambiarActivoDto = aCambiarActivoDto(req.body);
+  const auto: AutoDoc | null = await autoService.cambiarEstado(idAuto, activo);
+
   if (auto === null) {
     res.status(404).json({ mensaje: 'Auto no encontrado' });
   } else {
@@ -170,14 +175,14 @@ El controller **no decide nada del negocio**. Saca los datos de `req`,
 convierte el body en un DTO y llama al service. Después convierte el resultado
 en una respuesta HTTP: `null` se traduce en 404, y un auto en 200.
 
-`aCambiarActivoDto` (`src/dtos/auto.dto.ts:78`) comprueba la **forma** del
+`aCambiarActivoDto` (`src/dtos/auto.dto.ts:116`) comprueba la **forma** del
 body: que traiga `activo`, que sea un booleano de verdad (`"false"` como texto
 no sirve) y que no traiga otros campos. Si algo no cumple, lanza un error 400
 y el service ni se entera. Ver [`06b-dtos.md`](06b-dtos.md).
 
 ### 5. El service: las reglas
 
-`src/services/auto.service.ts:84`:
+`src/services/auto.service.ts:118`:
 
 ```ts
 export async function cambiarEstado(id: string, estadoNuevo: boolean): Promise<AutoDoc | null> {
@@ -194,7 +199,7 @@ se convierte en 400 o 409 lo decide otra capa.
 
 ### 6. El model: la base
 
-`AutoModel` (`src/models/Auto.ts:87`) envía el update a MongoDB.
+`AutoModel` (`src/models/Auto.ts:91`) envía el update a MongoDB.
 `new: true` hace que devuelva el documento **ya actualizado**, y
 `runValidators` corre las validaciones del esquema también en el update.
 Cuando el controller hace `res.json(auto)`, el `toJSON` del esquema le saca

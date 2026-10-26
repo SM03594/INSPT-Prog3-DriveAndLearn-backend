@@ -48,9 +48,10 @@ Hay un archivo por recurso en `src/controllers/`: `alumno`, `administrador`,
 ```ts
 import type { Request, Response } from 'express';
 import * as autoService from '../services/auto.service.js';
+import type { AutoDoc } from '../models/Auto.js';
 
 export async function listar(_req: Request, res: Response) {
-  const autos = await autoService.listar();
+  const autos: AutoDoc[] = await autoService.listar();
   res.json(autos);
 }
 ```
@@ -58,28 +59,38 @@ export async function listar(_req: Request, res: Response) {
 - Son **funciones sueltas exportadas**, no una clase. El router las importa
   todas juntas con `import * as autoController` y usa `autoController.listar`.
 - Son `async` porque el service habla con la base, y eso devuelve promesas.
-- `import type` importa solo los tipos de Express. Ese import desaparece al
-  compilar.
+- `import type` importa solo **tipos** (los de Express, `AutoDoc`). Esos
+  imports desaparecen al compilar: el controller no pasa a depender de la
+  capa model cuando corre la app.
 - `_req` lleva guion bajo porque `listar` no lo usa.
 
-### 2. Leer la entrada
+### 2. Leer la entrada: una constante con nombre por dato
+
+Todos los controllers siguen la misma forma: **cada dato que se le pasa al
+service va primero a una constante con nombre y tipo**, en el mismo orden en
+que el service los recibe. Recién después viene la llamada. Así la llamada se
+lee como una oración (`autoService.actualizar(idAuto, cambios)`) y no como una
+cadena de llamadas anidadas.
 
 **Parámetros de la URL.** `Request<{ id: string }>` le indica a TypeScript que
-`req.params.id` existe (`auto.controller.ts:18`):
+`req.params.id` existe (`auto.controller.ts:26`):
 
 ```ts
 export async function obtener(req: Request<{ id: string }>, res: Response) {
-  const auto = await autoService.obtenerPorId(req.params.id);
+  const idAuto: string = req.params.id;
+  const auto: AutoDoc | null = await autoService.obtenerPorId(idAuto);
 ```
 
 **El body.** En Express, `req.body` es de tipo **`any`**: TypeScript no sabe
 qué trae y tampoco lo controla. Por eso el controller **nunca** se lo pasa al
 service tal cual: primero lo convierte en el **DTO** de la operación
-(`src/controllers/auto.controller.ts:27`):
+(`src/controllers/auto.controller.ts:37`):
 
 ```ts
 export async function crear(req: Request, res: Response) {
-  const auto = await autoService.crear(aCrearAutoDto(req.body));
+  const datosAuto: CrearAutoDto = aCrearAutoDto(req.body);
+  const auto: AutoDoc = await autoService.crear(datosAuto);
+
   res.status(201).json(auto);
 }
 ```
@@ -87,42 +98,70 @@ export async function crear(req: Request, res: Response) {
 `aCrearAutoDto` comprueba que el body traiga solo los campos del contrato, del
 tipo correcto y con los obligatorios. Si algo no cumple, lanza un error 400 y
 el service ni se entera. Si cumple, devuelve un objeto **nuevo** y tipado.
-Cuando el service necesita un solo campo, el controller lo saca del DTO:
-`aCambiarActivoDto(req.body).activo`. Todo esto se explica en
-[`06b-dtos.md`](06b-dtos.md).
+Cuando el service necesita un solo campo, el controller lo saca del DTO
+desarmándolo, con el tipo del DTO (`auto.controller.ts:58`):
+
+```ts
+const { activo }: CambiarActivoDto = aCambiarActivoDto(req.body);
+```
+
+Todo esto se explica en [`06b-dtos.md`](06b-dtos.md).
 
 ¿Y `validacionDeCuerpo`, el middleware de la ruta? Comprueba antes que el
 pedido traiga un objeto JSON, y respeta el orden 401 → 403 → 400 (ver
 [`05-middlewares.md`](05-middlewares.md)). El DTO vuelve a comprobarlo, como
 red de seguridad, y además revisa los campos.
 
-**Quién hace el pedido.** Solo `clase.controller.ts` lo necesita, porque los
-permisos de las clases dependen del usuario. Tiene un pequeño **adaptador**
-(`clase.controller.ts:15`):
+**Quién hace el pedido.** Lo necesitan `clase.controller.ts` (los permisos de
+las clases dependen del usuario) y `turnosLibres` de `profesor.controller.ts`
+(a un alumno no se le ofrecen turnos en los que ya tiene clase). Los dos usan
+el mismo **adaptador**, `extraerActor` (`src/utils/extraerActor.ts:16`):
 
 ```ts
-function actorDe(req: Request): ActorClase {
-  const auth = req.auth!;                 // la ruta garantiza requireAuthentication
-  return { id: auth.id, rol: auth.role };
+export function extraerActor(req: Request): Actor {
+  const auth = req.auth;
+
+  // Solo pasa si la ruta se montó sin requireAuthentication antes.
+  if (auth === undefined) {
+    throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
+  }
+
+  const actor: Actor = { id: auth.id, rol: auth.role };
+  return actor;
 }
 ```
 
-Convierte `req.auth`, que es un concepto de HTTP y usa `role` en inglés, en un
-`ActorClase`, que es lo que entiende el service y usa `rol`. Así el service no
-depende de la forma de `req`. El rol también decide el contrato de la reserva:
-`aCrearClaseDto(req.body, actor.rol)` acepta el campo `alumno` solo si reserva
-un admin.
+Convierte `req.auth`, que es un concepto de HTTP y usa `role` (el nombre del
+dato en el token), en un `Actor` (`src/types/actor.ts`), que es lo que
+entienden los services y usa `rol`. Así los services no dependen de la forma
+de `req`. Si una ruta se montara sin `requireAuthentication`, responde 401 en
+vez de romperse con un 500.
+
+El rol también decide el contrato de la reserva (`clase.controller.ts:44-45`):
+
+```ts
+const actor: Actor = extraerActor(req);
+const datosReserva: CrearClaseDto = aCrearClaseDto(req.body, actor.rol);
+```
+
+`aCrearClaseDto` acepta el campo `alumno` solo si reserva un admin.
 
 ### 3. Llamar al service, sin `try/catch`
 
 ```ts
-const auto = await autoService.crear(aCrearAutoDto(req.body));
+const auto: AutoDoc = await autoService.crear(datosAuto);
 ```
 
 Si el DTO o el service lanzan un error (por ejemplo, un campo de más o una
 patente repetida), el controller **no lo atrapa**. Express 5 ve que la promesa del handler se
 rechazó y le pasa el error al `errorHandler`. Por eso ningún controller tiene
-`try/catch`, y casi todos tienen 3 a 6 líneas.
+`try/catch`, y casi todos tienen unas pocas líneas: las constantes, la llamada
+y la respuesta.
+
+Las constantes se calculan en el mismo orden que antes eran los argumentos, y
+ese orden decide qué error sale primero. En `turnosLibres`, por ejemplo, el
+DTO va antes que `extraerActor`: un body mal armado da 400 antes de mirar al
+actor.
 
 ### 4. Traducir el resultado a HTTP
 
@@ -142,10 +181,12 @@ lanza un error         ──► (no llega acá: lo responde el errorHandler)
 ```
 
 El caso de `null` aparece en casi todos los controllers
-(`alumno.controller.ts:22`):
+(`alumno.controller.ts:26`):
 
 ```ts
-const alumno = await alumnoService.obtenerPorId(req.params.id);
+const idAlumno: string = req.params.id;
+const alumno: AlumnoDoc | null = await alumnoService.obtenerPorId(idAlumno);
+
 if (alumno === null) {
   res.status(404).json({ mensaje: 'Alumno no encontrado' });
 } else {
@@ -172,7 +213,9 @@ enviar JSON.
 
 ```ts
 export async function login(req: Request, res: Response) {
-  const resultado = await authService.autenticar(aLoginDto(req.body));
+  const credenciales: LoginDto = aLoginDto(req.body);
+  const resultado: ResultadoAutenticacion = await authService.autenticar(credenciales);
+
   res.status(200).json(resultado);
 }
 ```
@@ -192,13 +235,13 @@ coinciden, el service lanza `ErrorAutenticacion` y el resultado es un **401**.
 | `auth` | `login` | `auth.dto` | `auth.service` |
 | `auto` | `listar`, `obtener`, `crear`, `actualizar`, `cambiarActivo` | `auto.dto` | `auto.service` |
 | `clase` | `listar`, `obtener`, `crear`, `actualizar`, `eliminar` | `clase.dto` | `clase.service` |
-| `horarioEscuela` | `obtener`, `reemplazar`, `validar`, `agregar`, `quitar` | `calendarioSemanal.dto` | `horarioEscuela.service` |
-| `profesor` | `listar`, `obtener`, `crear`, `cambiarNomApe`, `agregarDisponibilidad`, `quitarDisponibilidad` | `profesor.dto` y `calendarioSemanal.dto` | `profesor.service` |
+| `horarioEscuela` | `obtener`, `reemplazar`, `agregar`, `quitar` | `calendarioSemanal.dto` | `horarioEscuela.service` |
+| `profesor` | `listar`, `obtener`, `crear`, `cambiarNomApe`, `agregarDisponibilidad`, `quitarDisponibilidad`, `turnosLibres` | `profesor.dto`, `calendarioSemanal.dto` y `turno.dto` | `profesor.service` y `turno.service` |
 
 Cada controller usa **un solo** service, el de su recurso. La excepción es
-`horarioEscuela.controller`, que para `validar` también importa `validarDia`
-de `calendarioSemanal.service`. Las rutas sin body (`listar`, `obtener`,
-`eliminar`) no tienen DTO.
+`profesor.controller`, cuya consulta de turnos libres (`turnosLibres`) llama a
+`turno.service`. Las rutas
+sin body (`listar`, `obtener`, `eliminar`) no tienen DTO.
 
 ---
 
@@ -211,7 +254,8 @@ de `calendarioSemanal.service`. Las rutas sin body (`listar`, `obtener`,
 | Un `DELETE` responde 204 pero el cliente espera un JSON | Es lo esperado: 204 significa "sin cuerpo". |
 | Un controller crece con `if` y validaciones | Hay lógica en el controller. Si es de **forma** (qué campos, de qué tipo), va en el DTO; si es una **regla**, en el service. |
 | Un body con campos de más se guarda sin error | El controller le pasó `req.body` al service sin pasar por el DTO. Compila igual, porque `req.body` es `any`. |
-| `req.auth` es `undefined` | La ruta no pasa por `requireAuthentication`. El `!` de `actorDe` solo le asegura a TypeScript que no lo es, pero no lo comprueba al ejecutar. |
+| Una ruta de clases o de turnos responde 401 aunque el token es válido | La ruta no pasa por `requireAuthentication`, así que `req.auth` es `undefined` y `extraerActor` lo rechaza. |
+| Un controller es una sola línea larga con llamadas anidadas | Falta separar los datos en constantes con nombre y tipo antes de llamar al service. |
 
 ---
 
@@ -224,5 +268,9 @@ de `calendarioSemanal.service`. Las rutas sin body (`listar`, `obtener`,
   para borrar y 404 si el service devuelve `null`.
 - `req.body` es `any`: **nunca** se le pasa tal cual al service. Primero se
   convierte en el DTO de la operación.
+- Cada dato (el id, el DTO, el actor, el resultado) va en una constante con
+  nombre y tipo antes de usarlo.
+- El actor sale de `extraerActor` (`utils/extraerActor.ts`), que traduce
+  `req.auth` a un `Actor`.
 
 **Siguiente lectura:** [`06b-dtos.md`](06b-dtos.md).

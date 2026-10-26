@@ -6,7 +6,6 @@
 
 import type { Request, Response } from 'express';
 import * as horarioService from '../services/horarioEscuela.service.js';
-import { validarDia } from '../services/calendarioSemanal.service.js';
 import {
   aAgregarTramoDto,
   aQuitarTramoDto,
@@ -16,13 +15,6 @@ import {
   type ReemplazarCalendarioDto,
 } from '../dtos/calendarioSemanal.dto.js';
 import type { CalendarioSemanal } from '../models/CalendarioSemanal.js';
-
-export async function validar(req: Request<{ dia: string }>, res: Response) {
-  const dia: string = req.params.dia;
-
-  validarDia(dia);
-  res.json({ valido: true, dia });
-}
 
 export async function obtener(_req: Request, res: Response) {
   const calendario: CalendarioSemanal = await horarioService.obtener();

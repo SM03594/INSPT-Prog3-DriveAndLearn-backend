@@ -10,7 +10,7 @@ todavía no empezó, el alumno recupera su crédito. En los dos casos, la ruta
 primero comprueba que la clase sea del alumno que pide, o que pida un admin.
 
 > Las respuestas son **reales**, con el mismo escenario que
-> [`agendar-una-clase.md`](agendar-una-clase.md): un lunes con la escuela
+> [`agendar-una-clase.md`](agendar-una-clase.md): el lunes 09/11/2026, con la escuela
 > abierta de 08 a 20, el profesor Juan de 09 a 17, Ana con clases de 10–11 y
 > 11–12, y Beto de 14 a 15.
 
@@ -65,13 +65,13 @@ router.put('/:id', requireAlumnoDeLaClaseOAdministrador, validacionDeCuerpo, cla
 router.delete('/:id', requireAlumnoDeLaClaseOAdministrador, claseController.eliminar);
 ```
 
-`requireAlumnoDeLaClaseOAdministrador` (`src/middlewares/auth.middleware.ts:201`)
+`requireAlumnoDeLaClaseOAdministrador` (`src/middlewares/auth.middleware.ts:200`)
 deja pasar a un **admin activo** y al **alumno de la clase**. Para saber de
 quién es, le pide al service solo ese dato (`claseService.obtenerPorIdAlumno`,
-`src/services/clase.service.ts:244`):
+`src/services/clase.service.ts:240`):
 
 ```ts
-const idAlumnoDeLaClase = await claseService.obtenerPorIdAlumno(req.params.id);   // :219
+const idAlumnoDeLaClase = await claseService.obtenerPorIdAlumno(req.params.id);   // :218
 const esDeOtroAlumno = idAlumnoDeLaClase !== null && idAlumnoDeLaClase !== auth.id;
 ```
 
@@ -92,10 +92,14 @@ nunca coincidirían. Hace falta buscar la clase para conocer a su alumno.
 
 ### Paso 2. Controller y DTO
 
-`src/controllers/clase.controller.ts:46`:
+`src/controllers/clase.controller.ts:51`:
 
 ```ts
-const clase = await claseService.actualizar(req.params.id, aActualizarClaseDto(req.body), actorDe(req));
+const idClase: string = req.params.id;
+const cambios: ActualizarClaseDto = aActualizarClaseDto(req.body);
+const actor: Actor = extraerActor(req);
+const clase: ClaseDoc | null = await claseService.actualizar(idClase, cambios, actor);
+
 if (clase === null) {
   res.status(404).json({ mensaje: 'Clase no encontrada' });
 } else {
@@ -113,16 +117,16 @@ a `Date` con `parsearInstante`; la que no se manda queda `undefined`:
 | `{ "alumno": "..." }` | 400 "No se pueden modificar estos campos: alumno" |
 | `{ "estado": "confirmada" }` | 400 "No se pueden modificar estos campos: estado" |
 | `{ "inicio": 123 }` | 400 "El inicio debe ser un texto" |
-| `{ "inicio": "2026-10-26T15:00:00" }` (sin zona) | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
+| `{ "inicio": "2026-11-09T15:00:00" }` (sin zona) | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
 
 El alumno de una clase no se puede cambiar. Por qué la zona es obligatoria se
 explica en [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md).
 
 ### Paso 3. ¿Todavía se puede modificar?
 
-`actualizar` (`clase.service.ts:335`) busca la clase con `claseAccesible`
-(`:55`) y se la pasa a `reprogramar` (`:309`). Lo primero que hace es
-`validarClaseModificable` (`:196`):
+`actualizar` (`clase.service.ts:331`) busca la clase con `claseAccesible`
+(`:51`) y se la pasa a `reprogramar` (`:305`). Lo primero que hace es
+`validarClaseModificable` (`:192`):
 
 | Clase | Respuesta |
 |---|---|
@@ -130,7 +134,7 @@ explica en [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fec
 
 ### Paso 4. Calcular el nuevo horario
 
-`obtenerInstantesActualizados` (`:204`) completa lo que no vino, manteniendo
+`obtenerInstantesActualizados` (`:200`) completa lo que no vino, manteniendo
 siempre la duración de **1 hora**:
 
 | Se manda | `inicio` resultante | `fin` resultante |
@@ -144,15 +148,16 @@ Ana mueve su clase de 10–11 mandando solo el inicio:
 
 ```http
 PUT /api/clases/<clase de Ana>
-{ "inicio": "2026-10-26T15:00:00-03:00" }
+{ "inicio": "2026-11-09T15:00:00-03:00" }
 ```
 ```
-200 { ..., "inicio": "2026-10-26T18:00:00.000Z", "fin": "2026-10-26T19:00:00.000Z", ... }
+200 { ..., "inicio": "2026-11-09T18:00:00.000Z", "fin": "2026-11-09T19:00:00.000Z", ... }
                      └── 15:00 local ──┘             └── 16:00 local, calculado ──┘
 ```
 
-Después pasa por las mismas reglas de fecha que la reserva (futura, sin
-segundos, 1 hora).
+Después pasa por las mismas reglas de fecha que la reserva (futura, en una
+hora en punto, 1 hora). Mover la clase a las 10:30 responde 400 *"La clase
+debe empezar en una hora en punto (por ejemplo, 08:00)"*.
 
 ### Paso 5. Volver a comprobar la disponibilidad, sin chocar consigo misma
 
@@ -182,7 +187,7 @@ Con excluirId:   la consulta agrega { _id: { $ne: <esta clase> } } → solo mira
 ```ts
 clase.profesor = profesor; clase.auto = auto;
 clase.inicio = instantes.inicio; clase.fin = instantes.fin;
-const claseReprogramada = await clase.save();      // :285
+const claseReprogramada = await clase.save();      // :326
 ```
 
 Usa `.save()` para que corra también el `pre('validate')` del modelo (fin
@@ -194,11 +199,14 @@ posterior al inicio). **El saldo no cambia**: la clase sigue siendo una sola.
 
 ### Paso 7. Ruta y controller
 
-`clase.routes.ts:23` → `clase.controller.ts:61`. No lleva
+`clase.routes.ts:23` → `clase.controller.ts:66`. No lleva
 `validacionDeCuerpo`: eliminar no necesita datos, la URL dice todo.
 
 ```ts
-const clase = await claseService.eliminar(req.params.id, actorDe(req));
+const idClase: string = req.params.id;
+const actor: Actor = extraerActor(req);
+const clase: ClaseDoc | null = await claseService.eliminar(idClase, actor);
+
 if (clase === null) {
   res.status(404).json({ mensaje: 'Clase no encontrada' });
 } else {
@@ -208,15 +216,15 @@ if (clase === null) {
 
 ### Paso 8. El service
 
-`eliminar` (`clase.service.ts:360`):
+`eliminar` (`clase.service.ts:356`):
 
 ```
 validarActor ─► claseAccesible (no existe → null → 404)
    │
-   ├─ todaviaNoEmpezo = clase.inicio > new Date()          ← :323, se calcula ANTES de borrar
-   ├─ clase.deleteOne()                                    ← :325
+   ├─ todaviaNoEmpezo = clase.inicio > new Date()          ← :364, se calcula ANTES de borrar
+   ├─ clase.deleteOne()                                    ← :366
    ├─ si todaviaNoEmpezo:
-   │     alumnoService.sumarClasesPorReservar(alumno, 1)   ← :329, devuelve el crédito
+   │     alumnoService.sumarClasesPorReservar(alumno, 1)   ← :370, devuelve el crédito
    ▼
 204 (sin cuerpo)
 ```
@@ -248,7 +256,7 @@ DELETE /api/clases/<clase pasada de Ana>  → 204  → saldo 1   (no se devuelve
 ### Paso 9. El horario queda libre
 
 La clase ya no existe, así que la búsqueda de superposiciones
-(`validarAusenciaDeConflictos`, `:141`) no la encuentra. Beto puede reservar
+(`validarAusenciaDeConflictos`, `:137`) no la encuentra. Beto puede reservar
 ese mismo horario con el mismo profesor y el mismo auto:
 
 ```
@@ -278,6 +286,7 @@ No queda historial: la clase desaparece también de `GET /api/clases`.
 | `PUT` con `{}` | 400 "Debe indicarse al menos un campo para actualizar" |
 | `PUT` con `alumno` o `estado` | 400 "No se pueden modificar estos campos: alumno" / "…: estado" |
 | `PUT` con una fecha sin zona | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
+| `PUT` a una hora que no es en punto (10:30) | 400 "La clase debe empezar en una hora en punto (por ejemplo, 08:00)" |
 | `PUT` o `DELETE` sobre `/api/clases/abc` | 400 "Id inválido" |
 | `PUT` o `DELETE` sobre una clase que no existe (o ya eliminada) | 404 "Clase no encontrada" |
 | `PUT` sobre una clase pasada | 409 "No se puede modificar una clase que ya comenzó" |

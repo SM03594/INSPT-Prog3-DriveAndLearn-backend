@@ -6,8 +6,8 @@ Los tests de `tests/` son programas que **ejecutan el código del proyecto y
 comprueban que haga lo que debe**: que un service rechace una patente
 repetida, que una ruta pida token, que una fecha sin zona se rechace. Corren
 con **Vitest**, usan una **MongoDB en memoria** y prueban la API por HTTP **sin
-levantar un servidor**. Son unos 280 tests (283 al 22/10/2026) y tardan
-segundos.
+levantar un servidor**. Son unos 590 tests en 32 archivos (589 al
+26/10/2026) y tardan unos 25 segundos.
 
 ---
 
@@ -18,19 +18,25 @@ tests/
 ├── setupTestDB.ts                     ← prepara la MongoDB en memoria
 ├── utils/                             FUNCIONES PURAS: sin base y sin HTTP
 │   ├── fechas.test.ts
+│   ├── extraerActor.test.ts
 │   ├── password.test.ts
 │   ├── validacionCampos.test.ts
 │   └── validacionTipos.test.ts
+├── config/
+│   └── env.test.ts                    OFFSET_HORA_UTC: cambia el entorno y reimporta env.ts
 ├── dtos/                              DTOs: también funciones puras
-│   ├── alumno.dto.test.ts  auto.dto.test.ts  clase.dto.test.ts ...
+│   ├── alumno.dto.test.ts  auto.dto.test.ts  clase.dto.test.ts  turno.dto.test.ts ...
 ├── services/                          SERVICES: con base en memoria y sin HTTP
-│   ├── alumno.service.test.ts  auto.service.test.ts  clase.service.test.ts ...
+│   ├── alumno.service.test.ts  clase.service.test.ts  turno.service.test.ts ...
+├── models/
+│   └── Clase.test.ts                  los índices: le pregunta a MongoDB cuánto lee (explain)
 ├── middlewares/
 │   ├── validacionDeCuerpo.test.ts     middleware llamado a mano (sin base y sin HTTP)
 │   ├── auth.http.test.ts              HTTP con supertest + base
 │   ├── validacionDeCuerpo.http.test.ts
 │   └── errorHandler.http.test.ts      HTTP sin base (el pedido no llega a ningún router)
-└── clases.http.test.ts               HTTP de punta a punta (supertest + base)
+├── clases.http.test.ts                HTTP de punta a punta: reservas (supertest + base)
+└── turnos.http.test.ts                HTTP de punta a punta: turnos libres
 ```
 
 Hay cuatro tipos de test, del más simple al más completo:
@@ -103,7 +109,7 @@ describe('aHoraLocal', () => {                                     // agrupa tes
 
 ### 2. Muchos casos con una tabla: `it.each`
 
-Para probar la misma regla con muchas entradas (`fechas.test.ts:33`):
+Para probar la misma regla con muchas entradas (`fechas.test.ts:44`):
 
 ```ts
 it.each([
@@ -117,7 +123,7 @@ it.each([
 ```
 
 Se genera **un test por fila**, con nombres como "rechaza sin zona" o
-"rechaza fecha imposible". Por eso Vitest cuenta unos 280 tests aunque en el
+"rechaza fecha imposible". Por eso Vitest cuenta unos 590 tests aunque en el
 código haya menos `it(`.
 
 ### 3. Tests de service con MongoDB en memoria
@@ -260,6 +266,38 @@ Hay dos detalles que evitan tests que fallan "de repente":
   **todas** las máquinas, no solo en producción. Más detalles en
   [`10-utils-y-fechas.md`](10-utils-y-fechas.md#55-por-qué-los-tests-corren-en-utc).
 
+### 6b. Probar una variable de entorno: `vi.stubEnv` + reimportar
+
+`config/env.ts` lee `process.env` **una sola vez**, al importarse. Para probar
+otro `OFFSET_HORA_UTC`, el test cambia la variable y vuelve a importar el
+módulo de cero (`tests/config/env.test.ts`):
+
+```ts
+vi.stubEnv('OFFSET_HORA_UTC', 'abc');
+vi.resetModules();                                  // olvida el env.ts ya cargado
+await expect(import('../../src/config/env.js'))     // se vuelve a ejecutar
+  .rejects.toThrow('OFFSET_HORA_UTC debe ser un número de horas (por ejemplo, -3)');
+```
+
+`afterEach` deshace los dos (`vi.unstubAllEnvs()` y `vi.resetModules()`), así
+el resto de los tests ve el entorno original. `fechas.test.ts` usa el mismo
+truco para probar `instanteLocal` con `+05:30` (`'5.5'`).
+
+### 6c. Probar un índice: `explain`
+
+Que un índice exista no alcanza: tiene que **servir** para la búsqueda.
+`tests/models/Clase.test.ts` guarda 50 clases pasadas y 1 futura, y le
+pregunta a MongoDB cómo resolvería la búsqueda de superposiciones:
+
+```ts
+const explicacion = await ClaseModel.find({ ... }).explain('executionStats');
+expect(explicacion.executionStats.totalDocsExamined).toBeLessThanOrEqual(3);
+```
+
+Sin los índices, lee las 51. Antes, `await ClaseModel.init()` espera a que
+Mongoose termine de crearlos. Los índices se explican en
+[`../guias/indices-de-mongoose.md`](../guias/indices-de-mongoose.md).
+
 ### 7. Aislamiento: cada test empieza de cero
 
 - Cada **archivo** tiene su propia MongoDB en memoria, y Vitest corre varios
@@ -279,6 +317,8 @@ Hay dos detalles que evitan tests que fallan "de repente":
 | Una función de `utils/` | Función pura (`tests/utils/`) | Nuevo formato de fecha aceptado |
 | Qué campos acepta un endpoint | DTO (`tests/dtos/`) | "Al editar un auto no se puede mandar `activo`" → lanza el error |
 | Una regla de un service | Service (`tests/services/`) | "No se puede reservar con menos de 24 h" |
+| Un índice o una opción del esquema | Model (`tests/models/`) | "La búsqueda no lee las clases que ya terminaron" |
+| Una variable del `.env` | Config (`tests/config/`), con `vi.stubEnv` | "Un `OFFSET_HORA_UTC` vacío vale -3" |
 | Una ruta, un permiso o un middleware | HTTP (`*.http.test.ts`) | "Un alumno no puede ver a otro" → 403 |
 | Un mensaje o status de error | HTTP, o el test del middleware | JSON mal escrito → 400 |
 
@@ -302,8 +342,9 @@ Hay dos detalles que evitan tests que fallan "de repente":
   (con base en memoria) y **HTTP** (supertest + base en memoria).
 - `setupTestDB()`: una MongoDB por archivo, vacía antes de cada test.
 - Supertest prueba `app` completa sin abrir un puerto.
-- `it.each` para tablas de casos, `vi.fn()` para espiar `next`, y
-  `await expect(...).rejects` para errores async.
+- `it.each` para tablas de casos, `vi.fn()` para espiar `next`,
+  `await expect(...).rejects` para errores async, `vi.stubEnv` +
+  `vi.resetModules` para el `.env`, y `explain` para los índices.
 - Fechas relativas y `TZ=UTC` para que los tests no dependan del día ni de la
   máquina.
 
