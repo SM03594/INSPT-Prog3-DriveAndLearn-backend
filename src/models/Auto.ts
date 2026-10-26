@@ -65,11 +65,15 @@ const autoSchema = new Schema(
 );
 
 
+// Documento tal como queda guardado, igual que el esquema: marca y
+// modelo no son obligatorios, y "cambios" ya pasó por uppercase y el
+// enum. Lo que manda el cliente (CrearAutoDto) sí es cualquier texto:
+// "manual" es válido y el esquema lo guarda como "MANUAL".
 export interface Auto {
-  marca: string;
-  modelo: string;
+  marca?: string;
+  modelo?: string;
   patente: string;
-  cambios: string;
+  cambios: Cambios;
   activo: boolean;
 }
 

@@ -1,14 +1,40 @@
 // ============================================================
 //  auto.dto.test.ts — Tests de src/dtos/auto.dto.ts (sin DB)
 // ============================================================
-// Los valores permitidos de "cambios" y el unique de la patente los
-// valida el esquema: se prueban en auto.service.test.ts.
+// El unique de la patente lo valida el esquema: se prueba en
+// auto.service.test.ts. "cambios" lo convierte el DTO (parsearCambios).
 
 import { describe, it, expect } from 'vitest';
-import { aActualizarAutoDto, aCambiarActivoDto, aCrearAutoDto } from '../../src/dtos/auto.dto.js';
+import {
+  aActualizarAutoDto,
+  aCambiarActivoDto,
+  aCrearAutoDto,
+  parsearCambios,
+} from '../../src/dtos/auto.dto.js';
 import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
 
 const datosValidos = { marca: 'Fiat', modelo: 'Cronos', patente: 'AB123CD', cambios: 'MANUAL' };
+
+describe('parsearCambios', () => {
+  it.each([
+    ['MANUAL', 'MANUAL'],
+    ['manual', 'MANUAL'],
+    ['Automatico', 'AUTOMATICO'],
+  ])('convierte %s en %s', (valor, esperado) => {
+    expect(parsearCambios(valor)).toBe(esperado);
+  });
+
+  it('deja pasar undefined (lo obligatorio lo decide cada DTO)', () => {
+    expect(parsearCambios(undefined)).toBeUndefined();
+  });
+
+  it.each(['cohete', '', ' MANUAL', 'AUTOMÁTICO'])('rechaza %j', (valor) => {
+    const llamada = () => parsearCambios(valor);
+
+    expect(llamada).toThrow(ErrorDeNegocio);
+    expect(llamada).toThrow('El tipo de cambios debe ser MANUAL o AUTOMATICO');
+  });
+});
 
 describe('aCrearAutoDto', () => {
   it('devuelve un objeto nuevo con los campos que vinieron', () => {
@@ -53,6 +79,16 @@ describe('aCrearAutoDto', () => {
 
     expect(() => aCrearAutoDto(sinCampo)).toThrow(mensaje);
   });
+
+  it('pasa "cambios" a mayúsculas', () => {
+    expect(aCrearAutoDto({ ...datosValidos, cambios: 'automatico' }).cambios).toBe('AUTOMATICO');
+  });
+
+  it('rechaza un "cambios" que no es MANUAL ni AUTOMATICO', () => {
+    expect(() => aCrearAutoDto({ ...datosValidos, cambios: 'cohete' })).toThrow(
+      'El tipo de cambios debe ser MANUAL o AUTOMATICO',
+    );
+  });
 });
 
 describe('aActualizarAutoDto', () => {
@@ -80,6 +116,21 @@ describe('aActualizarAutoDto', () => {
 
   it('rechaza una marca que no es texto', () => {
     expect(() => aActualizarAutoDto({ marca: 123 })).toThrow('La marca debe ser un texto');
+  });
+
+  it('pasa "cambios" a mayúsculas', () => {
+    expect(aActualizarAutoDto({ cambios: 'manual' })).toEqual({ cambios: 'MANUAL' });
+  });
+
+  it('rechaza un "cambios" inválido', () => {
+    expect(() => aActualizarAutoDto({ cambios: 'cohete' })).toThrow(
+      'El tipo de cambios debe ser MANUAL o AUTOMATICO',
+    );
+  });
+
+  // toEqual ignora las claves con undefined: por eso se mira la clave.
+  it('sin "cambios", el DTO no trae la clave', () => {
+    expect(aActualizarAutoDto({ modelo: 'Cronos Drive' })).not.toHaveProperty('cambios');
   });
 });
 

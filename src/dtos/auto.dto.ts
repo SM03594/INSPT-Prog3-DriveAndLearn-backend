@@ -2,12 +2,16 @@
 //  auto.dto.ts — Lo que el cliente puede mandar sobre un auto
 // ============================================================
 // Ver dtos/administrador.dto.ts para la idea general. Acá se valida
-// la FORMA. Las reglas del dato siguen en el esquema: los valores
-// permitidos de "cambios" (enum), mayúsculas y unique de la patente.
+// la FORMA, y "cambios" sale ya convertido a 'MANUAL' | 'AUTOMATICO'
+// (parsearCambios). Las reglas del dato siguen en el esquema: las
+// mayúsculas y el unique de la patente (y el enum de "cambios", como
+// segunda barrera).
 //
 // "activo" se puede mandar al crear (un auto puede nacer fuera de
 // servicio), pero después solo cambia por PATCH /autos/:id/activo.
 
+import { CAMBIOS, type Cambios } from '../models/Auto.js';
+import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import {
   AL_MODIFICAR,
   SIN_CAMPOS_DE_MAS,
@@ -17,7 +21,7 @@ import {
 
 export interface CrearAutoDto {
   patente: string;
-  cambios: string;
+  cambios: Cambios;
   marca?: string;
   modelo?: string;
   activo?: boolean;
@@ -41,6 +45,34 @@ const CAMPO_ACTIVO = {
   activo: { tipo: 'boolean', nombre: 'El campo activo' },
 } as const;
 
+// Type guard: después del if, TypeScript ya sabe que el texto es un
+// Cambios. El "as" solo amplía CAMBIOS a una lista de string para
+// poder buscar en ella cualquier texto.
+function esCambios(texto: string): texto is Cambios {
+  const esValido = (CAMBIOS as readonly string[]).includes(texto);
+  return esValido;
+}
+
+// ============================================================
+//  parsearCambios — texto del body -> 'MANUAL' | 'AUTOMATICO'
+// ============================================================
+// Acepta minúsculas ("manual"), igual que el uppercase del esquema.
+// undefined pasa tal cual: lo obligatorio lo decide cada DTO con
+// exigido(). Lo usan este DTO y el de la consulta de turnos.
+export function parsearCambios(valor: string | undefined): Cambios | undefined {
+  let cambios: Cambios | undefined;
+
+  if (valor !== undefined) {
+    const enMayusculas = valor.toUpperCase();
+    if (!esCambios(enMayusculas)) {
+      throw new ErrorDeNegocio('El tipo de cambios debe ser MANUAL o AUTOMATICO');
+    }
+    cambios = enMayusculas;
+  }
+
+  return cambios;
+}
+
 // ============================================================
 //  aCrearAutoDto — body del POST -> CrearAutoDto
 // ============================================================
@@ -56,7 +88,7 @@ export function aCrearAutoDto(body: unknown): CrearAutoDto {
   return {
     ...datos,
     patente: exigido(datos.patente, 'La patente es obligatoria'),
-    cambios: exigido(datos.cambios, 'El tipo de cambios es obligatorio'),
+    cambios: exigido(parsearCambios(datos.cambios), 'El tipo de cambios es obligatorio'),
   };
 }
 
@@ -64,11 +96,17 @@ export function aCrearAutoDto(body: unknown): CrearAutoDto {
 //  aActualizarAutoDto — body del PUT -> ActualizarAutoDto
 // ============================================================
 // Sin "activo" ni operadores como $set: el estado tiene su propia ruta.
+// "cambios" solo se agrega si vino: así el update no lleva la clave
+// con undefined.
 export function aActualizarAutoDto(body: unknown): ActualizarAutoDto {
-  return validarCampos(body, CAMPOS_DATOS_AUTO, {
+  const { cambios, ...resto } = validarCampos(body, CAMPOS_DATOS_AUTO, {
     ...AL_MODIFICAR,
     ayudaPorCampo: { activo: 'el estado se cambia con PATCH /autos/:id/activo' },
   });
+  const datos: ActualizarAutoDto =
+    cambios === undefined ? resto : { ...resto, cambios: parsearCambios(cambios) };
+
+  return datos;
 }
 
 // ============================================================
