@@ -16,15 +16,11 @@ import { entraEnAlgunTramo } from './tramo.service.js';
 import { aMinutos } from '../models/Horario.js';
 import { aHoraLocal } from '../utils/fechas.js';
 import type { ActualizarClaseDto, CrearClaseDto } from '../dtos/clase.dto.js';
+import type { Actor } from '../types/actor.js';
 
 // Toda clase dura exactamente una hora. Exportada para la consulta de
 // turnos libres, que tiene que ofrecer clases que esta misma regla acepte.
 export const DURACION_CLASE_MS = 60 * 60 * 1000;
-
-export interface ActorClase {
-  id: string;
-  rol: 'alumno' | 'administrador';
-}
 
 function errorConflicto(mensaje: string): ErrorDeNegocio {
   return new ErrorDeNegocio(mensaje, 409);
@@ -43,7 +39,7 @@ function objectId(valor: string, campo: string): Types.ObjectId {
   return new Types.ObjectId(valor);
 }
 
-async function validarActor(actor: ActorClase): Promise<void> {
+async function validarActor(actor: Actor): Promise<void> {
   const existe =
     actor.rol === 'alumno'
       ? await AlumnoModel.exists({ _id: actor.id })
@@ -52,7 +48,7 @@ async function validarActor(actor: ActorClase): Promise<void> {
   exigir(existe !== null, 'La cuenta autenticada ya no está activa', 403);
 }
 
-async function claseAccesible(id: string, actor: ActorClase): Promise<ClaseDoc | null> {
+async function claseAccesible(id: string, actor: Actor): Promise<ClaseDoc | null> {
   const clase = await ClaseModel.findById(id);
   // Un admin accede a cualquier clase; un alumno, solo a las suyas.
   const puedeAccederla = clase !== null &&
@@ -219,7 +215,7 @@ function obtenerInstantesActualizados(
   return obtenerInstantes({ inicio, fin });
 }
 
-export async function listar(actor: ActorClase): Promise<ClaseDoc[]> {
+export async function listar(actor: Actor): Promise<ClaseDoc[]> {
   await validarActor(actor);
   return ClaseModel.find(
     actor.rol === 'administrador' ? {} : { alumno: actor.id },
@@ -228,7 +224,7 @@ export async function listar(actor: ActorClase): Promise<ClaseDoc[]> {
 
 export async function obtenerPorId(
   id: string,
-  actor: ActorClase,
+  actor: Actor,
 ): Promise<ClaseDoc | null> {
   await validarActor(actor);
   return claseAccesible(id, actor);
@@ -252,7 +248,7 @@ export async function obtenerPorIdAlumno(id: string): Promise<string | null> {
 // aplican las reglas de la reserva.
 export async function crear(
   datos: CrearClaseDto,
-  actor: ActorClase,
+  actor: Actor,
 ): Promise<ClaseDoc> {
   await validarActor(actor);
 
@@ -335,7 +331,7 @@ async function reprogramar(
 export async function actualizar(
   id: string,
   cambios: ActualizarClaseDto,
-  actor: ActorClase,
+  actor: Actor,
 ): Promise<ClaseDoc | null> {
   await validarActor(actor);
   const clase = await claseAccesible(id, actor);
@@ -359,7 +355,7 @@ export async function actualizar(
 // de otro alumno.
 export async function eliminar(
   id: string,
-  actor: ActorClase,
+  actor: Actor,
 ): Promise<ClaseDoc | null> {
   await validarActor(actor);
   const clase = await claseAccesible(id, actor);
