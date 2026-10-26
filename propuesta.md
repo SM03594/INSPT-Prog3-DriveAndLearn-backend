@@ -18,9 +18,9 @@ Desarrollo de un software de gestión integral para una escuela de manejo. La pl
 Los alumnos podrán:
 
 1. Crearse una cuenta
-2. Agendar clases en los horarios de los días que deseen y estén disponibles
-3. Elegir si quieren usar un auto de cambios manual o automático para las clases
-4. Elegir al profesor
+2. Iniciar sesión y agendar clases en horarios disponibles
+3. Elegir un auto manual o automático y un profesor
+4. Consultar, modificar o cancelar sus clases
 
 ### 🔧 Administradores
 
@@ -34,6 +34,38 @@ Los administradores podrán:
 
 ---
 
+## 🧰 Stack tecnológico
+
+- **Backend:** Node.js, TypeScript y Express.
+- **Base de datos:** MongoDB con Mongoose.
+- **Autenticación:** JWT; las contraseñas se almacenan con bcrypt.
+- **Frontend:** HTML, CSS y TypeScript.
+
+## 🗃️ Colecciones
+
+- `usuarios`: alumnos y administradores, diferenciados por rol.
+- `profesores`: profesores y su disponibilidad semanal.
+- `autos`: vehículos y su estado de servicio.
+- `clases`: reservas con alumno, profesor, auto, inicio y fin.
+- `horario_escuela`: horarios de atención de la escuela.
+- `tokens_revocados`: tokens JWT cerrados antes de su vencimiento.
+
+La disponibilidad semanal está dentro del documento de cada profesor; `horario_escuela` contiene un único documento.
+
+## 🔐 Autenticación y autorización
+
+El inicio de sesión devuelve un JWT que se envía para acceder a las rutas protegidas. Los permisos distinguen alumnos y administradores: cada alumno gestiona sus propias clases y los administradores gestionan profesores, autos y horarios.
+
+## 📚 CRUD del parcial
+
+El CRUD completo se implementará sobre **clases**: crear, listar y consultar una clase, modificarla y eliminarla.
+
+## 🕒 Asignación de clases
+
+Una clase se registra únicamente si el horario está dentro del horario de la escuela y de la disponibilidad del profesor, y el auto está activo. Además, no puede superponerse con otra clase del mismo alumno, profesor o auto. Para detectar cruces se comparan los intervalos de inicio y fin; no se requiere un calendario avanzado.
+
+---
+
 ## 🔗 Repositorios
 
 | Componente | Link |
@@ -42,4 +74,3 @@ Los administradores podrán:
 | **Frontend** | [INSPT-Prog3-DriveAndLearn-frontend](https://github.com/fabriziomanzopeluso/INSPT-Prog3-DriveAndLearn-frontend) |
 
 ---
-
