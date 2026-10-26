@@ -9,7 +9,7 @@
 //
 // El status es 400 por defecto, pero quien lo lanza puede elegir otro
 // 4xx: 404 si algo no existe, 409 si choca con el estado actual (un
-// horario ocupado, una clase ya cancelada).
+// horario ocupado, una clase que ya comenzó).
 //
 // Tiene una subclase: ErrorClaveDuplicada (409, valor unique repetido).
 

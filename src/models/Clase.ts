@@ -36,15 +36,6 @@ const claseSchema = new Schema(
       type: Date,
       required: [true, 'El fin de la clase es obligatorio'],
     },
-
-    estado: {
-      type: String,
-      enum: {
-        values: ['pendiente', 'confirmada', 'cancelada'],
-        message: 'estado debe ser "pendiente", "confirmada" o "cancelada"',
-      },
-      default: 'pendiente',
-    },
   },
   {
     timestamps: true,
@@ -78,7 +69,6 @@ export interface Clase {
   auto: Types.ObjectId;
   inicio: Date;
   fin: Date;
-  estado?: 'pendiente' | 'confirmada' | 'cancelada';
 }
 
 export type ClaseDoc = HydratedDocument<Clase>;

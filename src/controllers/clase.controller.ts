@@ -56,11 +56,13 @@ export async function actualizar(req: Request<{ id: string }>, res: Response) {
   }
 }
 
-export async function cancelar(req: Request<{ id: string }>, res: Response) {
-  const clase = await claseService.cancelar(req.params.id, actorDe(req));
+// La ruta ya comprobó que sea el alumno de la clase o un admin. Si la
+// clase todavía no empezó, el service le devuelve el crédito al alumno.
+export async function eliminar(req: Request<{ id: string }>, res: Response) {
+  const clase = await claseService.eliminar(req.params.id, actorDe(req));
   if (clase === null) {
     res.status(404).json({ mensaje: 'Clase no encontrada' });
   } else {
-    res.json(clase);
+    res.status(204).end();
   }
 }

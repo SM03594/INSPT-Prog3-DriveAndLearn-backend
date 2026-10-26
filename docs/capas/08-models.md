@@ -31,7 +31,7 @@ colección "clases"                                                           �
 │  alumno ─► Alumno          │   │ Auto            │        Tramo { horaInicio, horaFin }
 │  profesor ─► Profesor      │   │  patente (único)│          HoraDelDia { hora, minuto }
 │  auto ─► Auto ─────────────┼──►│  cambios, activo│
-│  inicio, fin, estado       │   └─────────────────┘
+│  inicio, fin               │   └─────────────────┘
 └────────────────────────────┘
 ```
 
@@ -93,9 +93,9 @@ patente: {
 | `type` | Tipo del dato (`String`, `Number`, `Boolean`, `Date`, `Buffer`, `ObjectId`). Mongoose **convierte** si puede: `"8"` → `8`. Por eso los DTO comprueban el tipo **antes** (ver [`06b-dtos.md`](06b-dtos.md)). | todos |
 | `required` | El campo no puede faltar. | casi todos |
 | `trim` / `lowercase` / `uppercase` | Limpian el texto **antes** de guardar. | email, patente, nomApe |
-| `enum` | Lista cerrada de valores. | `Auto.cambios`, `Clase.estado`, `Usuario.rol` |
+| `enum` | Lista cerrada de valores. | `Auto.cambios`, `Usuario.rol` |
 | `min` / `max` | Rango numérico. | `HoraDelDia`, `clasesPorReservar` |
-| `default` | Valor si no viene. | `activo: true`, `estado: 'pendiente'`, `clasesPorReservar: 0` |
+| `default` | Valor si no viene. | `activo: true`, `clasesPorReservar: 0` |
 | `match` | El texto tiene que cumplir una regex. Corre **después** de `trim`/`lowercase`. | Formato de `Usuario.email` |
 | `validate` | Una función propia: `{ validator, message }`. | `Number.isInteger` en horas y minutos |
 | `unique` | **No es un validador**: crea un **índice** en MongoDB. | `email`, `patente` |
@@ -116,7 +116,7 @@ y lo traduce a `ErrorClaveDuplicada` (409). Se explica en
 
 ### 4. Reglas entre campos: `pre('validate')`
 
-Algunas reglas comparan **dos campos** entre sí. `Clase.ts:66`:
+Algunas reglas comparan **dos campos** entre sí. `Clase.ts:57`:
 
 ```ts
 claseSchema.pre('validate', async function () {

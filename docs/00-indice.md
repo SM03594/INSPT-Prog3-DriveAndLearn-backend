@@ -27,6 +27,8 @@ docs/
 │
 ├── temas/                       UN TEMA EN PROFUNDIDAD, que cruza varias capas
 │
+├── guias/                       UN CONCEPTO EXPLICADO DESDE CERO (zonas horarias...)
+│
 └── inconsistencias.md           registro de bugs, desajustes y decisiones a revisar
 ```
 
@@ -64,7 +66,7 @@ completa funcionando antes de entrar al detalle de cada capa.
 | Agregar una regla de negocio | [07 Services](capas/07-services.md) → [09 Errores](capas/09-errores.md) |
 | Agregar o cambiar un campo de la base | [08 Models](capas/08-models.md) → [06b DTOs](capas/06b-dtos.md) (si el cliente lo puede mandar) → [02 TypeScript](capas/02-typescript-en-el-proyecto.md) (tipos escritos a mano) |
 | Cambiar permisos | [05 Middlewares](capas/05-middlewares.md) → [04 Routes](capas/04-routes.md) (tabla de endpoints) |
-| Tocar algo de horarios o reservas | [temas/horarios-y-agendamiento](temas/horarios-y-agendamiento.md) → [10 Fechas](capas/10-utils-y-fechas.md) |
+| Tocar algo de horarios o reservas | [temas/horarios-y-agendamiento](temas/horarios-y-agendamiento.md) → [guias/zonas-horarias-y-fechas](guias/zonas-horarias-y-fechas.md) → [10 Fechas](capas/10-utils-y-fechas.md) |
 | Escribir tests | [11 Vitest](capas/11-tests-vitest.md) → [12 Postman](capas/12-tests-postman.md) |
 | Instalar o deployar | [01 Stack](capas/01-stack-y-dependencias.md) → [flujos/primer-administrador](flujos/primer-administrador.md) |
 | Corregir un bug conocido | [inconsistencias.md](inconsistencias.md) |
@@ -104,7 +106,7 @@ tienen ejemplos más avanzados.
 |---|---|---|
 | [Registrarse, iniciar sesión y usar el token](flujos/registro-y-login.md) | `POST /api/alumnos`, `POST /api/auth/login` | Cualquiera |
 | [Agendar una clase](flujos/agendar-una-clase.md) | `POST /api/clases`, `GET /api/clases` | Alumno o admin |
-| [Modificar y cancelar una clase](flujos/modificar-y-cancelar-una-clase.md) | `PUT /api/clases/:id`, `PATCH /api/clases/:id/cancelar` | Alumno (las suyas) o admin |
+| [Modificar y eliminar una clase](flujos/modificar-y-eliminar-una-clase.md) | `PUT /api/clases/:id`, `DELETE /api/clases/:id` | Alumno (las suyas) o admin |
 | [Dar de alta un profesor y su disponibilidad](flujos/alta-de-profesor-y-disponibilidad.md) | `/api/profesores`, `.../disponibilidad` | Admin |
 | [Configurar el horario de la escuela](flujos/configurar-horarios-de-la-escuela.md) | `/api/horario-escuela` | Admin |
 | [Gestionar los autos](flujos/gestion-de-autos.md) | `/api/autos`, `.../activo` | Admin |
@@ -119,6 +121,12 @@ autos → registro del alumno (y que el admin le cargue saldo) → agendar.**
 | Guía | De qué trata |
 |---|---|
 | [Horarios, horario de la escuela y agendamiento](temas/horarios-y-agendamiento.md) | `HoraDelDia` → `Tramo` → `CalendarioSemanal`; los dos calendarios (escuela y profesor); del instante a la hora local; las 7 comprobaciones de una reserva; la historia del alias `/api/calendario-semanal` y cómo se resolvió. |
+
+### `guias/`: un concepto desde cero
+
+| Guía | De qué trata |
+|---|---|
+| [Zonas horarias y fechas](guias/zonas-horarias-y-fechas.md) | Qué guarda un `Date` (un instante, sin zona); en qué dos momentos importa la zona (la entrada y la hora de reloj de la escuela); por qué comparar fechas no la necesita; salida en UTC, nombres IANA y horario de verano, tests en UTC. |
 
 ### Registro de inconsistencias
 

@@ -259,6 +259,10 @@
       "type": "string"
     },
     {
+      "key": "claseLiberadaId",
+      "value": ""
+    },
+    {
       "key": "inicio",
       "value": "",
       "type": "string"
@@ -5179,7 +5183,7 @@
     },
     {
       "name": "07 Clases",
-      "description": "Reservas: validaciones de fecha, horario de la escuela, disponibilidad del profesor, solapamientos, saldo de clases, permisos y cancelación. Supone que el alumno 1 arranca con 2 clases (las carga el Setup): si se corre dos veces, volver a correr el Setup antes.",
+      "description": "Reservas: validaciones de fecha, horario de la escuela, disponibilidad del profesor, solapamientos, saldo de clases, permisos y eliminación (DELETE). Supone que el alumno 1 arranca con 2 clases (las carga el Setup): si se corre dos veces, volver a correr el Setup antes.",
       "item": [
         {
           "name": "[400] Alumno manda el campo alumno",
@@ -5928,8 +5932,7 @@
                   "utils.esperarStatus(pm, 201);",
                   "utils.guardarId(pm, 'claseId');",
                   "var clase = pm.response.json();",
-                  "pm.test('Pendiente y a nombre del alumno 1', function () {",
-                  "  pm.expect(clase.estado).to.equal('pendiente');",
+                  "pm.test('A nombre del alumno 1', function () {",
                   "  pm.expect(clase.alumno).to.equal(pm.collectionVariables.get('alumnoId'));",
                   "});",
                   "pm.test('Inicio y fin guardados', function () {",
@@ -6316,14 +6319,14 @@
           }
         },
         {
-          "name": "[404] Alumno 2 pide la clase del alumno 1",
+          "name": "[403] Alumno 2 pide la clase del alumno 1",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 404, \"Clase no encontrada\");"
+                  "utils.esperarError(pm, 403, \"Solo podés acceder a tus propias clases\");"
                 ]
               }
             }
@@ -6351,7 +6354,93 @@
                 }
               ]
             },
-            "description": "404 y no 403: la API no revela que la clase existe."
+            "description": "La ruta comprueba que la clase sea del alumno que pide (o que pida un admin) antes de llegar al controller."
+          }
+        },
+        {
+          "name": "[403] Alumno 2 intenta modificar la clase del alumno 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 403, \"Solo podés acceder a tus propias clases\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno2}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "[403] Alumno 2 intenta eliminar la clase del alumno 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 403, \"Solo podés acceder a tus propias clases\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno2}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "La clase sigue existiendo: el alumno 1 la elimina más abajo."
           }
         },
         {
@@ -6525,33 +6614,32 @@
           }
         },
         {
-          "name": "[200] Alumno 1 cancela su clase",
+          "name": "[204] Alumno 1 elimina su clase",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.test('estado = cancelada', function () {",
-                  "  pm.expect(pm.response.json().estado).to.equal('cancelada');",
+                  "utils.esperarStatus(pm, 204);",
+                  "pm.test('Sin cuerpo', function () {",
+                  "  pm.expect(pm.response.text()).to.equal('');",
                   "});"
                 ]
               }
             }
           ],
           "request": {
-            "method": "PATCH",
+            "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/clases/{{claseId}}/cancelar",
+              "raw": "{{baseUrl}}/clases/{{claseId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "clases",
-                "{{claseId}}",
-                "cancelar"
+                "{{claseId}}"
               ]
             },
             "auth": {
@@ -6563,7 +6651,8 @@
                   "type": "string"
                 }
               ]
-            }
+            },
+            "description": "La clase todavía no empezó: el service le devuelve el crédito al alumno."
           }
         },
         {
@@ -6608,33 +6697,29 @@
           }
         },
         {
-          "name": "[200] Cancelar de nuevo no cambia nada",
+          "name": "[404] Eliminar de nuevo: la clase ya no existe",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarStatus(pm, 200);",
-                  "pm.test('Sigue cancelada', function () {",
-                  "  pm.expect(pm.response.json().estado).to.equal('cancelada');",
-                  "});"
+                  "utils.esperarError(pm, 404, \"Clase no encontrada\");"
                 ]
               }
             }
           ],
           "request": {
-            "method": "PATCH",
+            "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/clases/{{claseId}}/cancelar",
+              "raw": "{{baseUrl}}/clases/{{claseId}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "clases",
-                "{{claseId}}",
-                "cancelar"
+                "{{claseId}}"
               ]
             },
             "auth": {
@@ -6691,7 +6776,7 @@
           }
         },
         {
-          "name": "[409] No se puede modificar una clase cancelada",
+          "name": "[404] Modificar una clase eliminada",
           "event": [
             {
               "listen": "prerequest",
@@ -6708,7 +6793,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 409, \"No se puede modificar una clase cancelada\");"
+                  "utils.esperarError(pm, 404, \"Clase no encontrada\");"
                 ]
               }
             }
@@ -6753,6 +6838,84 @@
           }
         },
         {
+          "name": "[404] La ruta vieja PATCH /clases/:id/cancelar ya no existe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 404, \"Ruta no encontrada\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseId}}/cancelar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseId}}",
+                "cancelar"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Para cancelar una clase ahora se usa DELETE /clases/:id."
+          }
+        },
+        {
+          "name": "[400] Eliminar con un id mal formado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarError(pm, 400, \"Id inválido\");"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/abc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "abc"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "[201] El horario liberado se puede volver a reservar",
           "event": [
             {
@@ -6770,7 +6933,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarStatus(pm, 201);"
+                  "utils.esperarStatus(pm, 201);",
+                  "utils.guardarId(pm, 'claseLiberadaId');"
                 ]
               }
             }
@@ -8308,7 +8472,7 @@
     },
     {
       "name": "99 Teardown",
-      "description": "Limpieza: saca de servicio los autos de la corrida, quita los tramos agregados (el horario de la escuela vuelve a ser el original) y borra los alumnos. Quedan en la base, marcados con [POSTMAN] / PM…, los profesores, los autos inactivos y las clases: la API no permite borrarlos.",
+      "description": "Limpieza: saca de servicio los autos de la corrida, quita los tramos agregados (el horario de la escuela vuelve a ser el original), borra las clases que dejó la corrida y borra los alumnos. Quedan en la base, marcados con [POSTMAN] / PM…, los profesores y los autos inactivos: la API no permite borrarlos.",
       "item": [
         {
           "name": "[200] Sacar de servicio el auto del Setup",
@@ -8508,6 +8672,62 @@
               ],
               "path": [
                 "horario-escuela"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[204] Admin borra la clase que reservó para el alumno 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 204);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseAdminId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseAdminId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "[204] Admin borra la clase del horario liberado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "utils.esperarStatus(pm, 204);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clases/{{claseLiberadaId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "clases",
+                "{{claseLiberadaId}}"
               ]
             }
           }

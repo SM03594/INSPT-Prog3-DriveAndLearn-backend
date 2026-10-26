@@ -277,7 +277,7 @@ qué rol tiene. En cada pedido siguiente, el cliente lo envía en la cabecera
                      │
                      ▼
               jwt.verify(token, secreto, { algorithms: ['HS256'], ... })
-              src/middlewares/auth.middleware.ts:48
+              src/middlewares/auth.middleware.ts:51
                      │
           firma válida y no vencido? ── no ──► 401
                      │ sí

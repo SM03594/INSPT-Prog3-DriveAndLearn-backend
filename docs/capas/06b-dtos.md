@@ -196,7 +196,7 @@ export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
 
 Un alumno reserva **para sí mismo**, así que no puede mandar `alumno`. Un admin
 reserva **para otro**, así que tiene que mandarlo. Por eso la función recibe el
-rol (`src/dtos/clase.dto.ts:60`):
+rol (`src/dtos/clase.dto.ts:64`):
 
 ```ts
 export function aCrearClaseDto(body: unknown, rol: Rol): CrearClaseDto {
@@ -242,7 +242,7 @@ El DTO **no** reemplaza al service: cada capa valida una cosa distinta.
 | Auto | Campos, tipos, patente y cambios obligatorios | — | Valores de `cambios` (enum), unique de la patente |
 | Profesor | `nomApe` texto | Nombre no vacío | — |
 | Tramo | `dia` texto, `tramo` objeto | Que el día exista (`validarDia`) | Horas 0–23, fin > inicio |
-| Clase | Campos según el rol, todos texto | Ids válidos, fecha ISO, 1 hora, horario, saldo | Fin > inicio |
+| Clase | Campos según el rol, todos texto; `inicio` y `fin` ISO con zona, convertidos a `Date` | Ids válidos, 1 hora, horario, saldo | Fin > inicio |
 | Login | Email y contraseña texto | No vacíos; credenciales (401) | — |
 
 Una forma práctica de decidir dónde va cada cosa: **si para comprobarlo hay

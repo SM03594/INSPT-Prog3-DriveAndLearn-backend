@@ -37,7 +37,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-16 | 🔵 | `tsconfig.build.json` menciona `dist/index.js` | `tsconfig.build.json:7` |
 | I-17 | 🔵 | La cobertura excluye `src/index.ts`, que no existe | `vitest.config.ts` |
 | I-18 | ✅ | La cabecera de `validacionTipos.ts` decía `tipos.ts` | `utils/validacionTipos.ts:2` |
-| I-19 | 💭 | El estado `'confirmada'` nunca se asigna | `models/Clase.ts` |
+| I-19 | ✅ | El estado `'confirmada'` nunca se asigna (se eliminó el campo `estado`) | `models/Clase.ts` |
 | I-20 | 💭 | No hay forma de consultar turnos libres | API |
 | I-21 | 💭 | La disponibilidad del profesor no se valida contra el horario de la escuela | `profesor.service.ts` |
 | I-22 | 💭 | Cambiar el horario o sacar un auto de servicio no revisa las clases ya reservadas | `horarioEscuela.service.ts`, `auto.service.ts` |
@@ -71,6 +71,9 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-50 | ✅ | `POST /horario-escuela/quitar` no valida el tipo de `tramoId` (404 en lugar de 400) | `horarioEscuela.service.ts` |
 | I-51 | 🟡 | Los mensajes de las reglas no siguen el formato de los DTO | `profesor.service.ts`, `clase.service.ts` |
 | I-52 | 🔵 | El ejemplo de `crear` en la guía 01 no usa el DTO | `docs/capas/01-stack-y-dependencias.md:181` |
+| I-53 | 🔴 | Borrar un alumno deja sus clases futuras ocupando horarios | `alumno.service.ts` (`eliminar`) |
+| I-54 | 🔴 | Sumar o restar créditos puede perder una operación si llegan dos juntas | `alumno.service.ts` (`ajustarClasesPorReservar`) |
+| I-55 | 🔴 | Si un índice `unique` no se puede crear, el servidor arranca igual y acepta duplicados | `config/db.ts`, `server.ts` |
 
 ---
 
@@ -83,6 +86,25 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 - **Propuesta:** cuando el usuario no existe, comparar igual contra un hash fijo de relleno, por ejemplo `await bcrypt.compare(password, HASH_DE_RELLENO)`, para que los dos caminos tarden lo mismo. Complementar con un límite de intentos por IP.
 
 ---
+
+### I-53 · Borrar un alumno deja sus clases futuras ocupando horarios
+- **Detectada:** 2026-10-25, al planificar el `DELETE` de clases.
+- **Dónde:** `alumno.service.eliminar` hace `findByIdAndDelete` y no toca la colección `clases`.
+- **Qué pasa (comprobado leyendo el código y con un test temporal):** las clases del alumno borrado siguen en la base, con su `alumno` apuntando a un usuario que ya no existe. Ocupan el horario del profesor y del auto, así que nadie más puede reservarlo. El alumno ya no las puede borrar; un admin sí (`DELETE /api/clases/:id`), y el reintegro no hace nada porque el alumno no existe.
+- **Propuesta:** que borrar un alumno borre también sus clases futuras (las pasadas pueden quedar como historial o borrarse, según se decida). Va en `alumno.service.eliminar`, idealmente a través de una función de `clase.service`.
+
+### I-54 · Sumar o restar créditos puede perder una operación si llegan dos juntas
+- **Detectada:** 2026-10-25, al hacer que el `DELETE` de clases devuelva el crédito con `sumarClasesPorReservar`.
+- **Dónde:** `alumno.service.ajustarClasesPorReservar`, que usan `sumarClasesPorReservar` y `restarClasesPorReservar`.
+- **Qué pasa:** hace `findById`, suma en memoria y `save()`. Si llegan dos operaciones al mismo tiempo para el mismo alumno (por ejemplo, borrar dos clases a la vez, o un reintegro mientras el admin le suma clases), las dos leen el mismo saldo y se pierde una. **Comprobado** el 2026-10-25 con un test temporal: 20 llamadas simultáneas a `sumarClasesPorReservar(id, 1)` sobre un alumno con saldo 0 dejaron el saldo en **1, 1 y 2** en tres corridas, sin ningún error. Con `$inc`, en la misma prueba, daba 20. Además, `save()` vuelve a validar el email (I-03): un alumno con un email viejo inválido no recibe el reintegro, y como `clase.service.eliminar` no revisa el resultado, la clase queda borrada y el pedido responde 500.
+- **Propuesta:** sumar con `findByIdAndUpdate(id, { $inc: { clasesPorReservar: n } })`, y restar con la misma operación más la condición `clasesPorReservar: { $gte: n }`, para que nunca quede negativo.
+
+### I-55 · Si un índice `unique` no se puede crear, el servidor arranca igual y acepta duplicados
+- **Detectada:** 2026-10-25, al investigar por qué fallaba en Postman `04 Autos / [409] Patente repetida (aunque esté en minúsculas)`.
+- **Dónde:** `config/db.ts` (`connectDB`) y `server.ts`. Nadie espera a que Mongoose cree los índices: los arma en segundo plano después de conectar (`autoIndex`), y si falla no lo informa.
+- **Qué pasa (comprobado con una base en memoria):** si la colección `autos` ya tiene dos documentos con la misma patente, la creación del índice `patente_1` falla (`Index build failed`), la colección queda solo con `_id_`, y `POST /api/autos` con una patente repetida responde **201** en lugar de 409. Lo mismo vale para `usuarios.email`. Formas típicas de llegar ahí: borrar la base (o la colección) con el servidor andando, porque Mongoose no vuelve a crear los índices hasta reiniciar; o datos cargados a mano.
+- **Cómo revisarlo en una base:** `db.autos.getIndexes()` tiene que incluir `patente_1` con `unique: true`, y `db.autos.aggregate([{ $group: { _id: '$patente', n: { $sum: 1 } } }, { $match: { n: { $gt: 1 } } }])` tiene que dar vacío (ídem con `db.usuarios` y `email`).
+- **Propuesta:** en `server.ts`, después de `connectDB()` y antes de `app.listen()`, esperar `await Promise.all(Object.values(mongoose.models).map((m) => m.init()))`: si un índice no se puede crear, el servidor no arranca y muestra el error.
 
 ## 🟡 Mantenimiento y claridad
 
@@ -174,6 +196,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
   - Un profesor **sin** `nomApe` responde "El nombre y apellido es obligatorio" (DTO), y uno con `nomApe: "  "` responde "El nombre y apellido **del profesor** es obligatorio" (service). Es el mismo problema con dos mensajes. En alumnos, el `"  "` lo frena el esquema con "El nombre y apellido es obligatorio".
   - En las clases, `profesor: 123` responde "El profesor debe ser un texto" (DTO), pero `profesor: "abc"` responde "profesor debe ser un identificador válido" (service), en minúscula y sin artículo. Lo mismo con "inicio debe ser una fecha ISO 8601 con zona horaria (…)".
 - **Propuesta:** pasar los mensajes de esas reglas al formato de los DTO ("El nombre y apellido es obligatorio", "El profesor debe ser un identificador válido", "El inicio debe ser una fecha ISO 8601…"). Cambia el texto que reciben los clientes: hay que actualizar los tests, Postman y las guías.
+- **Avance (2026-10-25):** las fechas ya siguen el formato. El DTO de las clases convierte `inicio` y `fin` con `parsearInstante`, y una fecha sin zona responde "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" (comprobado). Siguen abiertos el nombre vacío del profesor y "profesor debe ser un identificador válido".
 
 ## 🔵 Comentarios y documentación desactualizados
 
@@ -211,12 +234,6 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 ---
 
 ## 💭 Decisiones de diseño para discutir
-
-### I-19 · El estado `'confirmada'` nunca se asigna
-`Clase.estado` acepta `'pendiente' | 'confirmada' | 'cancelada'`, pero ningún
-endpoint pasa una clase a `'confirmada'`. Habría que definir si falta el
-endpoint (por ejemplo, que confirme el profesor o un admin) o si sobra el
-estado.
 
 ### I-20 · No hay forma de consultar turnos libres
 El backend **valida** el horario que propone el cliente, pero no **ofrece**
@@ -426,3 +443,15 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
 
 - **Avance (2026-10-24):** los services ya no repiten el chequeo: lo hacen los DTO, con `cuerpoComoObjeto` y el type guard `esObjetoJson` (`src/utils/cuerpoPeticion.ts`). Queda una copia en `validacionDeCuerpo.middleware.ts`, que tiene su propio `esObjetoJson`.
 - **Resuelta:** 2026-10-25. `validacionDeCuerpo.middleware.ts` borró su copia e importa `esObjetoJson` de `src/utils/cuerpoPeticion.ts`, que queda como el único type guard de este tipo. Siguen existiendo dos clases de error para el mismo caso (`ErrorJsonInvalido` en el middleware y `ErrorPeticionInvalida` en `cuerpoComoObjeto`), pero `ErrorJsonInvalido` extiende de `ErrorPeticionInvalida`, así que el cliente recibe la misma respuesta: 400 "El cuerpo de la petición debe ser un objeto JSON". Además se corrigió un comentario del middleware que decía que los campos los valida el service (ahora lo hace el DTO).
+
+### I-19 · El estado `'confirmada'` nunca se asigna
+`Clase.estado` acepta `'pendiente' | 'confirmada' | 'cancelada'`, pero ningún
+endpoint pasa una clase a `'confirmada'`. Habría que definir si falta el
+endpoint (por ejemplo, que confirme el profesor o un admin) o si sobra el
+estado.
+- **Resuelta:** 2026-10-25, **se eliminó el campo `estado`** del modelo `Clase`, en lugar de agregar el endpoint de confirmación. Una clase existe o no existe: `PATCH /api/clases/:id/cancelar` se reemplazó por `DELETE /api/clases/:id`, que borra la clase y, si todavía no empezó, le devuelve el crédito al alumno (a través de `alumno.service.sumarClasesPorReservar`). La búsqueda de superposiciones ya no filtra por estado. La regla "No se puede modificar una clase cancelada" desapareció.
+- **Pendiente al deployar:** Mongoose no borra de la base un campo que sale del esquema, y acá es peor que un dato que sobra: sin el filtro por estado, las clases **canceladas** guardadas de antes vuelven a contar como reservadas (bloquean horarios y se pueden modificar). En cada base con datos, correr una vez y en este orden:
+  ```js
+  db.clases.deleteMany({ estado: 'cancelada' })
+  db.clases.updateMany({}, { $unset: { estado: "" } })
+  ```

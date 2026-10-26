@@ -6,7 +6,7 @@ está en [`docs/plan-tests-postman.md`](../docs/plan-tests-postman.md).
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   # 11 carpetas, 188 requests
+├── DriveAndLearn.postman_collection.json   # 11 carpetas, 194 requests
 └── environments/
     ├── local.postman_environment.json      # http://localhost:3000/api
     └── remoto.postman_environment.json     # servidor desplegado
@@ -52,10 +52,10 @@ Clic derecho en la colección → **Run collection** → dejar el orden por defe
 | `04 Autos` | CRUD y puesta fuera de servicio. |
 | `05 Profesores` | Alta, edición y disponibilidad. |
 | `06 Horario de la escuela` | Horario semanal de la escuela: ver, reemplazar, agregar y quitar tramos. |
-| `07 Clases` | Reservas: fechas, horarios, solapamientos, saldo, permisos, cancelación. |
+| `07 Clases` | Reservas: fechas, horarios, solapamientos, saldo, permisos, eliminación. |
 | `08 Errores generales` | Ruta inexistente y bodies ilegibles. |
 | `09 Validación de campos y tipos` | Un pedido por endpoint con body JSON que manda un campo de más, un tipo incorrecto o un operador (`$set`). Todos dan 400: los rechaza el DTO de cada endpoint. |
-| `99 Teardown` | Limpieza: deja el horario como estaba y borra los alumnos. |
+| `99 Teardown` | Limpieza: deja el horario como estaba y borra las clases y los alumnos. |
 
 **Correr una carpeta suelta**: correr antes `00 Setup` (genera los tokens y los
 ids que usan las demás). `07 Clases` además supone que el alumno 1 tiene 2 clases:
@@ -90,10 +90,10 @@ tipos` pasaron a verde cuando cada endpoint tuvo su DTO (`src/dtos/`).
 
 ## 5. Qué queda en la base
 
-La API no tiene `DELETE` para profesores, autos ni clases, así que después de cada
-corrida quedan, marcados con `[POSTMAN]` / patente `PM…`: 2 profesores, 3 autos
-fuera de servicio y las clases de prueba. Los alumnos y el admin de prueba se borran,
-y el horario de la escuela vuelve a ser el original (el Teardown lo verifica).
+La API no tiene `DELETE` para profesores ni autos, así que después de cada corrida
+quedan, marcados con `[POSTMAN]` / patente `PM…`: 2 profesores y 3 autos fuera de
+servicio. Las clases, los alumnos y el admin de prueba se borran, y el horario de la
+escuela vuelve a ser el original (el Teardown lo verifica).
 
 ## 6. Modificar la colección
 

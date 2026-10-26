@@ -17,7 +17,7 @@ equivocarse de zona horaria**.
 | `validacionTipos.ts` | `esDelTipo`, `DESCRIPCION_TIPO`, `NombreTipo`, `TipoSegunNombre` | `validacionCampos` |
 | `validacionCampos.ts` | `validarCampos`, `exigido` y sus tipos | todos los DTO (`src/dtos/`) |
 | `password.ts` | `conPasswordHasheada` | `alumno.service`, `administrador.service` |
-| `fechas.ts` | `parsearInstante`, `aHoraLocal`, `HoraLocal` | `clase.service` |
+| `fechas.ts` | `parsearInstante`, `aHoraLocal`, `HoraLocal` | `clase.dto` (`parsearInstante`), `clase.service` (`aHoraLocal`) |
 
 Cada uno tiene su test en `tests/utils/`. Como son funciones puras (o casi),
 son lo más fácil de testear del proyecto.
@@ -287,10 +287,10 @@ Cada opción tiene su motivo:
 
 ```
 body.inicio "2026-11-02T10:00:00-03:00"
-   │ parsearInstante
+   │ parsearInstante                          ← en el DTO (clase.dto.ts)
    ▼
 Date 2026-11-02T13:00:00Z  ──────────────► se guarda en Clase.inicio (UTC)
-   │ aHoraLocal
+   │ aHoraLocal                               ← en el service (validarHorarioClase)
    ▼
 { dia: 'lunes', hora: 10, minuto: 0 } ───► se compara con los tramos del horario
                                            (aMinutos → 600)

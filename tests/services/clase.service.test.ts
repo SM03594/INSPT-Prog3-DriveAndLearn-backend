@@ -19,7 +19,8 @@ import {
   obtenerPorId,
   crear,
   actualizar,
-  cancelar,
+  eliminar,
+  obtenerPorIdAlumno,
   type ActorClase,
 } from '../../src/services/clase.service.js';
 import type { CrearClaseDto } from '../../src/dtos/clase.dto.js';
@@ -127,8 +128,8 @@ beforeEach(async () => {
   datosValidos = {
     profesor: profesorId.toString(),
     auto: autoId.toString(),
-    inicio: inicioBase.toISOString(),
-    fin: finBase.toISOString(),
+    inicio: inicioBase,
+    fin: finBase,
   };
 });
 
@@ -152,7 +153,7 @@ describe('clase.service', () => {
 
   it('rechaza intervalos que no duran exactamente una hora', async () => {
     await expect(
-      crear({ ...datosValidos, fin: new Date(inicioBase.getTime() + 30 * 60 * 1000).toISOString() }, actor),
+      crear({ ...datosValidos, fin: new Date(inicioBase.getTime() + 30 * 60 * 1000) }, actor),
     ).rejects.toThrow(/exactamente una hora/i);
   });
 
@@ -160,16 +161,16 @@ describe('clase.service', () => {
     await expect(
       crear({
         ...datosValidos,
-        inicio: '2020-09-20T12:00:00.000Z',
-        fin: '2020-09-20T13:00:00.000Z',
+        inicio: new Date('2020-09-20T12:00:00.000Z'),
+        fin: new Date('2020-09-20T13:00:00.000Z'),
       }, actor),
     ).rejects.toThrow(/fecha futura/i);
 
     await expect(
       crear({
         ...datosValidos,
-        inicio: new Date(inicioBase.getTime() + 11 * 60 * 60 * 1000).toISOString(),
-        fin: new Date(inicioBase.getTime() + 12 * 60 * 60 * 1000).toISOString(),
+        inicio: new Date(inicioBase.getTime() + 11 * 60 * 60 * 1000),
+        fin: new Date(inicioBase.getTime() + 12 * 60 * 60 * 1000),
       }, actor),
     ).rejects.toThrow(/horario de la escuela/i);
   });
@@ -179,8 +180,8 @@ describe('clase.service', () => {
     await expect(
       crear({
         ...datosValidos,
-        inicio: domingo.toISOString(),
-        fin: new Date(domingo.getTime() + 60 * 60 * 1000).toISOString(),
+        inicio: domingo,
+        fin: new Date(domingo.getTime() + 60 * 60 * 1000),
       }, actor),
     ).rejects.toThrow(/profesor no está disponible/i);
 
@@ -220,7 +221,8 @@ describe('clase.service', () => {
     } as const;
     expect(await obtenerPorId(clase._id.toString(), otroActor)).toBeNull();
     expect(await actualizar(clase._id.toString(), { profesor: profesorAlternativoId.toString() }, otroActor)).toBeNull();
-    expect(await cancelar(clase._id.toString(), otroActor)).toBeNull();
+    expect(await eliminar(clase._id.toString(), otroActor)).toBeNull();
+    expect(await ClaseModel.findById(clase._id)).not.toBeNull();
     expect(await listar(actorAdministrador)).toHaveLength(1);
   });
 
@@ -229,7 +231,7 @@ describe('clase.service', () => {
     const nuevaInicio = new Date(inicioBase.getTime() + 2 * 60 * 60 * 1000);
     const actualizada = await actualizar(
       clase._id.toString(),
-      { inicio: nuevaInicio.toISOString(), profesor: profesorAlternativoId.toString() },
+      { inicio: nuevaInicio, profesor: profesorAlternativoId.toString() },
       actor,
     );
     const alumno = await AlumnoModel.findById(alumnoId);
@@ -241,29 +243,73 @@ describe('clase.service', () => {
     expect(alumno?.clasesPorReservar).toBe(1);
   });
 
-  it('cancela una clase futura y devuelve el crédito una única vez', async () => {
+  // --------------------------------------------------------
+  //  eliminar
+  // --------------------------------------------------------
+  it('elimina una clase futura y le devuelve el crédito al alumno', async () => {
     const clase = await crear(datosValidos, actor);
-    await cancelar(clase._id.toString(), actor);
-    await cancelar(clase._id.toString(), actor);
 
-    const alumno = await AlumnoModel.findById(alumnoId);
-    expect((await obtenerPorId(clase._id.toString(), actor))?.estado).toBe('cancelada');
-    expect(alumno?.clasesPorReservar).toBe(2);
+    expect(await eliminar(clase._id.toString(), actor)).not.toBeNull();
+
+    expect(await ClaseModel.findById(clase._id)).toBeNull();
+    expect((await AlumnoModel.findById(alumnoId))?.clasesPorReservar).toBe(2);
   });
 
-  it('no permite cancelar una clase que ya comenzó', async () => {
+  it('eliminar dos veces devuelve null la segunda y no reintegra de nuevo', async () => {
+    const clase = await crear(datosValidos, actor);
+    await eliminar(clase._id.toString(), actor);
+
+    expect(await eliminar(clase._id.toString(), actor)).toBeNull();
+    expect((await AlumnoModel.findById(alumnoId))?.clasesPorReservar).toBe(2);
+  });
+
+  it.each([
+    ['ya ocurrió', -24 * 60 * 60 * 1000],
+    ['está en curso', -10 * 60 * 1000],
+  ])('elimina una clase que %s sin devolver el crédito', async (_caso, desfaseMs) => {
+    const inicio = new Date(Date.now() + desfaseMs);
     const clase = await ClaseModel.create({
       alumno: alumnoId,
       profesor: profesorId,
       auto: autoId,
-      inicio: new Date('2020-09-20T12:00:00.000Z'),
-      fin: new Date('2020-09-20T13:00:00.000Z'),
+      inicio,
+      fin: new Date(inicio.getTime() + 60 * 60 * 1000),
     });
 
-    await expect(cancelar(clase._id.toString(), actor)).rejects.toThrow(
-      /solo se pueden cancelar clases futuras/i,
-    );
+    expect(await eliminar(clase._id.toString(), actor)).not.toBeNull();
+
+    expect(await ClaseModel.findById(clase._id)).toBeNull();
     expect((await AlumnoModel.findById(alumnoId))?.clasesPorReservar).toBe(2);
+  });
+
+  it('un administrador elimina la clase de cualquier alumno', async () => {
+    const clase = await crear(datosValidos, actor);
+
+    expect(await eliminar(clase._id.toString(), actorAdministrador)).not.toBeNull();
+
+    expect((await AlumnoModel.findById(alumnoId))?.clasesPorReservar).toBe(2);
+  });
+
+  it('el horario de una clase eliminada se puede volver a reservar', async () => {
+    const clase = await crear(datosValidos, actor);
+    await eliminar(clase._id.toString(), actor);
+
+    const otraReserva = await crear(
+      { ...datosValidos, alumno: otroAlumnoId.toString() },
+      actorAdministrador,
+    );
+
+    expect(otraReserva.inicio.getTime()).toBe(inicioBase.getTime());
+  });
+
+  // --------------------------------------------------------
+  //  obtenerPorIdAlumno
+  // --------------------------------------------------------
+  it('obtenerPorIdAlumno devuelve el alumno de la clase, o null si no existe', async () => {
+    const clase = await crear(datosValidos, actor);
+
+    expect(await obtenerPorIdAlumno(clase._id.toString())).toBe(alumnoId.toString());
+    expect(await obtenerPorIdAlumno(new Types.ObjectId().toString())).toBeNull();
   });
 
   it('devuelve null al buscar un ID inexistente', async () => {

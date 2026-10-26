@@ -2,15 +2,17 @@
 //  clase.dto.ts — Lo que el cliente puede mandar sobre una clase
 // ============================================================
 // Ver dtos/administrador.dto.ts para la idea general. Acá se valida
-// la FORMA. Todo lo demás sigue en el service: el formato de los ids
-// y de las fechas, la duración, el horario, las superposiciones y el
-// saldo.
+// la FORMA, incluido el formato de las fechas: inicio y fin llegan como
+// texto ISO 8601 con zona y salen convertidos a Date. Todo lo demás
+// sigue en el service: el formato de los ids, la duración, el horario,
+// las superposiciones y el saldo.
 //
 // El contrato para reservar depende del ROL: un alumno reserva para
 // sí mismo (no puede mandar "alumno"), un admin tiene que indicar para
 // qué alumno reserva.
 
 import type { Rol } from '../types/roles.js';
+import { parsearInstante } from '../utils/fechas.js';
 import {
   AL_MODIFICAR,
   SIN_CAMPOS_DE_MAS,
@@ -22,8 +24,8 @@ import {
 export interface CrearClaseDto {
   profesor: string;
   auto: string;
-  inicio: string;
-  fin: string;
+  inicio: Date;
+  fin: Date;
   // Solo cuando reserva un admin.
   alumno?: string;
 }
@@ -44,13 +46,15 @@ const CAMPOS_RESERVA_ADMIN = {
   alumno: { tipo: 'string', nombre: 'El alumno' },
 } as const;
 
-// Los cuatro campos que siempre tiene una reserva.
+// Los cuatro campos que siempre tiene una reserva. parsearInstante
+// convierte el texto a Date (o responde 400 si no es una fecha ISO con
+// zona) y deja pasar undefined, que después frena exigido.
 function reservaDe(datos: DatosValidados<typeof CAMPOS_RESERVA>): CrearClaseDto {
   return {
     profesor: exigido(datos.profesor, 'El profesor es obligatorio'),
     auto: exigido(datos.auto, 'El auto es obligatorio'),
-    inicio: exigido(datos.inicio, 'El inicio es obligatorio'),
-    fin: exigido(datos.fin, 'El fin es obligatorio'),
+    inicio: exigido(parsearInstante(datos.inicio, 'El inicio'), 'El inicio es obligatorio'),
+    fin: exigido(parsearInstante(datos.fin, 'El fin'), 'El fin es obligatorio'),
   };
 }
 
@@ -74,8 +78,15 @@ export function aCrearClaseDto(body: unknown, rol: Rol): CrearClaseDto {
 // ============================================================
 //  aActualizarClaseDto — body de PUT /clases/:id -> ActualizarClaseDto
 // ============================================================
-// Ni "alumno" ni "estado" ni operadores como $set: el estado se cambia
-// con PATCH /clases/:id/cancelar.
+// Ni "alumno" ni operadores como $set. Para cancelar una clase se usa
+// DELETE /clases/:id. Si no llega inicio o fin, queda undefined: el
+// service completa el que falta.
 export function aActualizarClaseDto(body: unknown): ActualizarClaseDto {
-  return validarCampos(body, CAMPOS_RESERVA, AL_MODIFICAR);
+  const datos = validarCampos(body, CAMPOS_RESERVA, AL_MODIFICAR);
+
+  return {
+    ...datos,
+    inicio: parsearInstante(datos.inicio, 'El inicio'),
+    fin: parsearInstante(datos.fin, 'El fin'),
+  };
 }

@@ -7,6 +7,7 @@ import { sumarClasesPorReservar } from '../src/services/alumno.service.js';
 import { crear as crearAdministrador } from '../src/services/administrador.service.js';
 import { crearCalendarioSemanal } from '../src/models/CalendarioSemanal.js';
 import { AutoModel } from '../src/models/Auto.js';
+import { ClaseModel } from '../src/models/Clase.js';
 import { ProfesorModel } from '../src/models/Profesor.js';
 import { HorarioEscuelaModel } from '../src/models/HorarioEscuela.js';
 import { aHoraLocal } from '../src/utils/fechas.js';
@@ -123,7 +124,6 @@ describe('reservas HTTP de clases', () => {
       .expect(201);
 
     expect(reserva.body.alumno).toBe(alumnoId);
-    expect(reserva.body.estado).toBe('pendiente');
 
     const perfil = await request(app)
       .get(`/api/alumnos/${alumnoId}`)
@@ -218,5 +218,165 @@ describe('reservas HTTP de clases', () => {
       .expect(200);
     expect(respuesta.body.martes).toHaveLength(1);
     expect(respuesta.body.lunes).toHaveLength(0);
+  });
+});
+
+// ============================================================
+//  DELETE /api/clases/:id
+// ============================================================
+describe('eliminar clases por HTTP', () => {
+  // Reserva una clase como el alumno del beforeEach y devuelve su id.
+  async function reservarComoAlumno(): Promise<string> {
+    const reserva = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .send({
+        profesor: profesorId,
+        auto: autoId,
+        inicio: inicio.toISOString(),
+        fin: new Date(inicio.getTime() + 60 * 60 * 1000).toISOString(),
+      })
+      .expect(201);
+    return reserva.body._id as string;
+  }
+
+  async function saldoDelAlumno(): Promise<number> {
+    const perfil = await request(app)
+      .get(`/api/alumnos/${alumnoId}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(200);
+    return perfil.body.clasesPorReservar as number;
+  }
+
+  it('el alumno elimina su clase futura: 204 y recupera el crédito', async () => {
+    const claseId = await reservarComoAlumno();
+    expect(await saldoDelAlumno()).toBe(1);
+
+    const respuesta = await request(app)
+      .delete(`/api/clases/${claseId}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(204);
+
+    expect(respuesta.body).toEqual({});
+    expect(await saldoDelAlumno()).toBe(2);
+    await request(app)
+      .get(`/api/clases/${claseId}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(404);
+  });
+
+  it('eliminar dos veces: la segunda responde 404 y no devuelve otro crédito', async () => {
+    const claseId = await reservarComoAlumno();
+    await request(app).delete(`/api/clases/${claseId}`).set('Authorization', `Bearer ${tokenAlumno}`).expect(204);
+
+    const respuesta = await request(app)
+      .delete(`/api/clases/${claseId}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(404);
+
+    expect(respuesta.body.mensaje).toBe('Clase no encontrada');
+    expect(await saldoDelAlumno()).toBe(2);
+  });
+
+  it('otro alumno no puede eliminarla: 403 y la clase sigue', async () => {
+    const claseId = await reservarComoAlumno();
+    await crearAlumno({ email: 'otro@example.com', password: 'claveSegura123', nomApe: 'Otro alumno' });
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'otro@example.com', password: 'claveSegura123' })
+      .expect(200);
+
+    const respuesta = await request(app)
+      .delete(`/api/clases/${claseId}`)
+      .set('Authorization', `Bearer ${login.body.token as string}`)
+      .expect(403);
+
+    expect(respuesta.body.mensaje).toBe('Solo podés acceder a tus propias clases');
+    expect(await ClaseModel.findById(claseId)).not.toBeNull();
+  });
+
+  it('otro alumno tampoco puede verla ni modificarla: 403', async () => {
+    const claseId = await reservarComoAlumno();
+    await crearAlumno({ email: 'otro@example.com', password: 'claveSegura123', nomApe: 'Otro alumno' });
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'otro@example.com', password: 'claveSegura123' })
+      .expect(200);
+    const tokenOtro = `Bearer ${login.body.token as string}`;
+
+    const ver = await request(app).get(`/api/clases/${claseId}`).set('Authorization', tokenOtro).expect(403);
+    const modificar = await request(app)
+      .put(`/api/clases/${claseId}`)
+      .set('Authorization', tokenOtro)
+      .send({ profesor: profesorId })
+      .expect(403);
+    // El permiso se revisa antes que el body: sin body, también 403 (no 400).
+    await request(app).put(`/api/clases/${claseId}`).set('Authorization', tokenOtro).expect(403);
+
+    expect(ver.body.mensaje).toBe('Solo podés acceder a tus propias clases');
+    expect(modificar.body.mensaje).toBe('Solo podés acceder a tus propias clases');
+  });
+
+  it('un administrador elimina la clase de un alumno', async () => {
+    const claseId = await reservarComoAlumno();
+
+    await request(app)
+      .delete(`/api/clases/${claseId}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .expect(204);
+
+    expect(await saldoDelAlumno()).toBe(2);
+  });
+
+  it('una clase que ya ocurrió se elimina sin devolver el crédito', async () => {
+    const clase = await ClaseModel.create({
+      alumno: alumnoId,
+      profesor: profesorId,
+      auto: autoId,
+      inicio: new Date('2020-09-21T12:00:00.000Z'),
+      fin: new Date('2020-09-21T13:00:00.000Z'),
+    });
+
+    await request(app)
+      .delete(`/api/clases/${clase._id.toString()}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(204);
+
+    expect(await saldoDelAlumno()).toBe(2);
+  });
+
+  it('una clase que no existe responde 404', async () => {
+    const respuesta = await request(app)
+      .delete(`/api/clases/${new Types.ObjectId().toString()}`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(404);
+
+    expect(respuesta.body.mensaje).toBe('Clase no encontrada');
+  });
+
+  it('un id mal formado responde 400', async () => {
+    const respuesta = await request(app)
+      .delete('/api/clases/abc')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(400);
+
+    expect(respuesta.body.mensaje).toBe('Id inválido');
+  });
+
+  it('sin token responde 401', async () => {
+    const claseId = await reservarComoAlumno();
+
+    await request(app).delete(`/api/clases/${claseId}`).expect(401);
+  });
+
+  it('la ruta vieja PATCH /clases/:id/cancelar ya no existe', async () => {
+    const claseId = await reservarComoAlumno();
+
+    const respuesta = await request(app)
+      .patch(`/api/clases/${claseId}/cancelar`)
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .expect(404);
+
+    expect(respuesta.body.mensaje).toBe('Ruta no encontrada');
   });
 });

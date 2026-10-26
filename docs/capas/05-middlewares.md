@@ -23,6 +23,8 @@ pedido
   ├─► requireAuthentication        ¿token válido?         → 401
   ├─► requireAdministrator         ¿es admin activo?      → 403
   │   requireSelfOrAdministrator() ¿admin o él mismo?     → 403
+  │   requireAlumnoDeLaClaseOAdministrador
+  │                                ¿admin o el alumno de la clase? → 403
   ├─► validacionDeCuerpo           ¿hay un objeto JSON?   → 400
   │
   ├─► controller                   responde
@@ -34,7 +36,7 @@ pedido
 
 | Archivo | Exporta |
 |---|---|
-| `src/middlewares/auth.middleware.ts` | `requireAuthentication`, `requireAdministrator`, `requireSelfOrAdministrator` |
+| `src/middlewares/auth.middleware.ts` | `requireAuthentication`, `requireAdministrator`, `requireSelfOrAdministrator`, `requireAlumnoDeLaClaseOAdministrador` |
 | `src/middlewares/validacionDeCuerpo.middleware.ts` | `validacionDeCuerpo`, y `verificarCuerpo` (el chequeo, para reutilizarlo) |
 | `src/middlewares/errorHandler.middleware.ts` | `errorHandler` |
 
@@ -82,7 +84,7 @@ Están en `src/app.ts:22-23` y se ejecutan en **todos** los pedidos:
 
 ### 3. `requireAuthentication`: ¿quién sos?
 
-`src/middlewares/auth.middleware.ts:114`:
+`src/middlewares/auth.middleware.ts:117`:
 
 ```ts
 export const requireAuthentication: RequestHandler = (req, _res, next) => {
@@ -121,7 +123,7 @@ parámetro existe, pero no lo necesito".
 
 ### 4. `requireAdministrator`: ¿podés?
 
-`src/middlewares/auth.middleware.ts:131`:
+`src/middlewares/auth.middleware.ts:134`:
 
 ```ts
 export const requireAdministrator: RequestHandler = async (req, _res, next) => {
@@ -149,7 +151,7 @@ además del token, se comprueba que el administrador siga existiendo. Es el
 
 Lo usan las rutas `/:id` de alumnos y administradores. Es una **fábrica**: una
 función que recibe una configuración y **devuelve** el middleware
-(`src/middlewares/auth.middleware.ts:157`):
+(`src/middlewares/auth.middleware.ts:160`):
 
 ```ts
 export function requireSelfOrAdministrator(
@@ -205,6 +207,39 @@ Así el error es explícito.
 Porque este middleware corre **antes** y necesita leer el body. Usar la misma
 función garantiza que un pedido sin body reciba el mismo 400, sea de un alumno
 o de un admin.
+
+### 5b. `requireAlumnoDeLaClaseOAdministrador`: admin, o el alumno de la clase
+
+Lo usan las rutas con el `:id` de una **clase**: `GET`, `PUT` y `DELETE`
+`/api/clases/:id` (`clase.routes.ts:20-23`). Hace el mismo trabajo que el
+anterior, pero el dueño no es el `:id`: hay que **buscar la clase** para saber
+de qué alumno es (`src/middlewares/auth.middleware.ts:201`):
+
+```ts
+const idAlumnoDeLaClase = await claseService.obtenerPorIdAlumno(req.params.id);
+const esDeOtroAlumno = idAlumnoDeLaClase !== null && idAlumnoDeLaClase !== auth.id;
+
+if (esDeOtroAlumno) {
+  throw new ErrorAutorizacion('Solo podés acceder a tus propias clases');
+}
+```
+
+| Pedido de la alumna Ana | Resultado |
+|---|---|
+| `DELETE /api/clases/<su clase>` | Pasa |
+| `GET`, `PUT` o `DELETE` sobre la clase de Beto | 403 "Solo podés acceder a tus propias clases" |
+| `PUT` sobre la clase de Beto, sin body | 403: corre **antes** que `validacionDeCuerpo` |
+| `DELETE` de una clase que no existe | Pasa, y el controller responde 404 |
+| `DELETE /api/clases/abc` | 400 "Id inválido" (Mongoose no puede buscar ese id) |
+
+Un admin pasa siempre que su cuenta siga existiendo, igual que en el
+anterior.
+
+¿Por qué no se reutiliza `requireSelfOrAdministrator`? Porque compara
+`auth.id` con `req.params.id`, y en estas rutas el `:id` es el de una clase:
+nunca coincidirían, y todos los alumnos recibirían 403. ¿Por qué deja pasar
+una clase que no existe? Porque no hay dueño con quien comparar: que no existe
+lo responde el controller, con el mismo 404 de siempre.
 
 ### 6. `validacionDeCuerpo`: ¿mandaste un objeto?
 
@@ -298,6 +333,7 @@ error se explican en [`09-errores.md`](09-errores.md).
 | El pedido queda colgado | Un middleware no llama a `next()`, no responde y no lanza. |
 | `req.auth` es `undefined` en un controller | La ruta no pasa por `requireAuthentication`. |
 | Un admin recién borrado sigue pudiendo crear autos | Una ruta de admin usa solo `requireAuthentication` y le falta `requireAdministrator`. |
+| Un alumno recibe 403 con su **propia** clase | La ruta usa `requireSelfOrAdministrator`, que compara contra el `:id` (la clase). En las rutas de clases va `requireAlumnoDeLaClaseOAdministrador`. |
 | *"Cannot set headers after they are sent"* | Un middleware respondió **y** después llamó a `next()`. En este proyecto se evita porque los middlewares lanzan en lugar de responder. |
 
 ---
@@ -311,6 +347,7 @@ error se explican en [`09-errores.md`](09-errores.md).
 | `requireAuthentication` | ¿quién sos? | 401 | `req.auth` |
 | `requireAdministrator` | ¿sos un admin activo? | 403 | — |
 | `requireSelfOrAdministrator(campos?)` | ¿sos admin, o sos vos y mandás solo campos permitidos? | 403 / 400 | — |
+| `requireAlumnoDeLaClaseOAdministrador` | ¿sos admin, o la clase es tuya? | 403 | — |
 | `validacionDeCuerpo` | ¿mandaste un objeto JSON? | 400 | — |
 | 404 | ¿nadie respondió? | 404 | — |
 | `errorHandler` | ¿qué error fue? | el status de cada error | — |

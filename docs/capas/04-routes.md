@@ -85,7 +85,7 @@ URL:   /665f1c2a9b1e4a0012345678/activo
 El controller lo lee así: `req.params.id`. Algunos ejemplos del proyecto:
 `/:id`, `/:id/activo`, `/:id/disponibilidad`, `/validar/:dia`.
 
-Los segmentos sin `:` (`activo`, `validar`, `cancelar`) son **literales**:
+Los segmentos sin `:` (`activo`, `validar`, `sumar-clases`) son **literales**:
 tienen que coincidir exactamente.
 
 ### 4. `router.use(...)`: un middleware para todo lo que sigue
@@ -152,13 +152,14 @@ funciona se explica en [`05-middlewares.md`](05-middlewares.md).
 | `GET` | Leer (una lista o un elemento) | `GET /api/autos`, `GET /api/autos/:id` |
 | `POST` | Crear | `POST /api/profesores` |
 | `PUT` | Actualizar un recurso con los campos enviados | `PUT /api/alumnos/:id` |
-| `PATCH` | Una **acción** puntual sobre un recurso | `PATCH /api/clases/:id/cancelar` |
-| `DELETE` | Borrar | `DELETE /api/alumnos/:id` |
+| `PATCH` | Una **acción** puntual sobre un recurso | `PATCH /api/autos/:id/activo` |
+| `DELETE` | Borrar | `DELETE /api/alumnos/:id`, `DELETE /api/clases/:id` |
 
-Fijate en `PATCH /api/clases/:id/cancelar`: cancelar una clase **no la
-borra**, sino que le cambia el estado. Por eso es una acción con nombre propio
-y no un `DELETE`. Lo mismo pasa con `/activo`, `/sumar-clases` y
-`/restar-clases`.
+Fijate en `PATCH /api/autos/:id/activo`: sacar un auto de servicio **no lo
+borra**, sino que le cambia el campo `activo`. Por eso es una acción con
+nombre propio y no un `DELETE`. Lo mismo pasa con `/sumar-clases` y
+`/restar-clases`. Cancelar una clase, en cambio, **sí** la borra: por eso es
+`DELETE /api/clases/:id`.
 
 ---
 
@@ -198,21 +199,28 @@ pasa por `validacionDeCuerpo`.
 | POST | `/api/profesores/:id/disponibilidad` | 🛡️ | ✓ |
 | DELETE | `/api/profesores/:id/disponibilidad` | 🛡️ | ✓ |
 | **clases** | | | |
-| GET | `/api/clases`, `/api/clases/:id` | 🔑 \* | |
+| GET | `/api/clases` | 🔑 \* | |
+| GET | `/api/clases/:id` | 👤 † | |
 | POST | `/api/clases` | 🔑 \* | ✓ |
-| PUT | `/api/clases/:id` | 🔑 \* | ✓ |
-| PATCH | `/api/clases/:id/cancelar` | 🔑 \* | |
+| PUT | `/api/clases/:id` | 👤 † | ✓ |
+| DELETE | `/api/clases/:id` | 👤 † | |
 | **horario-escuela** | | | |
 | GET | `/api/horario-escuela` | 🔑 | |
 | PUT | `/api/horario-escuela` | 🛡️ | ✓ |
 | GET | `/api/horario-escuela/validar/:dia` | 🔑 | |
 | POST | `/api/horario-escuela/agregar`, `/api/horario-escuela/quitar` | 🛡️ | ✓ |
 
-\* En **clases**, el router solo exige el token. Los permisos finos (un alumno
-solo ve y modifica **sus** clases, y un admin ve todas) los decide el
-**service**, que recibe quién hace el pedido. Por ejemplo,
-`clase.service.ts:198` (`listar`) filtra con `{ alumno: actor.id }` si el usuario no es
-admin. Se explica en [`../flujos/agendar-una-clase.md`](../flujos/agendar-una-clase.md).
+\* En `GET /api/clases` y `POST /api/clases`, el router solo exige el token.
+Lo demás lo decide el **service**, que recibe quién hace el pedido:
+`clase.service.ts:181` (`listar`) filtra con `{ alumno: actor.id }` si el
+usuario no es admin, y al reservar, un alumno solo puede hacerlo para sí
+mismo. Se explica en [`../flujos/agendar-una-clase.md`](../flujos/agendar-una-clase.md).
+
+† Las rutas con el `:id` de una clase pasan por
+`requireAlumnoDeLaClaseOAdministrador`: el **alumno de la clase** o un admin.
+La clase de otro alumno responde 403. Es el 👤 de los usuarios, pero
+comparando contra el dueño de la clase y no contra el `:id`. Se explica en
+[`../flujos/modificar-y-eliminar-una-clase.md`](../flujos/modificar-y-eliminar-una-clase.md).
 
 Hasta octubre de 2026 existía también `/api/calendario-semanal`, un alias que
 duplicaba `agregar`, `quitar` y `validar` del horario de la escuela. Se eliminó

@@ -94,8 +94,8 @@ describe('validacionDeCuerpo HTTP', () => {
     await request(app).post('/api/horario-escuela/agregar').expect(401);
   });
 
-  it('PATCH /clases/:id/cancelar no lleva el middleware (no necesita body)', async () => {
-    const respuesta = await pedir('patch', `/api/clases/${ID}/cancelar`);
+  it('DELETE /clases/:id no lleva el middleware (no necesita body)', async () => {
+    const respuesta = await pedir('delete', `/api/clases/${ID}`);
 
     expect(respuesta.status).not.toBe(400);
   });

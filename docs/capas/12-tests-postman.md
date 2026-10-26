@@ -4,7 +4,7 @@
 
 La colección de `postman/` prueba la API **de punta a punta, como lo haría el
 frontend**: con el servidor levantado de verdad, contra una base real,
-haciendo login y encadenando pedidos. Son 188 requests, organizados en 11
+haciendo login y encadenando pedidos. Son 194 requests, organizados en 11
 carpetas que se ejecutan en orden, y cada uno tiene scripts que comprueban la
 respuesta.
 
@@ -26,7 +26,7 @@ respuesta.
 
 ```
 postman/
-├── DriveAndLearn.postman_collection.json   11 carpetas, 188 requests
+├── DriveAndLearn.postman_collection.json   11 carpetas, 194 requests
 ├── environments/
 │   ├── local.postman_environment.json      baseUrl = http://localhost:3000/api
 │   └── remoto.postman_environment.json     baseUrl = https://<servidor>/api
@@ -42,12 +42,12 @@ Las carpetas, en el orden en que se ejecutan:
    │ guarda tokens e ids            04 Autos (15) ──► 05 Profesores (17) ──► 06 Horario de la escuela (13)
    │                                                                │
    │ (variables de colección)                                       ▼
-   └────────────────────────────►  07 Clases (30) ──► 08 Errores generales (5) ──► 09 Validación de campos y tipos (30)
+   └────────────────────────────►  07 Clases (34) ──► 08 Errores generales (5) ──► 09 Validación de campos y tipos (30)
                                                                                          │
                                                                                          ▼
-                                                                                   99 Teardown (10)
+                                                                                   99 Teardown (12)
                                                                      deja el horario como estaba,
-                                                                     borra alumnos, saca autos de servicio
+                                                                     borra clases y alumnos, saca autos de servicio
 ```
 
 ---
@@ -198,12 +198,15 @@ La corrida deja la base lo más parecida posible a como estaba:
 - Quita la disponibilidad del profesor y el tramo que agregó al horario, y
   **verifica** que el horario de la escuela quede igual al original, que se
   guardó al principio en `horarioOriginal`.
+- Borra las 2 clases que quedaron de `07 Clases`: la que reservó el admin y
+  la del horario liberado. La primera clase del alumno 1 ya se eliminó en esa
+  carpeta.
 - Borra los 4 alumnos: el admin borra a dos, y los otros dos se borran a sí
   mismos. El admin extra ya se había borrado en `03 Administradores`.
 - Por último, comprueba que el token de un alumno borrado ya no sirve (403).
 
-La API no tiene `DELETE` para profesores, autos ni clases, así que quedan en
-la base, marcados con `[POSTMAN]` o con una patente que empieza con `PM`.
+La API no tiene `DELETE` para profesores ni autos, así que quedan en la base,
+marcados con `[POSTMAN]` o con una patente que empieza con `PM`.
 
 ### 9. Modificar la colección
 

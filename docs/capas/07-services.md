@@ -21,7 +21,7 @@ validado (o argumentos comunes) y devuelve datos, o lanza un error.
 | `profesor.service` | `ProfesorModel` | Alta, nombre y disponibilidad de los profesores. |
 | `calendarioSemanal.service` | — (no toca la base) | Operaciones sobre **cualquier** calendario semanal. |
 | `horarioEscuela.service` | `HorarioEscuelaModel` | El horario único de la escuela. |
-| `clase.service` | `Clase`, `Alumno`, `Profesor`, `Auto`, `HorarioEscuela`, `Administrador` | Reservar, modificar y cancelar clases. |
+| `clase.service` | `Clase`, `Alumno`, `Profesor`, `Auto`, `HorarioEscuela`, `Administrador` | Reservar, modificar y eliminar clases. |
 
 Algunos services usan a otros:
 
@@ -30,7 +30,9 @@ auth.service ─────────────► usuario.service
 horarioEscuela.service ──┐
 profesor.service ────────┴► calendarioSemanal.service
 auth.middleware ──────────► administrador.service.existe()
-clase.service ────────────► (usa los MODELS de los demás directamente)
+                 └────────► clase.service.obtenerPorIdAlumno()
+clase.service ────────────► alumno.service.sumarClasesPorReservar()   (al eliminar)
+                 └────────► los MODELS de los demás, para lo demás
 ```
 
 ---
@@ -192,7 +194,7 @@ La forma B tiene un punto débil. Entre el `findById` y el `.save()` pasa
 tiempo: si dos pedidos llegan a la vez, los dos leen el mismo saldo. Para
 operaciones administrativas poco frecuentes, como sumar clases, no es un
 problema. Para **reservar**, donde muchos alumnos compiten, `clase.service`
-usa una operación **condicional y atómica** (`clase.service.ts:238`):
+usa una operación **condicional y atómica** (`clase.service.ts:233`):
 
 ```ts
 AlumnoModel.findOneAndUpdate(

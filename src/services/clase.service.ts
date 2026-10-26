@@ -11,8 +11,9 @@ import type { CalendarioSemanal, Tramo } from '../models/CalendarioSemanal.js';
 import { AdministradorModel } from '../models/Administrador.js';
 import { HorarioEscuelaModel } from '../models/HorarioEscuela.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+import * as alumnoService from './alumno.service.js';
 import { aMinutos } from '../models/Horario.js';
-import { aHoraLocal, parsearInstante } from '../utils/fechas.js';
+import { aHoraLocal } from '../utils/fechas.js';
 import type { ActualizarClaseDto, CrearClaseDto } from '../dtos/clase.dto.js';
 
 const DURACION_CLASE_MS = 60 * 60 * 1000;
@@ -21,17 +22,6 @@ export interface ActorClase {
   id: string;
   rol: 'alumno' | 'administrador';
 }
-
-export type DatosClase = Omit<
-  Clase,
-  'alumno' | 'profesor' | 'auto' | 'estado' | 'inicio' | 'fin'
-> & {
-  alumno?: string;
-  profesor: string;
-  auto: string;
-  inicio: Date | string;
-  fin: Date | string;
-};
 
 function errorConflicto(mensaje: string): ErrorDeNegocio {
   return new ErrorDeNegocio(mensaje, 409);
@@ -67,13 +57,12 @@ async function claseAccesible(id: string, actor: ActorClase): Promise<ClaseDoc |
   return puedeAccederla ? clase : null;
 }
 
-function obtenerInstantes(datos: Pick<DatosClase, 'inicio' | 'fin'>): {
-  inicio: Date;
-  fin: Date;
-} {
-  const inicio = parsearInstante(datos.inicio, 'inicio');
-  const fin = parsearInstante(datos.fin, 'fin');
-  exigir(inicio !== undefined && fin !== undefined, 'El inicio y el fin son obligatorios');
+// Las fechas ya llegan como Date: el DTO las convirtió con
+// parsearInstante (utils/fechas.ts). Acá solo se revisan las reglas.
+function obtenerInstantes({
+  inicio,
+  fin,
+}: Pick<Clase, 'inicio' | 'fin'>): Pick<Clase, 'inicio' | 'fin'> {
   exigir(
     fin.getTime() - inicio.getTime() === DURACION_CLASE_MS,
     'La duración de la clase debe ser exactamente una hora',
@@ -148,7 +137,6 @@ async function validarAusenciaDeConflictos(
 ): Promise<void> {
   const conflicto = await ClaseModel.exists({
     ...(excluirId === undefined ? {} : { _id: { $ne: excluirId } }),
-    estado: { $ne: 'cancelada' },
     inicio: { $lt: datos.fin },
     fin: { $gt: datos.inicio },
     $or: [
@@ -165,24 +153,19 @@ async function validarAusenciaDeConflictos(
 }
 
 function validarClaseModificable(clase: ClaseDoc): void {
-  if (clase.estado === 'cancelada') {
-    throw errorConflicto('No se puede modificar una clase cancelada');
-  }
   if (clase.inicio <= new Date()) {
     throw errorConflicto('No se puede modificar una clase que ya comenzó');
   }
 }
 
+// Completa el inicio o el fin que no se mandó, manteniendo la hora de
+// duración. "cambios" ya trae las fechas como Date (o undefined).
 function obtenerInstantesActualizados(
   clase: ClaseDoc,
-  cambios: Partial<DatosClase>,
-): { inicio: Date; fin: Date } {
-  const inicioSolicitado = cambios.inicio === undefined
-    ? undefined
-    : parsearInstante(cambios.inicio, 'inicio');
-  const finSolicitado = cambios.fin === undefined
-    ? undefined
-    : parsearInstante(cambios.fin, 'fin');
+  cambios: ActualizarClaseDto,
+): Pick<Clase, 'inicio' | 'fin'> {
+  const inicioSolicitado = cambios.inicio;
+  const finSolicitado = cambios.fin;
   const inicio = inicioSolicitado ??
     (finSolicitado === undefined
       ? clase.inicio
@@ -208,6 +191,19 @@ export async function obtenerPorId(
 ): Promise<ClaseDoc | null> {
   await validarActor(actor);
   return claseAccesible(id, actor);
+}
+
+// ============================================================
+//  obtenerPorIdAlumno — de qué alumno es una clase (null si no existe)
+// ============================================================
+// Lo usa el middleware de las rutas GET, PUT y DELETE /clases/:id
+// para dejar pasar solo al alumno de la clase o a un admin. Trae solo
+// el campo "alumno". Si el id no tiene forma de ObjectId, Mongoose
+// lanza un CastError (400).
+export async function obtenerPorIdAlumno(id: string): Promise<string | null> {
+  const clase = await ClaseModel.findById(id, { alumno: 1 });
+  const idAlumno = clase === null ? null : clase.alumno.toString();
+  return idAlumno;
 }
 
 // "datos" ya es un CrearClaseDto: qué campos puede mandar cada rol y
@@ -308,57 +304,31 @@ export async function actualizar(
   return claseActualizada;
 }
 
-// Cancela una clase que todavía no estaba cancelada y le devuelve el
-// crédito al alumno. Si el reintegro falla, deja la clase como estaba.
-async function cancelarYReintegrarCredito(clase: ClaseDoc): Promise<ClaseDoc> {
-  if (clase.inicio <= new Date()) {
-    throw errorConflicto('Solo se pueden cancelar clases futuras');
-  }
-
-  const cancelada = await ClaseModel.findOneAndUpdate(
-    { _id: clase._id, estado: { $ne: 'cancelada' }, inicio: { $gt: new Date() } },
-    { $set: { estado: 'cancelada' } },
-    { returnDocument: 'after', runValidators: true },
-  );
-  if (cancelada === null) {
-    throw errorConflicto('La clase cambió mientras se intentaba cancelar');
-  }
-
-  try {
-    await AlumnoModel.updateOne(
-      { _id: cancelada.alumno },
-      { $inc: { clasesPorReservar: 1 } },
-    );
-  } catch (error) {
-    const restaurada = await ClaseModel.updateOne(
-      { _id: cancelada._id, estado: 'cancelada' },
-      { $set: { estado: clase.estado } },
-    );
-    if (restaurada.matchedCount !== 1) {
-      throw new AggregateError(
-        [error],
-        'Falló el reintegro del crédito y no se pudo restaurar el estado de la clase',
-      );
-    }
-    throw error;
-  }
-  return cancelada;
-}
-
-export async function cancelar(
+// ============================================================
+//  eliminar — borra una clase y, si corresponde, devuelve el crédito
+// ============================================================
+// Un alumno solo puede borrar sus clases; un admin, cualquiera. Se
+// pueden borrar también las que ya empezaron u ocurrieron, pero el
+// crédito solo vuelve si la clase todavía no empezó: una clase que ya
+// empezó se considera usada. Devuelve null si la clase no existe o es
+// de otro alumno.
+export async function eliminar(
   id: string,
   actor: ActorClase,
 ): Promise<ClaseDoc | null> {
   await validarActor(actor);
   const clase = await claseAccesible(id, actor);
-  // Queda en null si la clase no existe o es de otro alumno.
-  let claseCancelada: ClaseDoc | null = null;
 
   if (clase !== null) {
-    // Cancelar dos veces no hace nada: no se reintegra el crédito otra vez.
-    const yaEstabaCancelada = clase.estado === 'cancelada';
-    claseCancelada = yaEstabaCancelada ? clase : await cancelarYReintegrarCredito(clase);
+    const todaviaNoEmpezo = clase.inicio > new Date();
+
+    await clase.deleteOne();
+
+    if (todaviaNoEmpezo) {
+      const idAlumno: string = clase.alumno.toString();
+      await alumnoService.sumarClasesPorReservar(idAlumno, 1);
+    }
   }
 
-  return claseCancelada;
+  return clase;
 }

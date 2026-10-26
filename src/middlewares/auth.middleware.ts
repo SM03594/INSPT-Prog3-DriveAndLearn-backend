@@ -1,11 +1,13 @@
 // ============================================================
 //  auth.middleware.ts — Autenticación y autorización por JWT
 // ============================================================
-// Tres middlewares que los routers encadenan antes del controller:
+// Cuatro middlewares que los routers encadenan antes del controller:
 //
 //   requireAuthentication      -> ¿trae un JWT válido? (401 si no)
 //   requireAdministrator       -> ¿es un administrador activo? (403 si no)
 //   requireSelfOrAdministrator -> ¿es admin, o el dueño del recurso? (403 si no)
+//   requireAlumnoDeLaClaseOAdministrador
+//                              -> ¿es admin, o el alumno de la clase? (403 si no)
 //
 // Cómo rechazan: en vez de armar la respuesta acá (res.status().json()
 // + return), LANZAN un error. En Express 5, un throw dentro de un
@@ -23,6 +25,7 @@ import {
 } from '../errors/errorAutenticacion.js';
 import { ErrorAutorizacion } from '../errors/errorAutorizacion.js';
 import * as administradorService from '../services/administrador.service.js';
+import * as claseService from '../services/clase.service.js';
 import { verificarCuerpo } from './validacionDeCuerpo.middleware.js';
 import { ROLES, type Rol } from '../types/roles.js';
 
@@ -184,3 +187,42 @@ export function requireSelfOrAdministrator(
     next();
   };
 }
+
+// ============================================================
+//  requireAlumnoDeLaClaseOAdministrador — admin, o el alumno de la clase
+// ============================================================
+// Para las rutas con el :id de una CLASE (GET, PUT y DELETE), no de un
+// usuario como en requireSelfOrAdministrator. Deja pasar:
+//   - a un administrador activo, sobre cualquier clase;
+//   - al alumno al que pertenece la clase.
+//
+// Si la clase no existe, deja pasar: no hay dueño que comparar, y el
+// controller responde 404 "Clase no encontrada".
+export const requireAlumnoDeLaClaseOAdministrador: RequestHandler<{ id: string }> = async (
+  req,
+  _res,
+  next,
+) => {
+  const auth = req.auth;
+
+  // Solo pasa si se montó sin requireAuthentication antes.
+  if (auth === undefined) {
+    throw new ErrorAutenticacion(MENSAJE_NO_AUTORIZADO);
+  }
+
+  if (auth.role === 'administrador') {
+    // El token puede ser de un administrador que ya fue borrado.
+    if (!(await administradorService.existe(auth.id))) {
+      throw new ErrorAutorizacion('La cuenta de administrador ya no está activa');
+    }
+  } else {
+    const idAlumnoDeLaClase = await claseService.obtenerPorIdAlumno(req.params.id);
+    const esDeOtroAlumno = idAlumnoDeLaClase !== null && idAlumnoDeLaClase !== auth.id;
+
+    if (esDeOtroAlumno) {
+      throw new ErrorAutorizacion('Solo podés acceder a tus propias clases');
+    }
+  }
+
+  next();
+};

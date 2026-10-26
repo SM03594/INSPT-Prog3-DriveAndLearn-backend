@@ -160,8 +160,8 @@ usa tres:
 | Utilitario | Qué hace | Ejemplo en el proyecto |
 |---|---|---|
 | `Partial<T>` | Todos los campos pasan a ser opcionales. | `ActualizarAlumnoDto = Partial<CrearAlumnoDto>`: una edición trae **algunos** campos (`src/dtos/alumno.dto.ts:24`). |
-| `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:116` |
-| `Omit<T, 'a'>` | Saca esos campos. | `DatosClase` en `clase.service.ts:25` |
+| `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:105` |
+| `Omit<T, 'a'>` | Saca esos campos. | `Omit<CrearAutoDto, 'activo'>` en `src/dtos/auto.dto.ts:27` |
 
 Se pueden combinar. Al editar un auto se acepta cualquiera de sus datos
 **menos** `activo`, que tiene su propia ruta (`src/dtos/auto.dto.ts:27`):
@@ -171,16 +171,17 @@ export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
 //   Omit saca "activo"; Partial vuelve opcional el resto
 ```
 
-`&` (intersección) **suma** campos. `DatosClase` combina ambas cosas: toma
-`Clase`, le saca los campos que guardan ids de Mongo y los vuelve a agregar
-como `string`, que es como llegan del cliente:
+`&` (intersección) **suma** campos. `HoraLocal` toma la hora y los minutos de
+`HoraDelDia` y le agrega el día de la semana (`src/utils/fechas.ts:87`):
 
 ```ts
-export type DatosClase = Omit<Clase, 'alumno' | 'profesor' | 'auto' | 'estado' | 'inicio' | 'fin'>
-  & { alumno?: string; profesor: string; auto: string; inicio: Date | string; fin: Date | string };
+export type HoraLocal = { dia: Dia } & HoraDelDia;
+//   = { dia: Dia; hora: number; minuto: number }
 ```
 
-El `?` en `alumno?` marca un campo **opcional**: puede no estar.
+Un `?` después del nombre de un campo lo marca como **opcional**: puede no
+estar. Por ejemplo, `alumno?: string` en `CrearClaseDto`
+(`src/dtos/clase.dto.ts`), porque solo lo manda un admin.
 
 ### 6. Genéricos: tipos con parámetro
 
@@ -323,7 +324,7 @@ dto                                   CrearAlumnoDto   → el service lo puede u
 
 Otros dos guards que vale la pena leer:
 
-- `esPayloadAutenticado` (`src/middlewares/auth.middleware.ts:69`) confirma
+- `esPayloadAutenticado` (`src/middlewares/auth.middleware.ts:72`) confirma
   que el JWT trae `sub` y un `role` válido.
 - `validarDia` (`src/services/calendarioSemanal.service.ts:20`) usa una
   variante, `asserts dia is Dia`: en lugar de devolver `true`/`false`, lanza
@@ -451,7 +452,7 @@ import se borra por completo al compilar, así que no carga código en runtime.
 | `interface` / `extends` | La forma de un objeto, y heredar campos | `models/Usuario.ts:76` |
 | Unión `A \| B` | "Una cosa o la otra" | `AutoDoc \| null` |
 | `as const` + `typeof X[number]` | Una sola lista, usable como valor y como tipo | `types/roles.ts:8` |
-| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:27`, `services/clase.service.ts:25` |
+| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:27`, `services/clase.service.ts:105`, `utils/fechas.ts:87` |
 | Genéricos `<T>` | Tipos con parámetro | `utils/password.ts:27`, `exigido` y `validarCampos` |
 | *Mapped types* | Calcular un tipo a partir de otro | `DatosValidados` en `utils/validacionCampos.ts:61` |
 | `unknown` + type guards | Validar datos externos de forma segura | `utils/cuerpoPeticion.ts:24` |

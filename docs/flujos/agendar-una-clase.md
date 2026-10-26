@@ -45,17 +45,17 @@ POST /api/clases   Authorization: Bearer <token de Ana>
  │
  ▼ clase.routes        requireAuthentication → validacionDeCuerpo
  ▼ clase.controller    actorDe(req) → { id: Ana, rol: 'alumno' }
- │   ① aCrearClaseDto           ¿campos permitidos para su rol? ¿texto? ¿todos?      400
+ │   ① aCrearClaseDto           ¿campos de su rol? ¿texto? ¿todos? ¿fechas con zona?  400
  ▼ clase.service.crear
  │   ② validarActor             ¿la cuenta del token sigue existiendo?               403
- │   ③ obtenerInstantes         ISO con zona · 1 h exacta · sin segundos · futura     400
+ │   ③ obtenerInstantes         1 h exacta · sin segundos · futura                    400
  │   ④ objectId                 ¿los ids tienen formato válido?                       400
  │   ⑤ validarDisponibilidad    profesor/auto existen · auto activo · horario escuela
  │                              · cabe en escuela y profesor · sin superposición     404/409
  │   ⑥ descontar 1 crédito      operación atómica: solo si clasesPorReservar ≥ 1      409
  │   ⑦ ClaseModel.create        si falla, se devuelve el crédito
  ▼
-201 { alumno, profesor, auto, inicio, fin, estado: "pendiente", _id, ... }
+201 { alumno, profesor, auto, inicio, fin, _id, ... }
 ```
 
 El orden importa: el saldo se descuenta **al final**, cuando ya se sabe que la
@@ -68,7 +68,7 @@ después se rechaza.
 
 ### Paso 1. La ruta: solo pide token
 
-`src/routes/clase.routes.ts:14-18`:
+`src/routes/clase.routes.ts:17-23`:
 
 ```ts
 router.use(requireAuthentication);
@@ -97,7 +97,7 @@ lo que entiende el service. Ver
 
 ### Paso 3. ① Campos según el rol: el DTO
 
-`aCrearClaseDto` (`src/dtos/clase.dto.ts:60`) recibe el rol, porque el
+`aCrearClaseDto` (`src/dtos/clase.dto.ts:64`) recibe el rol, porque el
 **contrato** de la reserva depende de quién reserva:
 
 | Quién reserva | Campos permitidos | De quién es la clase |
@@ -112,40 +112,42 @@ Ana manda { ..., "alumno": "<id de Beto>" }  → 400 "No se pueden enviar estos 
 Admin sin "alumno"                           → 400 "El alumno es obligatorio"
 Admin con "alumno": "<id de Beto>"           → 201 (la clase es de Beto y se descuenta del saldo de Beto)
 ```
-El DTO revisa la **forma**: qué campos, y que cada uno sea un texto. Que el
-texto sea un id válido o una fecha con zona horaria lo revisa el service, en
-los pasos 5 y 6.
+El DTO revisa la **forma**: qué campos, y que cada uno sea un texto. Además
+convierte `inicio` y `fin` a `Date` con `parsearInstante`: si no son una fecha
+ISO 8601 **con zona** (o el día no existe), responde 400. Que los ids sean
+válidos lo revisa el service, en el paso 6.
 
 
 ### Paso 4. ② La cuenta sigue activa
 
-`validarActor` (`:53`) busca al alumno o al admin del token. Si lo borraron
+`validarActor` (`:43`) busca al alumno o al admin del token. Si lo borraron
 mientras el token seguía vigente, responde 403 "La cuenta autenticada ya no
 está activa".
 
 ### Paso 5. ③ Las fechas
 
-`obtenerInstantes` (`:70`) usa `parsearInstante` y comprueba:
+Las fechas ya llegan como `Date`: el formato lo validó el DTO en el paso 3.
+`obtenerInstantes` (`:62`) comprueba las reglas:
 
 | Regla | Pedido que la rompe | Respuesta |
 |---|---|---|
-| ISO 8601 **con zona** | `"2026-10-26T12:00:00"` | 400 "inicio debe ser una fecha ISO 8601 con zona horaria (ej. 2026-09-20T09:00:00-03:00)" |
+| ISO 8601 **con zona** (en el DTO) | `"2026-10-26T12:00:00"` | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (ej. 2026-09-20T09:00:00-03:00)" |
 | Exactamente 1 hora | De 12:00 a 14:00 | 400 "La duración de la clase debe ser exactamente una hora" |
 | Sin segundos | `10:00:30` | 400 "El inicio y el fin deben tener precisión de minutos" |
 | En el futuro | `2025-01-06T12:00:00-03:00` | 400 "La clase debe reservarse para una fecha futura" |
 
 Por qué se exige la zona se explica en
-[`../capas/10-utils-y-fechas.md`](../capas/10-utils-y-fechas.md#51-el-problema-date-es-un-instante-no-una-hora-de-reloj).
+[`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md#2-entrada-la-zona-es-obligatoria).
 
 ### Paso 6. ④ Formato de los ids
 
-`objectId` (`:48`): `"profesor": "abc"` → 400 "profesor debe ser un
+`objectId` (`:38`): `"profesor": "abc"` → 400 "profesor debe ser un
 identificador válido". Un id con formato válido que no existe pasa este paso
 y lo frena el siguiente.
 
 ### Paso 7. ⑤ ¿Es posible esta clase?
 
-`validarDisponibilidad` (`:92`) carga en paralelo el profesor, el auto y el
+`validarDisponibilidad` (`:81`) carga en paralelo el profesor, el auto y el
 horario de la escuela, y comprueba:
 
 ```
@@ -181,7 +183,7 @@ superposición se calcula con `inicio < otro.fin && fin > otro.inicio`, y
 
 ### Paso 8. ⑥ Descontar el crédito
 
-`clase.service.ts:238`:
+`clase.service.ts:233`:
 
 ```ts
 const alumno = await AlumnoModel.findOneAndUpdate(
@@ -225,7 +227,6 @@ problemas, que termina en un 500.
   "alumno": "6ada687f...ef7", "profesor": "6ada687f...ef2", "auto": "6ada687f...ef5",
   "inicio": "2026-10-26T13:00:00.000Z",
   "fin":    "2026-10-26T14:00:00.000Z",
-  "estado": "pendiente",
   "_id": "6ada687f...eff", "createdAt": "...", "updatedAt": "..."
 }
 ```
@@ -235,14 +236,19 @@ problemas, que termina en un 500.
 - `alumno`, `profesor` y `auto` vienen como **ids**, sin `populate`. Para
   mostrar el nombre del profesor, el cliente tiene que pedirlo aparte
   (`GET /api/profesores/:id`).
-- `estado` arranca en `"pendiente"`.
+- No hay campo de estado: si la clase existe, está reservada. Para cancelarla
+  se elimina (`DELETE /api/clases/:id`).
 
 ### Paso 11. Consultar las reservas
 
-`GET /api/clases` (`clase.service.ts:198`):
+`GET /api/clases` (`clase.service.ts:181`):
 
 - Un **alumno** recibe solo **sus** clases, ordenadas por `inicio`. Ana ve 2.
 - Un **admin** recibe **todas**: en el ejemplo, 3.
+
+`GET /api/clases/:id` pasa antes por `requireAlumnoDeLaClaseOAdministrador`:
+si Ana pide la clase de Beto, responde 403 "Solo podés acceder a tus propias
+clases" (ver [`modificar-y-eliminar-una-clase.md`](modificar-y-eliminar-una-clase.md)).
 
 ---
 
@@ -257,7 +263,7 @@ Ordenado según el paso que lo detecta:
 | Manda `estado` | 400 "No se pueden enviar estos campos: estado" |
 | Falta `auto` | 400 "El auto es obligatorio" |
 | `profesor: 123` | 400 "El profesor debe ser un texto" |
-| Fecha sin zona | 400 "inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
+| Fecha sin zona | 400 "El inicio debe ser una fecha ISO 8601 con zona horaria (…)" |
 | 2 horas | 400 "La duración de la clase debe ser exactamente una hora" |
 | Fecha pasada | 400 "La clase debe reservarse para una fecha futura" |
 | `profesor: "abc"` | 400 "profesor debe ser un identificador válido" (el formato del mensaje está en I-51) |
@@ -277,10 +283,9 @@ Ordenado según el paso que lo detecta:
   profesor con su disponibilidad, un auto activo y el saldo del alumno.
 - La ruta solo pide token. El **service** decide según el rol: un alumno
   reserva para sí mismo, y un admin para el alumno que indique.
-- 7 comprobaciones en orden: campos → cuenta → fechas → ids → disponibilidad
-  → saldo → guardar. El crédito se descuenta **al final**, de forma atómica, y
+- 7 comprobaciones en orden: campos y formato de las fechas (DTO) → cuenta →
+  reglas de las fechas → ids → disponibilidad → saldo → guardar. El crédito se descuenta **al final**, de forma atómica, y
   se devuelve si falla el guardado.
-- La clase se guarda en UTC, con estado `pendiente`, y los ids sin
-  `populate`.
+- La clase se guarda en UTC y los ids sin `populate`.
 
-**Siguiente lectura:** [`modificar-y-cancelar-una-clase.md`](modificar-y-cancelar-una-clase.md).
+**Siguiente lectura:** [`modificar-y-eliminar-una-clase.md`](modificar-y-eliminar-una-clase.md).

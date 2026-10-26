@@ -276,7 +276,7 @@ GET /api/alumnos/6ada67d6a1255f5aab347d4b
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
-`requireAuthentication` (`src/middlewares/auth.middleware.ts:114`) verifica
+`requireAuthentication` (`src/middlewares/auth.middleware.ts:117`) verifica
 el token **con las mismas opciones con que se firmó** (algoritmo, audiencia,
 emisor) y carga `req.auth = { id: payload.sub, role: payload.role }`. A partir
 de ahí, los siguientes middlewares y el controller saben quién es. Se explica
