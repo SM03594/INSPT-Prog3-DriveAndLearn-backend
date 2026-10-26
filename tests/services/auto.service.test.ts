@@ -13,7 +13,7 @@ import {
   cambiarEstado,
   listarActivos,
 } from '../../src/services/auto.service.js';
-import type { Auto } from '../../src/models/Auto.js';
+import { AutoModel, type Auto } from '../../src/models/Auto.js';
 import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
@@ -87,6 +87,29 @@ describe('auto.service', () => {
       await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
       await expect(promesa).rejects.toMatchObject({ status: 409 });
       await expect(promesa).rejects.toThrow(/patente/i);
+    });
+
+    it('tira ErrorClaveDuplicada aunque la patente repetida venga en minúsculas y con espacios', async () => {
+      await crear(datosValidos);
+
+      const promesa = crear({ ...datosValidos, patente: '  ab123cd ' });
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+    });
+
+    it('tira ErrorClaveDuplicada aunque falte el índice unique de la patente', async () => {
+      // Simula una base donde el índice no se pudo crear: sin la
+      // consulta previa del service, el segundo auto se guardaría.
+      await AutoModel.init();
+      await AutoModel.collection.dropIndex('patente_1');
+
+      try {
+        await crear(datosValidos);
+        await expect(crear(datosValidos)).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+        expect(await AutoModel.countDocuments()).toBe(1);
+      } finally {
+        // Deja el índice como estaba para los tests que siguen.
+        await AutoModel.createIndexes();
+      }
     });
   });
 
@@ -181,6 +204,26 @@ describe('auto.service', () => {
           cambios: 'cohete' as Auto['cambios'],
         }),
       ).rejects.toThrow(/cambios/);
+    });
+
+    it('tira ErrorClaveDuplicada (409) si la patente nueva es la de otro auto', async () => {
+      await crear(datosValidos);
+      const otro = await crear({ ...datosValidos, patente: 'XY999ZZ' });
+
+      const promesa = actualizar(otro._id.toString(), { patente: 'ab123cd' });
+      await expect(promesa).rejects.toBeInstanceOf(ErrorClaveDuplicada);
+      await expect(promesa).rejects.toMatchObject({ status: 409 });
+    });
+
+    it('deja mandar la patente que el auto ya tenía', async () => {
+      const creado = await crear(datosValidos);
+
+      const actualizado = await actualizar(creado._id.toString(), {
+        patente: 'AB123CD',
+        modelo: 'Yaris',
+      });
+
+      expect(actualizado?.modelo).toBe('Yaris');
     });
   });
 

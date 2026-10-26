@@ -7,12 +7,39 @@ import {
   type AutoDoc,
   type Cambios,
 } from '../models/Auto.js';
-import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
+import {
+  ErrorClaveDuplicada,
+  verSiErrorClaveDuplicada,
+} from '../errors/errorClaveDuplicada.js';
 import type { ActualizarAutoDto, CrearAutoDto } from '../dtos/auto.dto.js';
 
-// Mensaje de respaldo si el Schema no definió uno propio para la
-// patente repetida (ver verSiErrorClaveDuplicada).
+// Mensaje de la patente repetida cuando la encuentra el service, y de
+// respaldo si el Schema no definió uno propio (ver verSiErrorClaveDuplicada).
 const MENSAJE_PATENTE_DUPLICADA = 'La patente ya está en uso';
+
+// ============================================================
+//  verificarPatenteLibre — que ningún OTRO auto tenga esa patente
+// ============================================================
+// No hace falta pasar la patente a mayúsculas ni recortarla: Mongoose
+// aplica el uppercase y el trim del esquema también al filtro, así que
+// "  ab123cd " encuentra a "AB123CD".
+// "idPropio" es el auto que se está editando: si la patente es la suya,
+// no cuenta como repetida.
+//
+// El índice unique de la patente sigue siendo la última barrera: si dos
+// pedidos con la misma patente llegan a la vez, los dos pasan esta
+// consulta y el índice frena al segundo. Pero no alcanza solo con el
+// índice: si no se pudo crear (por ejemplo, porque la colección ya tenía
+// patentes repetidas), Mongoose no avisa y los duplicados entran igual.
+async function verificarPatenteLibre(patente: string, idPropio?: string): Promise<void> {
+  const filtro =
+    idPropio === undefined ? { patente } : { patente, _id: { $ne: idPropio } };
+  const otroAutoConEsaPatente = await AutoModel.exists(filtro);
+
+  if (otroAutoConEsaPatente !== null) {
+    throw new ErrorClaveDuplicada(MENSAJE_PATENTE_DUPLICADA);
+  }
+}
 
 
 export async function listar(): Promise<AutoDoc[]> {
@@ -43,11 +70,14 @@ export async function listarActivos(cambios?: Cambios): Promise<AutoDoc[]> {
 
 
 // "datos" ya es un CrearAutoDto: la forma la validó el controller (ver
-// dtos/auto.dto.ts). create() puede chocar contra el índice unique de
-// patente: se atrapa el error crudo de Mongo/Mongoose acá, no en el
-// middleware, porque acá es donde se sabe qué campo es y qué mensaje
-// tiene sentido para Auto.
+// dtos/auto.dto.ts). Primero se busca si la patente ya está en uso.
+// Aun así, create() puede chocar contra el índice unique de patente
+// (dos altas a la vez): se atrapa el error crudo de Mongo/Mongoose acá,
+// no en el middleware, porque acá es donde se sabe qué campo es y qué
+// mensaje tiene sentido para Auto.
 export async function crear(datos: CrearAutoDto): Promise<AutoDoc> {
+  await verificarPatenteLibre(datos.patente);
+
   try {
     return await AutoModel.create(datos);
   } catch (err) {
@@ -65,6 +95,10 @@ export async function actualizar(
   id: string,
   cambios: ActualizarAutoDto,
 ): Promise<AutoDoc | null> {
+  if (cambios.patente !== undefined) {
+    await verificarPatenteLibre(cambios.patente, id);
+  }
+
   try {
     return await AutoModel.findByIdAndUpdate(id, cambios, {
       new: true, // devolver el documento actualizado, no el previo
