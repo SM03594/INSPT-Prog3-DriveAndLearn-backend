@@ -7,16 +7,19 @@ import { ClaseModel, type ClaseDoc, type Clase } from '../models/Clase.js';
 import { AlumnoModel } from '../models/Alumno.js';
 import { AutoModel } from '../models/Auto.js';
 import { ProfesorModel } from '../models/Profesor.js';
-import type { CalendarioSemanal, Tramo } from '../models/CalendarioSemanal.js';
+import type { CalendarioSemanal } from '../models/CalendarioSemanal.js';
 import { AdministradorModel } from '../models/Administrador.js';
 import { HorarioEscuelaModel } from '../models/HorarioEscuela.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import * as alumnoService from './alumno.service.js';
+import { entraEnAlgunTramo } from './tramo.service.js';
 import { aMinutos } from '../models/Horario.js';
 import { aHoraLocal } from '../utils/fechas.js';
 import type { ActualizarClaseDto, CrearClaseDto } from '../dtos/clase.dto.js';
 
-const DURACION_CLASE_MS = 60 * 60 * 1000;
+// Toda clase dura exactamente una hora. Exportada para la consulta de
+// turnos libres, que tiene que ofrecer clases que esta misma regla acepte.
+export const DURACION_CLASE_MS = 60 * 60 * 1000;
 
 export interface ActorClase {
   id: string;
@@ -57,8 +60,22 @@ async function claseAccesible(id: string, actor: ActorClase): Promise<ClaseDoc |
   return puedeAccederla ? clase : null;
 }
 
+// ============================================================
+//  empiezaEnPunto — ¿el instante es una hora en punto en la escuela?
+// ============================================================
+// Se mira la hora de la ESCUELA (aHoraLocal) y no la de UTC: con un
+// offset como +05:30, las 09:00 en la escuela son 03:30 en UTC.
+export function empiezaEnPunto(instante: Date): boolean {
+  const enPunto =
+    aHoraLocal(instante).minuto === 0 &&
+    instante.getUTCSeconds() === 0 &&
+    instante.getUTCMilliseconds() === 0;
+  return enPunto;
+}
+
 // Las fechas ya llegan como Date: el DTO las convirtió con
 // parsearInstante (utils/fechas.ts). Acá solo se revisan las reglas.
+// Con inicio en punto y una hora exacta, el fin también queda en punto.
 function obtenerInstantes({
   inicio,
   fin,
@@ -68,11 +85,8 @@ function obtenerInstantes({
     'La duración de la clase debe ser exactamente una hora',
   );
   exigir(
-    inicio.getUTCSeconds() === 0 &&
-      inicio.getUTCMilliseconds() === 0 &&
-      fin.getUTCSeconds() === 0 &&
-      fin.getUTCMilliseconds() === 0,
-    'El inicio y el fin deben tener precisión de minutos',
+    empiezaEnPunto(inicio),
+    'La clase debe empezar en una hora en punto (por ejemplo, 08:00)',
   );
   exigir(inicio > new Date(), 'La clase debe reservarse para una fecha futura');
   return { inicio, fin };
@@ -110,22 +124,15 @@ function validarHorarioClase(
   const finLocal = aHoraLocal(datos.fin);
   exigir(inicioLocal.dia === finLocal.dia, 'La clase no puede cruzar el cambio de día');
 
-  const inicioMinutos = aMinutos(inicioLocal);
-  const finMinutos = aMinutos(finLocal);
-  const entraEnHorario = (tramos: readonly Tramo[]) =>
-    tramos.some(
-      (tramo) =>
-        aMinutos(tramo.horaInicio) <= inicioMinutos &&
-        finMinutos <= aMinutos(tramo.horaFin),
-    );
+  const intervalo = { inicio: aMinutos(inicioLocal), fin: aMinutos(finLocal) };
 
   exigir(
-    entraEnHorario(calendarioEscuela[inicioLocal.dia]),
+    entraEnAlgunTramo(calendarioEscuela[inicioLocal.dia], intervalo),
     'La clase queda fuera del horario de la escuela',
     409,
   );
   exigir(
-    entraEnHorario(disponibilidadProfesor[inicioLocal.dia]),
+    entraEnAlgunTramo(disponibilidadProfesor[inicioLocal.dia], intervalo),
     'El profesor no está disponible en ese horario',
     409,
   );
@@ -150,6 +157,40 @@ async function validarAusenciaDeConflictos(
     'El alumno, profesor o auto ya tiene una clase en ese horario',
     409,
   );
+}
+
+// ============================================================
+//  listarSuperpuestas — las clases que se pisan con un período
+// ============================================================
+// La misma búsqueda que validarAusenciaDeConflictos, pero devuelve las
+// clases en vez de un sí o no. La usa la consulta de turnos libres para
+// traer en una sola consulta todo lo que ocupa un día: las clases del
+// profesor, las del alumno (si se indica) y las de esos autos.
+export interface FiltroSuperpuestas {
+  inicio: Date;
+  fin: Date;
+  profesor: string;
+  alumno?: string;
+  autos: readonly string[];
+}
+
+export async function listarSuperpuestas(
+  filtro: FiltroSuperpuestas,
+): Promise<ClaseDoc[]> {
+  const deQuien: Record<string, unknown>[] = [
+    { profesor: filtro.profesor },
+    { auto: { $in: filtro.autos } },
+  ];
+  if (filtro.alumno !== undefined) {
+    deQuien.push({ alumno: filtro.alumno });
+  }
+
+  const clases = await ClaseModel.find({
+    inicio: { $lt: filtro.fin },
+    fin: { $gt: filtro.inicio },
+    $or: deQuien,
+  });
+  return clases;
 }
 
 function validarClaseModificable(clase: ClaseDoc): void {
@@ -239,7 +280,11 @@ export async function crear(
   if (alumno === null) {
     const existeAlumno = await AlumnoModel.exists({ _id: alumnoId });
     if (existeAlumno === null) throw new ErrorDeNegocio('Alumno no encontrado', 404);
-    throw errorConflicto('No tenés clases disponibles para reservar');
+    // El que reserva puede ser el alumno o un admin que reserva para él.
+    const mensajeSinSaldo = actor.rol === 'alumno'
+      ? 'No tenés clases disponibles para reservar'
+      : 'El alumno no tiene clases disponibles para reservar';
+    throw errorConflicto(mensajeSinSaldo);
   }
 
   try {

@@ -6,7 +6,7 @@ import {
   ProfesorModel,
   type ProfesorDoc,
 } from '../models/Profesor.js';
-import type { Tramo } from '../models/CalendarioSemanal.js';
+import type { Tramo } from '../models/Tramo.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { agregarTramo, quitarTramo, validarDia } from './calendarioSemanal.service.js';
 import type { CrearProfesorDto } from '../dtos/profesor.dto.js';

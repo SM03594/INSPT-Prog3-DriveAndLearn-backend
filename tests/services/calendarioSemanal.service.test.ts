@@ -12,13 +12,14 @@ import {
   validarDia,
   agregarTramo,
   quitarTramo,
+  validarTramosEnPunto,
 } from '../../src/services/calendarioSemanal.service.js';
 import {
   DIAS,
   crearCalendarioSemanal,
   type Dia,
-  type Tramo,
 } from '../../src/models/CalendarioSemanal.js';
+import type { Tramo } from '../../src/models/Tramo.js';
 
 // Un día que no existe.
 const DIA_INVALIDO = 'narnia' as unknown as Dia;
@@ -91,6 +92,41 @@ describe('calendarioSemanal.service', () => {
         agregarTramo(cal, DIA_INVALIDO, nuevoTramo(9, 12)),
       ).toThrow(/día/i);
       expect(cal.lunes).toHaveLength(0);
+    });
+
+    it('tira si el tramo no es en punto y no toca el calendario', () => {
+      const cal = crearCalendarioSemanal();
+      const tramo: Tramo = {
+        horaInicio: { hora: 9, minuto: 0 },
+        horaFin: { hora: 12, minuto: 30 },
+      };
+
+      expect(() => agregarTramo(cal, 'lunes', tramo)).toThrow(/hora en punto/);
+      expect(cal.lunes).toHaveLength(0);
+    });
+  });
+
+  // --------------------------------------------------------
+  //  validarTramosEnPunto
+  // --------------------------------------------------------
+  describe('validarTramosEnPunto', () => {
+    it('acepta una semana con todos los tramos en punto', () => {
+      const cal = crearCalendarioSemanal();
+      cal.lunes.push(nuevoTramo(9, 12));
+      cal.sabado.push(nuevoTramo(8, 13));
+
+      expect(() => validarTramosEnPunto(cal)).not.toThrow();
+    });
+
+    it('tira si algún tramo de cualquier día no es en punto', () => {
+      const cal = crearCalendarioSemanal();
+      cal.lunes.push(nuevoTramo(9, 12));
+      cal.domingo.push({
+        horaInicio: { hora: 9, minuto: 30 },
+        horaFin: { hora: 12, minuto: 0 },
+      });
+
+      expect(() => validarTramosEnPunto(cal)).toThrow(/hora en punto/);
     });
   });
 

@@ -10,9 +10,10 @@ import {
   DIAS,
   type CalendarioSemanal,
   type Dia,
-  type Tramo,
 } from '../models/CalendarioSemanal.js';
+import type { Tramo } from '../models/Tramo.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
+import { validarTramoEnPunto } from './tramo.service.js';
 
 // ============================================================
 //  validarDia — rechaza un día que no está en DIAS
@@ -34,7 +35,19 @@ export function agregarTramo(
   tramo: Tramo,
 ): void {
   validarDia(dia);
+  validarTramoEnPunto(tramo);
   calendario[dia].push(tramo);
+}
+
+// ============================================================
+//  validarTramosEnPunto — todos los tramos de la semana, en punto
+// ============================================================
+// Para cuando se carga un calendario entero (por ejemplo, el PUT del
+// horario de la escuela).
+export function validarTramosEnPunto(calendario: CalendarioSemanal): void {
+  for (const dia of DIAS) {
+    calendario[dia].forEach(validarTramoEnPunto);
+  }
 }
 
 // ============================================================

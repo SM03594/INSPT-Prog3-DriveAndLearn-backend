@@ -245,43 +245,44 @@ Todos estos casos están en `tests/utils/fechas.test.ts`.
 
 #### 5.3 `aHoraLocal`: ¿qué día y qué hora es en la escuela?
 
-`fechas.ts:89` convierte un instante en `{ dia, hora, minuto }` **tal como lo
-vería un reloj en la escuela**, sin depender de la zona del servidor. Usa
-`Intl.DateTimeFormat`, que viene incluido en JavaScript:
+`fechas.ts:92` convierte un instante en `{ dia, hora, minuto }` **tal como lo
+vería un reloj en la escuela**, sin depender de la zona del servidor. La hora
+de la escuela se define con un solo dato: `OFFSET_UTC`, la diferencia con UTC
+(`-03:00` por defecto), que se lee del `.env` en `config/env.ts`.
+
+La cuenta es corta: se le suma el offset al instante y se leen el día y la
+hora con los métodos `getUTC*`, que nunca miran la zona del proceso:
 
 ```ts
-const formatoLocal = new Intl.DateTimeFormat('en-US', {
-  timeZone: ZONA_HORARIA,      // 'America/Argentina/Buenos_Aires' por defecto
-  weekday: 'long',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23',
-});
+function relojDeLaEscuela(instante: Date): Date {        // fechas.ts:80
+  const reloj = new Date(instante.getTime() + OFFSET_UTC_MINUTOS * MS_POR_MINUTO);
+  return reloj;
+}
 ```
 
-`formatToParts` devuelve las partes por separado. Para `2026-11-02T13:00:00Z`:
+Para `2026-11-02T13:00:00Z` con `-03:00`:
 
 ```
-weekday="Monday"  literal=" "  hour="10"  literal=":"  minute="00"
-      │                              │                       │
-      ▼ DIA_POR_NOMBRE_EN            ▼ Number()              ▼ Number()
-{ dia: 'lunes',                  hora: 10,               minuto: 0 }
+13:00Z  −  180 minutos  =  10:00 "en UTC"
+                             │
+       getUTCDay() = 1 ──────┼──► DIA_POR_INDICE[1]   = 'lunes'
+       getUTCHours() = 10 ───┼──► hora: 10
+       getUTCMinutes() = 0 ──┘    minuto: 0
 ```
 
-Cada opción tiene su motivo:
+- `getUTCDay()` devuelve 0 para el domingo: por eso `DIA_POR_INDICE` empieza
+  en `'domingo'`.
+- `getUTCHours()` va de 0 a 23: medianoche es `0`, nunca `24` (hay un test:
+  "medianoche local es hora 0, no 24").
+- El `Date` corrido **no es un instante real**: solo se usa para leerle esos
+  datos, y nunca sale de la función.
+- Un offset fijo no contempla el horario de verano. Por qué se eligió igual
+  está en
+  [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fechas.md#7-por-qué-un-offset-fijo-y-qué-se-pierde).
 
-- **`'en-US'` y no `'es-AR'`**: en español, los días llevan tildes
-  ("miércoles", "sábado") y su forma exacta depende de la implementación. En
-  inglés son estables y sin tildes, y un mapa fijo los traduce a los valores
-  del tipo `Dia` (`'miercoles'`, `'sabado'`).
-- **`hourCycle: 'h23'`**: garantiza que medianoche sea `00` y no `24`, porque
-  algunas implementaciones devuelven `24` con otras opciones. Hay un test para
-  eso: "medianoche local es hora 0, no 24".
-- **`timeZone: ZONA_HORARIA`**: es un **nombre** IANA y no un offset fijo como
-  `-03:00`. Si Argentina vuelve a usar horario de verano, el nombre ya lo
-  contempla.
-- El formateador se crea **una sola vez**, cuando se carga el módulo, y no en
-  cada llamada, porque crearlo es relativamente caro.
+El camino inverso (de una fecha y una hora de la escuela a un instante) lo
+hace `instanteLocal` (`:159`), con el mismo offset. Lo usa la consulta de
+turnos libres, junto con `hoyEnLaEscuela` y `diaDeLaSemana`.
 
 #### 5.4 Cómo se combinan en una reserva
 
@@ -315,7 +316,7 @@ máquinas. Así se simula el servidor real y el error no llega a producción.
 | Las clases quedan 3 horas corridas | Se aceptó una fecha **sin zona**, o se usó `getHours()` en lugar de `aHoraLocal`. |
 | Una clase del domingo a la noche figura como lunes | Se usó `getDay()`: en UTC ya es el día siguiente. |
 | Se acepta una fecha como "31 de febrero" | Se usó `new Date(texto)` sin `parsearInstante`. |
-| `dia` es `undefined` | Se cambió el locale de `formatoLocal` y los nombres ya no coinciden con `DIA_POR_NOMBRE_EN`. |
+| El servidor no arranca: "OFFSET_UTC debe tener el formato ±HH:MM" | `OFFSET_UTC` está mal escrito en el `.env` (`-3`, `UTC` o un nombre de zona). |
 | La contraseña se guarda en texto plano | El service no pasó los datos por `conPasswordHasheada`. |
 | Un mensaje de error dice "debe ser undefined" | Se usó un `tipo` que no está en `DESCRIPCION_TIPO`. `satisfies` lo impide al compilar, siempre que no se use un `as` para saltearlo. |
 
@@ -332,7 +333,7 @@ máquinas. Así se simula el servidor real y el error no llega a producción.
 - `conPasswordHasheada` valida y hashea el password solo si viene, y devuelve
   un objeto nuevo.
 - Fechas: **entrada con zona** (`parsearInstante`) → **guardado en UTC** →
-  **cálculos en la zona de la escuela** (`aHoraLocal`, nunca
+  **cálculos con el offset de la escuela** (`OFFSET_UTC` en `aHoraLocal`, nunca
   `getDay`/`getHours`) → **salida en ISO UTC**.
 
 **Siguiente lectura:** [`11-tests-vitest.md`](11-tests-vitest.md).

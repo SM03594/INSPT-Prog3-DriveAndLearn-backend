@@ -2,10 +2,19 @@
 //  fechas.test.ts — Tests de src/utils/fechas.ts (sin DB)
 // ============================================================
 // vitest.config.ts corre el proceso con TZ=UTC: si aHoraLocal usara
-// la zona del proceso en vez de ZONA_HORARIA, estos tests fallarían.
+// la zona del proceso en vez de OFFSET_UTC, estos tests fallarían.
+// Sin OFFSET_UTC en el entorno, el offset es el de por defecto, -03:00.
 
-import { describe, it, expect } from 'vitest';
-import { aHoraLocal, parsearInstante } from '../../src/utils/fechas.js';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  aHoraLocal,
+  compararFechas,
+  diaDeLaSemana,
+  formatearFecha,
+  hoyEnLaEscuela,
+  instanteLocal,
+  parsearInstante,
+} from '../../src/utils/fechas.js';
 import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
 
 describe('parsearInstante', () => {
@@ -71,5 +80,76 @@ describe('aHoraLocal', () => {
       hora: 0,
       minuto: 0,
     });
+  });
+});
+
+describe('diaDeLaSemana', () => {
+  it('no depende de la zona horaria', () => {
+    expect(diaDeLaSemana({ anio: 2026, mes: 11, diaDelMes: 8 })).toBe('domingo');
+    expect(diaDeLaSemana({ anio: 2026, mes: 11, diaDelMes: 9 })).toBe('lunes');
+  });
+});
+
+describe('hoyEnLaEscuela', () => {
+  it('a las 01:00 UTC todavía es el día anterior en la escuela', () => {
+    expect(hoyEnLaEscuela(new Date('2026-11-10T01:00:00Z')))
+      .toEqual({ anio: 2026, mes: 11, diaDelMes: 9 });
+  });
+
+  it('a las 03:00 UTC ya es el día siguiente (00:00 en la escuela)', () => {
+    expect(hoyEnLaEscuela(new Date('2026-11-10T03:00:00Z')))
+      .toEqual({ anio: 2026, mes: 11, diaDelMes: 10 });
+  });
+});
+
+describe('compararFechas y formatearFecha', () => {
+  it('compara días del calendario', () => {
+    const lunes = { anio: 2026, mes: 11, diaDelMes: 9 };
+    expect(compararFechas(lunes, { anio: 2026, mes: 11, diaDelMes: 10 })).toBeLessThan(0);
+    expect(compararFechas(lunes, { ...lunes })).toBe(0);
+    expect(compararFechas(lunes, { anio: 2026, mes: 10, diaDelMes: 31 })).toBeGreaterThan(0);
+  });
+
+  it('formatea como AAAA-MM-DD', () => {
+    expect(formatearFecha({ anio: 2026, mes: 3, diaDelMes: 5 })).toBe('2026-03-05');
+  });
+});
+
+describe('instanteLocal', () => {
+  it('convierte la hora de la escuela a instante con OFFSET_UTC (-03:00)', () => {
+    expect(instanteLocal({ anio: 2026, mes: 11, diaDelMes: 9 }, { hora: 9, minuto: 0 }).toISOString())
+      .toBe('2026-11-09T12:00:00.000Z');
+  });
+
+  it('una hora de la noche cae al día siguiente en UTC', () => {
+    expect(instanteLocal({ anio: 2026, mes: 11, diaDelMes: 9 }, { hora: 22, minuto: 0 }).toISOString())
+      .toBe('2026-11-10T01:00:00.000Z');
+  });
+
+  it('es el camino inverso de aHoraLocal', () => {
+    const fecha = { anio: 2026, mes: 11, diaDelMes: 9 };
+    for (const hora of [0, 9, 13, 23]) {
+      expect(aHoraLocal(instanteLocal(fecha, { hora, minuto: 0 })))
+        .toEqual({ dia: 'lunes', hora, minuto: 0 });
+    }
+  });
+});
+
+describe('con otro OFFSET_UTC (+05:30)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it('instanteLocal y aHoraLocal usan el mismo offset', async () => {
+    vi.stubEnv('OFFSET_UTC', '+05:30');
+    vi.resetModules();
+    const fechas = await import('../../src/utils/fechas.js');
+    const fecha = { anio: 2026, mes: 11, diaDelMes: 9 };
+
+    const instante = fechas.instanteLocal(fecha, { hora: 9, minuto: 0 });
+
+    expect(instante.toISOString()).toBe('2026-11-09T03:30:00.000Z');
+    expect(fechas.aHoraLocal(instante)).toEqual({ dia: 'lunes', hora: 9, minuto: 0 });
   });
 });

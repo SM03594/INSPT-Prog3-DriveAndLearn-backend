@@ -9,6 +9,7 @@
     "test:run": "vitest --run",
     "dev": "tsx watch src/server.ts",
     "admin:bootstrap": "tsx src/scripts/bootstrapAdmin.ts",
+    "admin:desde-env": "tsx src/scripts/bootstrapAdminDesdeEnv.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "start": "node dist/server.js"

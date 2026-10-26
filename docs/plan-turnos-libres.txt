@@ -1,0 +1,788 @@
+================================================================================
+ PLAN: CONSULTAR TURNOS LIBRES DE UN PROFESOR
+ DriveAndLearn backend · 2026-10-26 · estado: PLAN CONFIRMADO (no implementado)
+================================================================================
+
+Objetivo
+--------
+Un endpoint que recibe un día, el id de un profesor, opcionalmente el tipo de
+auto (manual o automático) y opcionalmente un rango de horas, y devuelve los
+turnos de ese día en los que se puede reservar una clase, cada uno con los
+autos libres para elegir.
+
+Responde a I-20 ("No hay forma de consultar turnos libres") de
+docs/inconsistencias.md.
+
+
+================================================================================
+ 1. NORMAS GENERALES (cambian o confirman código que ya existe)
+================================================================================
+
+  N1. UN ALUMNO RESERVA CLASES SOLO PARA SÍ MISMO. UN ADMINISTRADOR
+      RESERVA PARA CUALQUIER ALUMNO, INDICANDO CUÁL.
+  N2. UN ALUMNO NO PUEDE TENER DOS CLASES EN EL MISMO HORARIO.
+  N3. TODA CLASE EMPIEZA Y TERMINA EN UNA HORA EN PUNTO (08:00–09:00) Y DURA
+      EXACTAMENTE UNA HORA. NO SE PUEDE RESERVAR, POR EJEMPLO, DE 08:20 A 09:20.
+  N4. LOS HORARIOS DE TRABAJO TAMBIÉN SON EN PUNTO: cada tramo del horario de
+      la escuela y de la disponibilidad de un profesor empieza y termina en
+      una hora en punto (08:00–12:00 sí; 08:30–12:00 o 09:00–12:30, no).
+  N5. LA HORA DE LA ESCUELA SE DEFINE CON UN OFFSET RESPECTO DE UTC,
+      CONFIGURADO EN EL .env (OFFSET_UTC). ES LA ÚNICA FUENTE DE VERDAD DE
+      TODA LA APP. SI NO SE INDICA, env.ts USA -03:00.
+
+--- N1 · Quién reserva para quién (YA EXISTE, salvo el mensaje de saldo) -----
+
+POST /api/clases ya funciona así (aCrearClaseDto, clase.dto.ts:64-76, y
+crear, clase.service.ts:260-261):
+
+  Quién reserva   Body                               Para quién
+  --------------  ---------------------------------  ---------------------------
+  Alumno          profesor, auto, inicio, fin        Para sí mismo. Si manda
+                                                     "alumno" -> 400 "No se
+                                                     pueden enviar estos campos:
+                                                     alumno"
+  Admin           profesor, auto, inicio, fin,       Para el alumno indicado. Sin
+                  alumno (obligatorio)               "alumno" -> 400 "El alumno
+                                                     es obligatorio"
+
+Cuando reserva un admin, se aplican al ALUMNO las mismas reglas que si
+reservara él: la clase se descuenta de su saldo, no puede chocar con otra
+clase suya (N2) y tiene que entrar en el horario (N3).
+
+  Admin reserva para un alumno inexistente   404 "Alumno no encontrado"
+  Admin reserva para un alumno sin saldo     409 "El alumno no tiene clases
+                                             disponibles para reservar" (NUEVO)
+  Alumno sin saldo                           409 "No tenés clases disponibles
+                                             para reservar" (igual que hoy)
+
+Lo único que cambia es el mensaje de saldo: hoy al admin también se le dice
+"No tenés clases disponibles", como si fuera el alumno (I-31). Pasa a
+elegirse según actor.rol.
+
+La consulta de turnos libres NO recibe "alumno" (decisión 5): solo muestra en
+qué horarios el profesor está libre. Las reglas del alumno elegido por el
+admin (saldo, otra clase a la misma hora) se comprueban al reservar.
+
+Ver, modificar (PUT) y eliminar (DELETE) clases de cualquier alumno sigue
+igual para el admin (confirmado).
+
+Qué hay que cambiar por esta norma
+  Código
+    - src/services/clase.service.ts (crear, hoy :242): el mensaje del 409 de
+      saldo según actor.rol (alumno: "No tenés…"; admin: "El alumno no
+      tiene…"). Con un solo return / variable con nombre, por ejemplo
+      mensajeSinSaldo.
+  Tests
+    - tests/services/clase.service.test.ts: el test de saldo (:194) comprueba
+      el mensaje del alumno; test nuevo: un admin reserva para un alumno sin
+      saldo -> 409 "El alumno no tiene clases disponibles para reservar".
+    - tests/clases.http.test.ts: test nuevo, admin reserva para un alumno
+      -> 201 y el saldo del alumno baja en 1.
+    - Los tests que ya reservan como admin (clase.service.test.ts:146, 201,
+      299; clase.dto.test.ts:86-97) siguen igual.
+  Postman
+    - 07 Clases / "[201] Admin reserva para el alumno 1 (13:00–14:00)" sigue
+      igual.
+    - Requests nuevas en 07: "[409] Admin reserva para un alumno sin saldo"
+      (mensaje del admin) y "[400] Admin reserva sin indicar el alumno".
+  Documentación
+    - flujos/agendar-una-clase.md (tabla de errores, :33 y :276: sacar la
+      nota sobre I-31 y poner los dos mensajes).
+    - docs/inconsistencias.md: I-31 resuelta (mensaje según el rol).
+
+--- N2 · Un alumno, una clase por horario (YA EXISTE) -------------------------
+
+La reserva ya lo impide: validarAusenciaDeConflictos (clase.service.ts:141)
+busca una clase que se superponga y comparta alumno, profesor O auto. Si el
+alumno ya tiene clase a esa hora (con cualquier profesor y cualquier auto):
+
+  POST /api/clases  -> 409 "El alumno, profesor o auto ya tiene una clase en ese horario"
+
+Lo mismo al reprogramar (PUT), que excluye a la propia clase de la búsqueda.
+Lo cubre el test "no permite que un alumno reserve dos clases superpuestas
+con recursos diferentes" (tests/services/clase.service.test.ts:204).
+
+Qué se agrega
+  - Turnos libres: si consulta un alumno, sus horarios ocupados se sacan
+    (decisión 10), así que nunca se le ofrece un turno que choque con otra
+    clase suya.
+  - Test HTTP nuevo: el alumno reserva 10–11 con un profesor y luego 10–11
+    con otro profesor y otro auto -> 409 (hoy solo está probado en el
+    service).
+  - Postman: "[409] Alumno 1 reserva otra clase a la misma hora (otro
+    profesor y otro auto)".
+
+--- N3 · Hora en punto y una hora exacta -------------------------------------
+
+Hoy la reserva exige 1 hora exacta (clase.service.ts:83-86) y "precisión de
+minutos" (sin segundos, :70-76), pero acepta cualquier minuto: 08:20–09:20
+se puede reservar. Con N3:
+
+  Regla                                        Si no se cumple
+  -------------------------------------------  ------------------------------------
+  Dura exactamente 1 hora (YA EXISTE)          400 "La duración de la clase debe ser
+                                               exactamente una hora"
+  Inicio en hora en punto en la escuela:       400 "La clase debe empezar en una hora
+  minuto 0, segundo 0 (NUEVA)                  en punto (por ejemplo, 08:00)"
+
+  - Con inicio en punto y 1 hora exacta, el fin también queda en punto: no
+    hace falta una regla aparte para el fin.
+  - La regla nueva REEMPLAZA a "precisión de minutos": una hora en punto ya
+    no tiene segundos. El mensaje "El inicio y el fin deben tener precisión
+    de minutos" desaparece.
+  - Se comprueba con aHoraLocal(inicio).minuto === 0 y los segundos y
+    milisegundos en 0. Con el offset fijo -03:00 (decisión 22), la hora en
+    punto en la escuela también lo es en UTC.
+  - Vale para POST (reservar) y para PUT (reprogramar): obtenerInstantes la
+    aplica en los dos casos.
+  - Clases viejas: las que ya estén guardadas a una hora que no es en punto
+    siguen existiendo y ocupan su horario. Solo dejan de poder crearse o
+    moverse a una hora así.
+
+Qué hay que cambiar por N3
+  Código
+    - src/services/clase.service.ts (obtenerInstantes): la regla de "precisión
+      de minutos" pasa a ser la de hora en punto.
+  Tests
+    - tests/services/clase.service.test.ts: test nuevo "rechaza una clase que
+      no empieza en punto (08:20–09:20)", al crear y al reprogramar.
+    - tests/clases.http.test.ts: 400 con 08:20–09:20.
+  Postman
+    - 07 / "[400] Fecha con segundos" pasa a esperar el mensaje nuevo; request
+      nueva "[400] Clase que no empieza en punto (08:20–09:20)".
+  Documentación
+    - flujos/agendar-una-clase.md (paso 5: tabla de reglas de fecha; el
+      ejemplo "Beto 10:30–11:30" del paso 7).
+    - temas/horarios-y-agendamiento.md (4.1: el ejemplo de 09:30 a 10:30;
+      4.2: el de 10:30–11:30).
+    - flujos/modificar-y-eliminar-una-clase.md, guias/zonas-horarias-y-fechas.md
+      (sección 5: el chequeo de "precisión de minutos") y propuesta.md
+      (regla 1).
+
+--- N4 · Tramos de horario en punto ------------------------------------------
+
+Hoy un tramo acepta cualquier minuto (0–59): se puede cargar 09:00–12:30. Con
+N4, los dos calendarios (horario de la escuela y disponibilidad de cada
+profesor) solo aceptan tramos con minuto 0 en el inicio y en el fin:
+
+  Pedido                                       Respuesta
+  -------------------------------------------  ------------------------------------
+  Tramo 09:00–12:00                            200
+  Tramo 09:00–12:30 o 08:30–12:00              400 "Los tramos deben empezar y
+                                               terminar en una hora en punto"
+  Tramo con minuto 60 (YA EXISTE)              400 "Los minutos deben estar entre
+                                               0 y 59" (puede venir junto con el
+                                               mensaje nuevo)
+
+  Aplica a todas las rutas que cargan tramos:
+    POST   /api/profesores/:id/disponibilidad
+    PUT    /api/horario-escuela                (cada tramo de la semana)
+    POST   /api/horario-escuela/agregar
+
+  Dónde va la regla (DECIDIDO E IMPLEMENTADO el 2026-10-26)
+    El tramo pasó a su propio archivo de model, src/models/Tramo.ts: es un
+    sub-esquema (tramoSchema + el tipo Tramo), NO una colección. Su regla de
+    negocio está en un service propio, src/services/tramo.service.ts:
+      validarTramoEnPunto(tramo)      400 "Los tramos deben empezar y
+                                      terminar en una hora en punto"
+    Se llama desde:
+      calendarioSemanal.service.agregarTramo     -> POST disponibilidad del
+                                                    profesor y POST
+                                                    /horario-escuela/agregar
+      calendarioSemanal.service.validarTramosEnPunto (nueva, recorre la
+        semana)  <- horarioEscuela.reemplazar    -> PUT /horario-escuela
+    Por qué en el service y no en el esquema: save() vuelve a validar TODOS
+    los tramos del documento, así que con la regla en el esquema un tramo
+    viejo con 12:30 bloquearía cualquier cambio posterior en su calendario.
+    Desde el service solo se revisan los tramos que se cargan.
+    Solo se miran minutos que, convertidos a número, están entre 1 y 59 (el
+    texto "30" también): si el minuto falta, no es un número o está fuera
+    de rango (60, 99), el mensaje sigue siendo el del esquema ("Los minutos
+    deben estar entre 0 y 59").
+
+  Datos viejos (recomendado antes de deployar, ya no obligatorio: los tramos
+  viejos siguen existiendo y no bloquean nada, pero se ofrecen como turnos
+  solo en sus horas en punto, nota 7)
+    Buscar tramos que no son en punto:
+      db.profesores.find({ $or: [
+        { 'disponibilidad.lunes.horaInicio.minuto': { $ne: 0 } },
+        { 'disponibilidad.lunes.horaFin.minuto':    { $ne: 0 } },
+        ... (lo mismo para cada día)
+      ] })
+      db.horario_escuela.find(... lo mismo sobre 'calendario.<día>' ...)
+    Corregirlos a mano (redondear a la hora) o quitarlos con
+    DELETE /api/profesores/:id/disponibilidad y POST /api/horario-escuela/quitar.
+
+  Qué simplifica
+    - Con N3 y N4 juntas, todo borde de tramo y de clase es una hora en
+      punto: los turnos libres salen siempre en horas en punto, y la única
+      fuente de minutos son "desde" y "hasta" (nota 7).
+    - I-23 (dos tramos pegados, 08–10 y 10–12, no aceptan una clase de 09:30
+      a 10:30) deja de poder pasar: esa clase ya no se puede reservar (N3).
+
+  Qué hay que cambiar por N4
+    Código (HECHO)
+      - src/models/Tramo.ts (nuevo) y src/services/tramo.service.ts (nuevo).
+      - calendarioSemanal.service (agregarTramo y validarTramosEnPunto) y
+        horarioEscuela.service.reemplazar.
+    Tests (HECHO)
+      - tramo.service.test.ts y horarioEscuela.service.test.ts (nuevos);
+        casos nuevos en calendarioSemanal.service.test.ts y
+        profesor.service.test.ts (09:00–12:30 -> 400; un tramo viejo no
+        bloquea agregar otro). El de minuto 99 sigue con el mensaje del
+        esquema.
+    Postman
+      - HECHO: 05 Profesores / "[200] Admin agrega un tramo de
+        disponibilidad" pasó de 09:00–12:30 a 09:00–12:00 (ninguna request
+        dependía de ese tramo: se quita en la request siguiente).
+      - Requests nuevas: "[400] Tramo que no es en punto" en 05 y en 06.
+    Documentación
+      - flujos/alta-de-profesor-y-disponibilidad.md y
+        flujos/configurar-horarios-de-la-escuela.md (tablas de validación; el
+        comentario sobre I-23).
+      - temas/horarios-y-agendamiento.md (1.1: el ejemplo { hora: 9, minuto: 30 }
+        pasa a ser solo un ejemplo de aMinutos, no de un tramo válido).
+      - capas/08-models.md (pre('validate') del tramo) y propuesta.md.
+      - docs/inconsistencias.md: I-23 resuelta por N3 y N4.
+
+--- N5 · Offset respecto de UTC en el .env ----------------------------------
+
+Hoy la hora de la escuela sale de ZONA_HORARIA (env.ts:77), un nombre IANA
+("America/Argentina/Buenos_Aires" por defecto) que usa aHoraLocal con
+Intl.DateTimeFormat (fechas.ts:77). La consulta de turnos necesitaba además
+un offset para convertir "08:00" en un instante, y la primera versión del plan
+lo agregaba como una segunda constante (OFFSET_ESCUELA). Así quedaban dos
+fuentes que tenían que coincidir. Con N5 hay una sola:
+
+  .env      OFFSET_UTC=-03:00                     (opcional)
+  env.ts    export const OFFSET_UTC               '-03:00' si no se indica
+            export const OFFSET_UTC_MINUTOS       -180, calculado una vez
+
+  Valor en el .env                             Resultado
+  -------------------------------------------  ------------------------------------
+  No está                                      -03:00
+  OFFSET_UTC=  (vacío)                         -03:00. Ojo: dotenv lo carga como
+                                               "", así que el default no puede ir
+                                               con "??" (como MONGODB_URI): va con
+                                               un chequeo de texto vacío
+  -03:00, +05:30, +00:00                       Se usa ese
+  -3, 03:00, -0300, UTC, America/Argentina/…   El servidor NO arranca: Error
+                                               "OFFSET_UTC debe tener el formato
+                                               ±HH:MM (por ejemplo, -03:00)"
+  -15:00, +03:60                               No arranca (horas de 00 a 14,
+                                               minutos de 00 a 59)
+
+  Un valor mal escrito frena el arranque, como JWT_SECRET: un offset
+  equivocado correría todas las clases sin dar ningún error.
+
+  Quién lo usa (todo lo que pasa de un instante a la hora de la escuela, o al
+  revés; nada más en la app lee una zona):
+    aHoraLocal(instante)         la reserva: qué día y qué hora es en la
+                                 escuela. Deja de usar Intl: le suma
+                                 OFFSET_UTC_MINUTOS al instante y lee
+                                 getUTCDay / getUTCHours / getUTCMinutes
+    instanteLocal(fecha, hora)   turnos libres: hora de la escuela -> instante
+                                 (nota 22)
+    "hoy" en la escuela          turnos libres: fecha pasada (decisión 12) y
+                                 turnos de hoy ya empezados (decisión 13)
+  ZONA_HORARIA desaparece (env.ts, .env.example y los comentarios que la
+  nombran). Nunca se usan getDay(), getHours() ni la zona del proceso.
+
+  Qué implica
+    - Consulta y reserva leen la MISMA constante: no se pueden desfasar.
+    - No hay horario de verano automático. Si el país lo adopta, se cambia
+      OFFSET_UTC y se reinicia el servidor (riesgo en la sección 9).
+    - Lo que manda el cliente no cambia: POST /api/clases sigue exigiendo
+      fechas ISO con zona (parsearInstante), con cualquier offset o con Z,
+      porque un instante es el mismo en cualquier zona. Las respuestas siguen
+      en UTC.
+    - Postman ya calcula así (offsetZona del environment, colección :309-312):
+      offsetZona tiene que valer lo mismo que el OFFSET_UTC del servidor.
+
+Qué hay que cambiar por N5
+  Código
+    - src/config/env.ts: ZONA_HORARIA pasa a ser OFFSET_UTC y
+      OFFSET_UTC_MINUTOS. La validación va en una función exportada (por
+      ejemplo parsearOffsetUtc(texto)) para poder testearla sin tocar
+      process.env; si el valor es inválido, lanza al importar env.ts.
+    - src/utils/fechas.ts: aHoraLocal con el offset en vez de Intl (sale
+      formatoLocal; DIA_POR_NOMBRE_EN pasa a una lista por getUTCDay);
+      actualizar el comentario de arriba (:9).
+    - .env.example: el bloque de ZONA_HORARIA pasa a
+        # Opcional. Offset de la escuela respecto de UTC (±HH:MM).
+        # Por defecto: -03:00
+        #OFFSET_UTC=-03:00
+  Tests
+    - Tests nuevos de parsearOffsetUtc: sin valor y vacío -> -03:00;
+      -03:00, +05:30 y +00:00 válidos; -3, 03:00, UTC, -15:00 y +03:60 ->
+      error.
+    - tests/utils/fechas.test.ts: los tests de aHoraLocal siguen igual (con
+      -03:00 dan lo mismo que Buenos Aires hoy); el comentario de :4-5 nombra
+      ZONA_HORARIA. vitest sigue con TZ=UTC: prueba que la zona del proceso
+      no influye.
+  Postman
+    - postman/README.md (:37): offsetZona tiene que coincidir con OFFSET_UTC.
+  Documentación
+    - guias/zonas-horarias-y-fechas.md: las partes que justifican el nombre
+      IANA (:120-124, :193, :222, :247-252) pasan a explicar el offset fijo
+      y qué se pierde (el horario de verano automático).
+    - capas/10-utils-y-fechas.md (:254, :280), temas/horarios-y-agendamiento.md
+      (:194), capas/01-stack-y-dependencias.md (variables del .env) y
+      capas/12-tests-postman.md (:115, offsetZona).
+
+
+================================================================================
+ 2. DECISIONES
+================================================================================
+
+  #   Decisión                                 Elegido
+  --  ---------------------------------------  ---------------------------------
+  A   Método                                   POST con body JSON
+  B   ¿Se elige el auto?                       Sí: cada turno trae sus autos
+                                               libres; POST /api/clases sigue
+                                               recibiendo "auto"
+  C   Acceso                                   Alumno o admin logueados
+  1   URL                                      POST /api/profesores/:id/turnos-libres
+  2   Formato de "fecha"                       AAAA-MM-DD
+  3   Formato de "desde" / "hasta"             HH:MM, hora de la escuela, opcionales
+  4   "cambios"                                OPCIONAL: sin él, se ofrecen los
+                                               autos activos de los dos tipos
+  5   "alumno" en el body                      No existe, para ningún rol: la
+                                               consulta muestra en qué horarios
+                                               está libre el profesor. Un alumno
+                                               consulta para sí mismo; un admin
+                                               no indica alumno (las reglas del
+                                               alumno se comprueban al reservar)
+  6   Status                                   200 (no crea nada); la ruta lleva
+                                               validacionDeCuerpo
+  7   Cómo se parte el día                     Ventanas libres partidas en clases
+                                               de 1 h, SOLO en horas en punto (N3):
+                                               el primer turno es la primera hora
+                                               en punto dentro de la ventana
+  8   Datos de cada auto                       _id, marca, modelo, patente, cambios
+  9   Turno sin autos libres                   No se muestra
+  10  Clases del propio alumno                 Si consulta un alumno, se sacan
+                                               sus horarios ocupados. El admin
+                                               no indica alumno: no se sacan
+  11  Saldo del alumno                         Si consulta un ALUMNO sin saldo:
+                                               409 "No tenés clases disponibles
+                                               para reservar". El admin no indica
+                                               alumno: no se revisa (se revisa
+                                               al reservar, N1)
+  12  Fecha pasada                             400
+  13  La fecha es hoy                          Se mantiene la grilla y se sacan
+                                               los turnos que ya empezaron
+  14  Rango desde/hasta menor a 1 hora         400
+  15  Tramos del profesor superpuestos         NO se unen: cada tramo se parte
+                                               por separado (ver nota 15)
+  16  La escuela no cargó su horario           200 con "turnos": []
+  17  Profesor inexistente                     404 "Profesor no encontrado"
+  18  Admin con "alumno"                       400 "No se pueden enviar estos
+                                               campos: alumno" (como cualquier
+                                               campo de más)
+  19  Token de una cuenta borrada              403 "La cuenta autenticada ya no
+                                               está activa"
+  20  Dónde va el código                       turno.service.ts nuevo, que solo
+                                               usa services (nunca models ajenos)
+  21  Reglas compartidas con la reserva        Se sacan de clase.service a un
+                                               módulo común
+  22  Zonas horarias                           Sin contemplar zonas horarias:
+                                               OFFSET_UTC del .env, -03:00 por
+                                               defecto (N5, nota 22)
+
+Nota 15 · Tramos superpuestos sin unir
+  Si el profesor tiene 09:00–12:00 y 11:00–13:00, cada tramo se parte por su
+  cuenta: 09, 10, 11 (del primero) y 11, 12 (del segundo). El turno de las 11
+  saldría dos veces, así que los turnos con el mismo inicio se muestran UNA
+  sola vez.
+  No unir los tramos coincide con la reserva: una clase tiene que entrar
+  ENTERA en UN tramo (validarHorarioClase). Con N4 los tramos son en punto, así
+  que dos tramos pegados (09–10 y 10–12) no pierden ningún turno: 09, 10, 11.
+  Solo con tramos viejos (09:00–10:30 y 10:30–12:00) la clase 10–11 cruzaría
+  los dos y la reserva la rechazaría; por eso tampoco se ofrece.
+
+Nota 7 · Turnos solo en horas en punto
+  Con N4, los tramos de la escuela y del profesor ya son en punto, así que
+  las ventanas también; solo "desde"/"hasta" (y clases o tramos viejos,
+  guardados antes de N3/N4) pueden traer minutos. Cada ventana libre se
+  recorre desde su primera hora en punto. Ejemplos:
+    ventana 09:00–13:00  -> 09, 10, 11, 12
+    ventana 09:30–12:00  -> 10, 11            (09:30 no es en punto)
+    ventana 08:20–09:10  -> []                (no entra ninguna hora en punto)
+  Lo mismo con desde/hasta: desde 08:30 da como primer turno las 09.
+
+Nota 22 · "Sin contemplar zonas horarias" = OFFSET_UTC del .env (N5)
+  La reserva (POST /api/clases) valida el horario con la hora de la escuela
+  (aHoraLocal). Si la consulta tomara "08:00" como 08:00 UTC, devolvería
+  turnos que la reserva rechaza (08:00 UTC son las 05:00 en Argentina, fuera
+  del horario). Para que no se contradigan, la consulta convierte la hora de
+  la escuela a instante con el MISMO offset que usa aHoraLocal, OFFSET_UTC:
+
+      "2026-11-09" + "08:00"  ->  "2026-11-09T08:00:00-03:00"  ->  parsearInstante
+
+  Toda hora de la escuela que reciba la consulta (desde, hasta y los tramos
+  de los calendarios) se convierte a instante así. Como las dos direcciones
+  (instante -> hora con aHoraLocal, hora -> instante con instanteLocal) leen
+  la misma constante, no pueden desfasarse. Un test lo comprueba igual:
+  aHoraLocal(instanteLocal(fecha, hora)) devuelve la misma hora, con -03:00 y
+  con un offset con minutos (+05:30).
+
+  El día de la semana de una fecha de calendario NO depende de la zona
+  horaria: se calcula con Date.UTC(año, mes - 1, día).getUTCDay().
+
+
+================================================================================
+ 3. EL ENDPOINT
+================================================================================
+
+  POST /api/profesores/:id/turnos-libres
+  Authorization: Bearer <token de alumno o de admin>
+  Content-Type: application/json
+
+  {
+    "fecha":   "2026-11-09",     obligatorio · AAAA-MM-DD · hoy o posterior
+    "cambios": "MANUAL",         opcional · MANUAL | AUTOMATICO (también en minúsculas)
+    "desde":   "08:00",          opcional · HH:MM
+    "hasta":   "12:00"           opcional · HH:MM · si vienen los dos: al menos 1 h
+  }
+
+  200
+  {
+    "fecha": "2026-11-09",
+    "dia": "lunes",
+    "turnos": [
+      {
+        "inicio": "2026-11-09T12:00:00.000Z",
+        "fin":    "2026-11-09T13:00:00.000Z",
+        "autos": [
+          { "_id": "…", "marca": "Fiat", "modelo": "Cronos", "patente": "AA111AA", "cambios": "MANUAL" }
+        ]
+      }
+    ]
+  }
+
+  - "inicio" y "fin" salen en ISO UTC, como el resto de la API, y se pueden
+    mandar tal cual a POST /api/clases junto con el _id de uno de los autos.
+  - Por qué POST y no GET: el navegador no permite un GET con body (fetch lanza
+    "Request with GET/HEAD method cannot have body"). Se explica en un
+    comentario de la ruta y en la guía del flujo.
+  - La respuesta es una foto del momento: si otro alumno reserva el turno
+    antes, POST /api/clases responde 409. No se bloquea nada.
+
+
+================================================================================
+ 4. QUÉ PASA EN CADA CASO
+================================================================================
+
+Escenario de los ejemplos: escuela de lunes a sábado 08:00–20:00 (domingo
+cerrado); profesor Juan, lunes 09:00–13:00 y 15:00–17:00; autos AA111AA y
+BB222BB (manuales, activos), CC333CC (automático, activo), DD444DD (automático,
+fuera de servicio). Consulta base: lunes 2026-11-09, MANUAL, como alumna Ana.
+
+4.1 Errores del pedido (orden en que se comprueban)
+
+  Caso                                      Respuesta
+  ----------------------------------------  ------------------------------------------
+  Sin token                                 401 "Se requiere autenticación válida"
+  Sin body / body que no es objeto          400 (validacionDeCuerpo)
+  Campo de más ("alumno", "auto"...)        400 "No se pueden enviar estos campos: …"
+  Tipo incorrecto ("fecha": 20261109)       400 "La fecha debe ser un texto"
+  Falta "fecha"                             400 "La fecha es obligatoria"
+  "fecha" con otro formato o inexistente    400 "La fecha debe tener el formato AAAA-MM-DD"
+  "fecha" pasada                            400 "La fecha debe ser hoy o posterior"
+  "cambios" inválido                        400 "El tipo de cambios debe ser MANUAL o AUTOMATICO"
+  "desde"/"hasta" mal formados              400 "El desde debe tener el formato HH:MM"
+  "desde" >= "hasta"                        400 "El desde debe ser anterior al hasta"
+  Rango menor a 1 hora                      400 "El rango debe ser de al menos una hora"
+  Id de profesor mal formado                400 "Id inválido"
+  Token de una cuenta borrada               403 "La cuenta autenticada ya no está activa"
+  Profesor inexistente                      404 "Profesor no encontrado"
+  Alumno sin saldo                          409 "No tenés clases disponibles para reservar"
+
+4.2 Casos que responden 200
+
+  Caso                                      "turnos"
+  ----------------------------------------  ------------------------------------------
+  Todo libre                                09, 10, 11, 12, 15 y 16 (de 1 h), cada uno
+                                            con AA111AA y BB222BB
+  Sin "cambios"                             Los mismos, con los 3 autos activos
+  La escuela cierra ese día (domingo)       []
+  La escuela no cargó su horario            []
+  El profesor no trabaja ese día            []
+  El profesor no tiene disponibilidad       []
+  La disponibilidad se sale del horario     Solo la parte que se superpone (I-21)
+  de la escuela (Juan 06–10)                -> 08 y 09
+  Tramos superpuestos (09–12 y 11–13)       Cada tramo por separado, sin repetir
+                                            inicios -> 09, 10, 11, 12 (nota 15)
+  Tramos pegados (09–10 y 10–12)            09, 10, 11 (con N4 no se pierde nada)
+  Tramos viejos pegados (09–10:30 y         09 y 11: la de 10 cruzaría los dos
+  10:30–12, guardados antes de N4)          tramos y la reserva la rechaza (nota 15)
+  Filtro desde 10:00 / hasta 12:00          10 y 11: el turno entra COMPLETO
+  Solo "desde": 15:00                       15 y 16
+  AUTOMATICO, con CC333CC fuera de servicio []: DD444DD también está fuera de servicio
+  Un auto ocupado (AA111AA de 10 a 11)      El turno de las 10 aparece solo con BB222BB
+  Todos los autos ocupados de 10 a 11       El turno de las 10 no aparece
+  Juan ocupado de 10 a 11                   No aparece el de las 10: quedan 09, 11, 12…
+  Clase vieja de Juan de 10:30 a 11:30      Ventanas 09–10:30 y 11:30–13. En punto:
+  (guardada antes de N3)                    09 y 12 (la de 11:30 no es en punto)
+  Tramo viejo de la escuela 08:30–12:00     09, 10, 11: la primera hora en punto
+  (guardado antes de N4)                    dentro del tramo es 09
+  Filtro desde 08:30                        Arranca en 09 (primera hora en punto)
+  Juan con el día lleno                     []
+  Ana con clase de 11 a 12 (con otro        El de las 11 no aparece para Ana. Para un
+  profesor)                                 admin, sí
+  La consulta la hace un admin              No se sacan clases de ningún alumno ni se
+                                            revisa saldo: no indica alumno. Si reserva
+                                            uno de esos turnos para un alumno, las
+                                            reglas del alumno se aplican ahí (4.3)
+  La fecha es hoy, son las 10:20            Ventana 09–13 -> 11 y 12 (se mantiene la
+                                            grilla; los ya empezados se sacan)
+  La fecha es hoy y ya pasó el horario      []
+
+4.3 Reservar (POST /api/clases) con las normas nuevas
+
+  Caso                                      Respuesta
+  ----------------------------------------  ------------------------------------------
+  Un admin reserva para un alumno con       201: la clase queda a nombre del alumno y
+  saldo                                     su saldo baja en 1
+  Un admin reserva sin "alumno"             400 "El alumno es obligatorio"
+  Un admin reserva para un alumno           404 "Alumno no encontrado"
+  inexistente
+  Un admin reserva para un alumno sin       409 "El alumno no tiene clases disponibles
+  saldo                                     para reservar" (NUEVO, I-31)
+  Un alumno sin saldo reserva               409 "No tenés clases disponibles para
+                                            reservar"
+  El alumno manda "alumno"                  400 "No se pueden enviar estos campos: alumno"
+  08:20–09:20                               400 "La clase debe empezar en una hora en punto
+                                            (por ejemplo, 08:00)"
+  08:00–08:30 o 08:00–10:00                 400 "La duración de la clase debe ser
+                                            exactamente una hora"
+  El alumno ya tiene clase a esa hora,      409 "El alumno, profesor o auto ya tiene una
+  con otro profesor y otro auto             clase en ese horario"
+  PUT que mueve la clase a las 10:30        400 "La clase debe empezar en una hora en punto…"
+
+4.4 Después de consultar
+
+  Ana reserva un turno con uno de sus       201
+  autos
+  Otro alumno reservó ese horario antes     409 "El alumno, profesor o auto ya tiene una
+                                            clase en ese horario"
+  Un admin reserva el turno para un         201 si el alumno tiene saldo y no tiene
+  alumno                                    otra clase a esa hora; si no, 409 (N1, N2)
+  Se elimina una clase (DELETE)             El turno vuelve a aparecer
+  Un admin saca un auto de servicio         El auto deja de aparecer; las clases ya
+                                            reservadas con él no cambian (I-22)
+
+
+================================================================================
+ 5. DISEÑO POR CAPAS
+================================================================================
+
+  Ruta (src/routes/profesor.routes.ts)
+    router.post('/:id/turnos-libres', validacionDeCuerpo, profesorController.turnosLibres);
+    (el router ya tiene requireAuthentication para todas sus rutas)
+
+  Controller (src/controllers/profesor.controller.ts)
+    turnosLibres: arma el DTO, llama al service y responde res.json(...).
+    Profesor inexistente -> 404 con if / else (sin return), como el resto.
+
+  DTO (src/dtos/turno.dto.ts, nuevo)
+    aConsultarTurnosDto(body): validarCampos con SIN_CAMPOS_DE_MAS; tabla con
+    fecha, cambios, desde, hasta (todos texto). Exige "fecha". Convierte:
+      fecha        -> { año, mes, día } validado (parsearFecha)
+      desde, hasta -> HoraDelDia (parsearHoraDelDia)
+      cambios      -> 'MANUAL' | 'AUTOMATICO' en mayúsculas
+    Comprueba desde < hasta y que el rango sea de al menos 1 hora.
+
+  Utils (src/utils/fechas.ts)
+    parsearFecha('2026-11-09')          valida AAAA-MM-DD y que el día exista
+    parsearHoraDelDia('08:00')          -> { hora: 8, minuto: 0 }
+    diaDeLaSemana(fecha)                con Date.UTC (no depende de la zona)
+    instanteLocal(fecha, horaDelDia)    "AAAA-MM-DDTHH:MM:00" + OFFSET_UTC
+                                        -> parsearInstante (nota 22)
+    hoyEnLaEscuela()                    la fecha de calendario de hoy en la
+                                        escuela, con OFFSET_UTC (decisiones
+                                        12 y 13)
+    Cada función con un solo return.
+
+  Config (src/config/env.ts)
+    OFFSET_UTC y OFFSET_UTC_MINUTOS, con -03:00 por defecto (N5). No hay
+    ninguna constante nueva solo para la consulta.
+
+  Reglas compartidas (módulo nuevo, por ejemplo src/services/reglasClase.ts)
+    DURACION_CLASE_MS, "entra en algún tramo" y "empieza en una hora en
+    punto" (N3) (hoy dentro de clase.service). clase.service y turno.service
+    las importan: la consulta y la reserva usan la misma regla.
+
+  Service (src/services/turno.service.ts, nuevo)
+    listarTurnosLibres(idProfesor, consulta, actor). Solo usa services:
+      profesorService.obtenerPorId
+      horarioEscuelaService.obtener          (ya devuelve un calendario vacío
+                                              si no se configuró)
+      autoService.listarActivos(cambios?)    NUEVA
+      claseService.listarSuperpuestas(...)   NUEVA: clases entre dos instantes
+                                              del profesor, del alumno o de
+                                              esos autos
+      alumnoService.obtenerPorId             para la cuenta y el saldo
+      administradorService.existe            para la cuenta del admin
+    Helpers con nombre: ventanasDelTramo, restarOcupados, partirEnTurnos,
+    autosLibresEn, sinInicioRepetido.
+
+  Algoritmo
+    1. Comprobar la cuenta (403). Si es alumno: saldo >= 1 (409).
+    2. En paralelo: profesor (404), horario de la escuela, autos activos.
+    3. Día de la semana de la fecha.
+    4. Por cada tramo del profesor ese día: cruzarlo con los tramos de la
+       escuela y con desde/hasta (en minutos, con aMinutos). Sin unir tramos.
+    5. Una sola consulta: clases de ese día del profesor, del alumno (si
+       consulta un alumno) y de esos autos.
+    6. Restar de cada ventana los horarios ocupados del profesor y del alumno.
+    7. Partir cada ventana en clases de 1 h desde su primera hora en punto
+       (N3, nota 7). Para cada turno, los autos sin clase superpuesta; si no
+       queda ninguno, el turno se saca.
+    8. Si la fecha es hoy, sacar los turnos que ya empezaron.
+    9. Sacar inicios repetidos, convertir a instante (instanteLocal) y ordenar.
+
+  Funciones nuevas en services que ya existen
+    auto.service.listarActivos(cambios?)
+    clase.service.listarSuperpuestas({ inicio, fin, profesor, alumno?, autos })
+
+
+================================================================================
+ 6. TESTS
+================================================================================
+
+  Normas generales (sección 1)
+    - N1: admin reserva para un alumno sin saldo -> 409 con el mensaje del
+      admin; el alumno sin saldo sigue con "No tenés…"; HTTP: admin reserva
+      para un alumno -> 201 y el saldo baja en 1.
+    - N2: HTTP, el alumno no puede reservar dos clases a la misma hora con
+      otro profesor y otro auto -> 409.
+    - N3: 08:20–09:20 -> 400 al crear y al reprogramar; 08:00–09:00 -> 201;
+      el test de "precisión de minutos" pasa al mensaje nuevo.
+    - N4: tramo 09:00–12:30 -> 400 en la disponibilidad del profesor y en el
+      horario de la escuela (PUT y agregar).
+    - N5: parsearOffsetUtc (default, válidos e inválidos); aHoraLocal sigue
+      dando lo mismo con -03:00.
+  fechas.test.ts
+    - parsearFecha: válida, formato incorrecto, día inexistente (2026-02-31).
+    - parsearHoraDelDia: "08:00", "8:00", "24:00", "08:60".
+    - diaDeLaSemana: 2026-11-08 = domingo, 2026-11-09 = lunes.
+    - instanteLocal + aHoraLocal devuelven la misma hora, con -03:00 y con
+      +05:30 (nota 22).
+    - hoyEnLaEscuela: a las 01:00 UTC todavía es el día anterior en la
+      escuela (-03:00).
+  turno.dto.test.ts
+    - Cada fila de 4.1 que corresponde al DTO.
+  turno.service.test.ts (con base en memoria)
+    - Cada fila de 4.2, incluidos los casos de horas que no son en punto
+      (tramo 08:30–12:00, desde 08:30, tramos pegados).
+    - Alumno sin saldo -> 409; admin sin restricción de saldo.
+    - Fecha pasada -> 400; hoy con turnos ya empezados.
+  Test de punta a punta
+    - El primer turno devuelto, con su primer auto, se reserva con
+      POST /api/clases y responde 201 (la consulta y la reserva no se
+      contradicen).
+  HTTP
+    - 401 sin token, 400 sin body, 200 alumno y admin, 400 admin con
+      "alumno", 404 profesor inexistente, 409 alumno sin saldo.
+    - Ida y vuelta del admin: consulta, reserva el primer turno para un
+      alumno -> 201.
+    - Sumar la ruta a RUTAS_CON_CUERPO en validacionDeCuerpo.http.test.ts.
+  Al terminar: tsc --noEmit y vitest --run en verde.
+
+
+================================================================================
+ 7. POSTMAN
+================================================================================
+
+  - Cambios por las normas generales (sección 1): N1 ("[409] Admin reserva
+    para un alumno sin saldo" y "[400] Admin reserva sin indicar el
+    alumno"), N2
+    (409 por otra clase a la misma hora), N3 ("[400] Clase que no empieza en
+    punto" y el mensaje nuevo en "[400] Fecha con segundos"), N4 (el tramo
+    09:00–12:30 de 05 pasa a 09:00–12:00; "[400] Tramo que no es en punto" en
+    05 y 06), N5 (README: offsetZona igual a OFFSET_UTC).
+  - Carpeta nueva "07b Turnos libres":
+      errores de la tabla 4.1 (sin body, fecha pasada, formato, rango corto,
+      cambios inválido, admin con "alumno", profesor inexistente, alumno
+      sin saldo -> 409);
+      ida y vuelta: consultar -> reservar el primer turno con su primer auto
+      -> consultar de nuevo y no verlo -> eliminar la clase -> verlo otra vez.
+  - Actualizar los conteos en postman/README.md y docs/capas/12-tests-postman.md.
+
+
+================================================================================
+ 8. DOCUMENTACIÓN
+================================================================================
+
+  - Nueva guía: docs/flujos/consultar-turnos-libres.md (con respuestas reales
+    y por qué el endpoint es un POST).
+  - docs/capas/04-routes.md (tabla de endpoints), docs/capas/06b-dtos.md
+    (DTO nuevo), docs/guias/zonas-horarias-y-fechas.md (sección 9: la
+    conversión hora de la escuela -> instante ahora existe, con OFFSET_UTC).
+  - Cambios por las normas generales (sección 1).
+  - propuesta.md (endpoint y reglas) y docs/00-indice.md.
+  - docs/inconsistencias.md: I-20 y I-31 resueltas.
+
+
+================================================================================
+ 9. ORDEN DE IMPLEMENTACIÓN
+================================================================================
+
+  1. Normas generales: N1 (mensaje de saldo según el rol), N2 (test HTTP
+     nuevo), N3
+     (clases en punto), N4 (tramos en punto) y N5 (OFFSET_UTC en env.ts y
+     aHoraLocal sin Intl). DTO, service, model, config, ruta y tests.
+  2. Utils de fechas nuevas (instanteLocal, hoyEnLaEscuela...), con sus
+     tests.
+  3. Reglas compartidas fuera de clase.service (sin cambio de comportamiento).
+  4. Turnos libres: services nuevos, DTO, controller, ruta y tests.
+  5. Postman.
+  6. Documentación.
+  Después de cada paso: tsc y vitest.
+
+Riesgos
+  - N5, offset fijo: no hay horario de verano automático. Si el país lo
+    adopta, hay que cambiar OFFSET_UTC y reiniciar. Además, las clases se
+    guardan como instantes: cambiar OFFSET_UTC con clases futuras ya
+    reservadas las corre una hora en el reloj de la escuela (una clase de
+    las 09 pasa a verse a las 10). Antes de cambiarlo, revisar esas clases.
+  - N5 frena el arranque si OFFSET_UTC está mal escrito: revisar el .env de
+    cada deploy antes de subir esta versión (ZONA_HORARIA deja de leerse).
+  - La consulta es una foto del momento: una reserva simultánea puede ganar
+    el turno (409 al reservar). No se bloquea nada.
+  - N3 no toca las clases ya guardadas: si hay alguna a una hora que no es en
+    punto, sigue ocupando su horario hasta que se elimine.
+  - N4 en el service: los tramos viejos que no son en punto siguen guardados.
+    No bloquean nada, pero conviene corregirlos (sección 1, N4).
+
+
+================================================================================
+ 10. CONFIRMACIONES (2026-10-26)
+================================================================================
+
+  1. El admin sigue pudiendo ver, modificar (PUT) y eliminar (DELETE) clases
+     de cualquier alumno, y además RESERVA para cualquier alumno (N1, cambio
+     del 2026-10-26: antes el plan se lo quitaba).
+  1b. La consulta de turnos libres no recibe "alumno" para ningún rol: solo
+     muestra en qué horarios está libre el profesor.
+  1c. Saldo: el mensaje del 409 depende del rol (resuelve I-31).
+  2. URL: POST /api/profesores/:id/turnos-libres.
+  3. Zonas horarias: offset respecto de UTC configurado en el .env
+     (OFFSET_UTC), única fuente de verdad de toda la app; -03:00 por defecto
+     en env.ts (N5). Reemplaza a ZONA_HORARIA. No se toman las horas como
+     UTC.
+
+  4. N2: un alumno no puede tener dos clases en el mismo horario (ya lo hace
+     la reserva; se agregan tests y Postman).
+  5. N3: las clases empiezan y terminan en una hora en punto y duran
+     exactamente una hora.
+  6. N4: los tramos del horario de la escuela y de la disponibilidad de los
+     profesores empiezan y terminan en una hora en punto. La regla va en un
+     service propio del tramo (tramo.service.ts), con el tramo en su propio
+     archivo de model (Tramo.ts, sub-esquema, no colección). Implementado el
+     2026-10-26.
+
+  No quedan decisiones pendientes: el plan está listo para implementar,
+  empezando por el paso 1 de la sección 9.

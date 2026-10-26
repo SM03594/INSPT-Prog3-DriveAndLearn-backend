@@ -1,13 +1,14 @@
 import {
   type CalendarioSemanal,
   type Dia,
-  type Tramo,
 } from '../models/CalendarioSemanal.js';
+import type { Tramo } from '../models/Tramo.js';
 import { HorarioEscuelaModel } from '../models/HorarioEscuela.js';
 import {
   agregarTramo as agregarTramoCalendario,
   quitarTramo as quitarTramoCalendario,
   validarDia,
+  validarTramosEnPunto,
 } from './calendarioSemanal.service.js';
 
 function diaValido(dia: string): Dia {
@@ -29,11 +30,13 @@ export async function obtener(): Promise<CalendarioSemanal> {
 }
 
 // "calendario" ya tiene los 7 días con su lista de tramos: lo garantiza
-// el DTO (ver dtos/calendarioSemanal.dto.ts). Las horas de cada tramo
-// las valida el esquema al hacer .save().
+// el DTO (ver dtos/calendarioSemanal.dto.ts). Que cada tramo sea en
+// punto lo revisa tramo.service; el resto de las horas, el esquema al
+// hacer .save().
 export async function reemplazar(
   calendario: CalendarioSemanal,
 ): Promise<CalendarioSemanal> {
+  validarTramosEnPunto(calendario);
   const horario =
     (await HorarioEscuelaModel.findById('escuela')) ??
     new HorarioEscuelaModel({ _id: 'escuela' });

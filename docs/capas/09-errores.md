@@ -116,7 +116,7 @@ devuelvo sin cambios.*
 | `verSiErrorAutenticacion` | `errorAutenticacion.ts` | `jwt.JsonWebTokenError` (firma inválida, vencido...) | `ErrorAutenticacion` (401) | `auth.middleware` |
 | `verSiErrorLecturaCuerpo` | `errorLecturaCuerpo.ts` | Error de `express.json()` | `ErrorJsonInvalido` o `ErrorLecturaCuerpo` | `errorHandler` |
 
-Así se usa uno (`src/services/auto.service.ts:32`):
+Así se usa uno (`src/services/auto.service.ts:50`):
 
 ```ts
 try {

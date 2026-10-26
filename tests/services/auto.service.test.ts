@@ -11,6 +11,7 @@ import {
   crear,
   actualizar,
   cambiarEstado,
+  listarActivos,
 } from '../../src/services/auto.service.js';
 import type { Auto } from '../../src/models/Auto.js';
 import { ErrorClaveDuplicada } from '../../src/errors/errorClaveDuplicada.js';
@@ -103,6 +104,33 @@ describe('auto.service', () => {
       await crear({ ...datosValidos, patente: 'ABC8741' });
 
       expect(await listar()).toHaveLength(3);
+    });
+  });
+
+  // --------------------------------------------------------
+  //  listarActivos
+  // --------------------------------------------------------
+  describe('listarActivos', () => {
+    it('trae solo los activos, ordenados por patente, con los datos para elegir', async () => {
+      await crear({ ...datosValidos, patente: 'ZZ999ZZ', cambios: 'MANUAL' });
+      await crear({ ...datosValidos, patente: 'AA111AA' });
+      await crear({ ...datosValidos, patente: 'MM555MM', activo: false });
+
+      const autos = await listarActivos();
+
+      expect(autos.map((auto) => auto.patente)).toEqual(['AA111AA', 'ZZ999ZZ']);
+      expect(Object.keys(autos[0].toJSON()).sort()).toEqual(
+        ['_id', 'cambios', 'marca', 'modelo', 'patente'],
+      );
+    });
+
+    it('filtra por tipo de cambios', async () => {
+      await crear({ ...datosValidos, patente: 'AA111AA', cambios: 'MANUAL' });
+      await crear({ ...datosValidos, patente: 'BB222BB', cambios: 'AUTOMATICO' });
+
+      const manuales = await listarActivos('MANUAL');
+
+      expect(manuales.map((auto) => auto.patente)).toEqual(['AA111AA']);
     });
   });
 

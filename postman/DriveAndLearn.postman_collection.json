@@ -4276,9 +4276,9 @@
                 "exec": [
                   "utils.esperarStatus(pm, 200);",
                   "var lunes = pm.response.json().disponibilidad.lunes;",
-                  "pm.test('El lunes tiene el tramo 09:00–12:30', function () {",
+                  "pm.test('El lunes tiene el tramo 09:00–12:00', function () {",
                   "  pm.expect(lunes).to.have.lengthOf(1);",
-                  "  pm.expect(lunes[0].horaFin).to.eql({ hora: 12, minuto: 30 });",
+                  "  pm.expect(lunes[0].horaFin).to.eql({ hora: 12, minuto: 0 });",
                   "});",
                   "pm.collectionVariables.set('tramoProfesor2Id', lunes[0]._id);"
                 ]
@@ -4306,7 +4306,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dia\": \"lunes\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 12,\n      \"minuto\": 30\n    }\n  }\n}",
+              "raw": "{\n  \"dia\": \"lunes\",\n  \"tramo\": {\n    \"horaInicio\": {\n      \"hora\": 9,\n      \"minuto\": 0\n    },\n    \"horaFin\": {\n      \"hora\": 12,\n      \"minuto\": 0\n    }\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -5388,7 +5388,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "utils.esperarError(pm, 400, \"precisión de minutos\");"
+                  "utils.esperarError(pm, 400, \"La clase debe empezar en una hora en punto\");"
                 ]
               }
             }

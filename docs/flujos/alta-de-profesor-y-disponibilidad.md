@@ -143,7 +143,7 @@ const profesor = await profesorService.agregarDisponibilidad(req.params.id, dia,
 ```
 
 `aAgregarTramoDto` es el **mismo DTO** que usa el horario de la escuela
-(`src/dtos/calendarioSemanal.dto.ts:61`). Después, el service
+(`src/dtos/calendarioSemanal.dto.ts:63`). Después, el service
 (`src/services/profesor.service.ts:63`):
 
 ```
@@ -184,7 +184,8 @@ POST /api/profesores/6ada695b.../disponibilidad
 | `tramo: "mañana"` | 400 "El tramo debe ser un objeto" |
 | `hora: "x"` | 400 'Cast to Number failed for value "x" (type string) at path "hora"' (un mensaje interno de Mongoose: I-47) |
 | Fin antes que el inicio (13 → 9) | 400 "La hora de fin debe ser posterior a la de inicio" |
-| `minuto: 60` | 400 "Los minutos deben estar entre 0 y 59" |
+| 09:00–12:30 (o 08:30–12:00) | 400 "Los tramos deben empezar y terminar en una hora en punto" (`tramo.service.ts`) |
+| `minuto: 60` | 400 "Los minutos deben estar entre 0 y 59" (el esquema: `tramo.service` solo mira minutos de 1 a 59) |
 | Sin `horaFin` | 400 "La hora de fin es obligatoria" |
 | 10–12 cuando ya hay uno de 09–13 | **200**: se aceptan tramos superpuestos (I-37) |
 

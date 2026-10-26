@@ -68,7 +68,7 @@ router.delete('/:id', requireAlumnoDeLaClaseOAdministrador, claseController.elim
 `requireAlumnoDeLaClaseOAdministrador` (`src/middlewares/auth.middleware.ts:201`)
 deja pasar a un **admin activo** y al **alumno de la clase**. Para saber de
 quién es, le pide al service solo ese dato (`claseService.obtenerPorIdAlumno`,
-`src/services/clase.service.ts:203`):
+`src/services/clase.service.ts:244`):
 
 ```ts
 const idAlumnoDeLaClase = await claseService.obtenerPorIdAlumno(req.params.id);   // :219
@@ -120,9 +120,9 @@ explica en [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fec
 
 ### Paso 3. ¿Todavía se puede modificar?
 
-`actualizar` (`clase.service.ts:290`) busca la clase con `claseAccesible`
-(`:52`) y se la pasa a `reprogramar` (`:264`). Lo primero que hace es
-`validarClaseModificable` (`:155`):
+`actualizar` (`clase.service.ts:335`) busca la clase con `claseAccesible`
+(`:55`) y se la pasa a `reprogramar` (`:309`). Lo primero que hace es
+`validarClaseModificable` (`:196`):
 
 | Clase | Respuesta |
 |---|---|
@@ -130,7 +130,7 @@ explica en [`../guias/zonas-horarias-y-fechas.md`](../guias/zonas-horarias-y-fec
 
 ### Paso 4. Calcular el nuevo horario
 
-`obtenerInstantesActualizados` (`:163`) completa lo que no vino, manteniendo
+`obtenerInstantesActualizados` (`:204`) completa lo que no vino, manteniendo
 siempre la duración de **1 hora**:
 
 | Se manda | `inicio` resultante | `fin` resultante |
@@ -208,7 +208,7 @@ if (clase === null) {
 
 ### Paso 8. El service
 
-`eliminar` (`clase.service.ts:315`):
+`eliminar` (`clase.service.ts:360`):
 
 ```
 validarActor ─► claseAccesible (no existe → null → 404)
@@ -248,7 +248,7 @@ DELETE /api/clases/<clase pasada de Ana>  → 204  → saldo 1   (no se devuelve
 ### Paso 9. El horario queda libre
 
 La clase ya no existe, así que la búsqueda de superposiciones
-(`validarAusenciaDeConflictos`, `:134`) no la encuentra. Beto puede reservar
+(`validarAusenciaDeConflictos`, `:141`) no la encuentra. Beto puede reservar
 ese mismo horario con el mismo profesor y el mismo auto:
 
 ```

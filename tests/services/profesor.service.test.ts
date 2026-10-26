@@ -13,10 +13,8 @@ import {
   quitarDisponibilidad,
 } from '../../src/services/profesor.service.js';
 import { ProfesorModel } from '../../src/models/Profesor.js';
-import type {
-  CalendarioSemanal,
-  Tramo,
-} from '../../src/models/CalendarioSemanal.js';
+import type { CalendarioSemanal } from '../../src/models/CalendarioSemanal.js';
+import type { Tramo } from '../../src/models/Tramo.js';
 import type { Dia } from '../../src/models/CalendarioSemanal.js';
 
 // Registra los hooks (Mongo en memoria, limpiar entre tests, cerrar).
@@ -195,6 +193,29 @@ describe('profesor.service', () => {
           horaInicio: { hora: 9, minuto: 99 },
         }),
       ).rejects.toThrow(/entre 0 y 59/);
+    });
+
+    it('rechaza un tramo que no es en punto (09:00–12:30) y no lo guarda', async () => {
+      const creado = await crearProfesor();
+
+      await expect(
+        agregarDisponibilidad(creado._id.toString(), 'lunes', {
+          ...MANIANA,
+          horaFin: { hora: 12, minuto: 30 },
+        }),
+      ).rejects.toThrow('Los tramos deben empezar y terminar en una hora en punto');
+      const guardado = await ProfesorModel.findById(creado._id);
+      expect(guardado?.disponibilidad.lunes).toHaveLength(0);
+    });
+
+    it('un tramo viejo que no es en punto no bloquea agregar otro', async () => {
+      const creado = await crearProfesor({
+        lunes: [{ horaInicio: { hora: 9, minuto: 0 }, horaFin: { hora: 12, minuto: 30 } }],
+      });
+
+      const res = await agregarDisponibilidad(creado._id.toString(), 'lunes', TARDE);
+
+      expect(res?.disponibilidad.lunes).toHaveLength(2);
     });
 
     it('tira ValidationError si horaFin no es posterior a horaInicio', async () => {

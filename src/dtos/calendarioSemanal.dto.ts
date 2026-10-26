@@ -8,9 +8,11 @@
 // semana completa.
 //
 // Acá se valida la FORMA. Que el día exista lo revisa el service
-// (validarDia), y las horas de cada tramo, el esquema al hacer .save().
+// (validarDia), que cada tramo sea en punto, tramo.service, y el resto
+// de las horas de cada tramo, el esquema al hacer .save().
 
-import { DIAS, type CalendarioSemanal, type Dia, type Tramo } from '../models/CalendarioSemanal.js';
+import { DIAS, type CalendarioSemanal, type Dia } from '../models/CalendarioSemanal.js';
+import type { Tramo } from '../models/Tramo.js';
 import { ErrorDeNegocio } from '../errors/errorDeNegocio.js';
 import { esObjetoJson } from '../utils/cuerpoPeticion.js';
 import { SIN_CAMPOS_DE_MAS, exigido, validarCampos } from '../utils/validacionCampos.js';

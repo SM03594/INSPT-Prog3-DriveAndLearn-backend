@@ -61,7 +61,7 @@ const auto = await autoService.crear(aCrearAutoDto(req.body));
 | Cualquier otro (`color`, `_id`, `createdAt`...) | 400 "No se pueden enviar estos campos: …" |
 
 El service guarda el DTO dentro de un `try/catch` para traducir una patente
-repetida (`auto.service.ts:32`):
+repetida (`auto.service.ts:50`):
 
 ```ts
 export async function crear(datos: CrearAutoDto): Promise<AutoDoc> {
@@ -135,7 +135,7 @@ filtrar los inactivos para no ofrecerlos.
 
 El controller usa otro DTO, `aActualizarAutoDto` (`src/dtos/auto.dto.ts:67`):
 los mismos datos del auto, todos opcionales, pero **al menos uno**, y **sin**
-`activo`. El service (`auto.service.ts:46`) los guarda:
+`activo`. El service (`auto.service.ts:64`) los guarda:
 
 ```ts
 return await AutoModel.findByIdAndUpdate(id, cambios, {
@@ -166,7 +166,7 @@ contrato. Por qué `activo` tiene su propia ruta se ve en el paso 4.
 
 ### Paso 4. Sacar de servicio y volver a ponerlo
 
-`auto.controller.ts:41` → `auto.service.ts:66`:
+`auto.controller.ts:41` → `auto.service.ts:84`:
 
 ```ts
 // controller: el DTO garantiza que "activo" es un booleano de verdad

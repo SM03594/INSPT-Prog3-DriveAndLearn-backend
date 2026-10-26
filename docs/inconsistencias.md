@@ -30,7 +30,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-09 | ✅ | Tres formas distintas de pasar el body en los controllers | controllers |
 | I-10 | 🟡 | `role` en inglés y `rol` en español para lo mismo | `req.auth`, models, services |
 | I-11 | 🟡 | `reglasEscuela.service.test.ts` testea un service con otro nombre | `tests/services/` |
-| I-12 | 🟡 | Mensaje engañoso con una hora de fin negativa | `models/CalendarioSemanal.ts` |
+| I-12 | 🟡 | Mensaje engañoso con una hora de fin negativa | `models/Tramo.ts` |
 | I-13 | 🟡 | `ErrorDeNegocio(…, 403)` hace lo mismo que `ErrorAutorizacion` | `clase.service.ts` |
 | I-14 | ✅ | Comentarios que apuntan a guías borradas | `errorHandler.middleware.ts` |
 | I-15 | 🔵 | Enlace a `docs/plan-tests-postman.md`, que no existe | `postman/` |
@@ -49,16 +49,16 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-28 | 🔴 | El tiempo del login revela si un email está registrado | `auth.service.ts:37` |
 | I-29 | ✅ | El login sin email o password responde 401 en lugar de 400 | `auth.service.ts:26-33` |
 | I-30 | 🟡 | Mensajes de error sin tildes ("direccion", "esta") | `Usuario.ts:33`, services |
-| I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:246` |
-| I-32 | ✅ | `agregar` sin tramo guarda `null` y rompe las reservas de ese día (500) | `horarioEscuela.service.ts:53` |
+| I-31 | 🟡 | "No tenés clases disponibles" también se le dice a un admin | `clase.service.ts:243` |
+| I-32 | ✅ | `agregar` sin tramo guarda `null` y rompe las reservas de ese día (500) | `horarioEscuela.service.ts:56` |
 | I-33 | 🟡 | Quitar un tramo inexistente responde "Profesor no encontrado" | `profesor.service.ts:83`, controller |
 | I-34 | ✅ | `PATCH nom-ape` no valida: acepta números y un body sin `nomApe` | `profesor.service.ts:111` |
 | I-35 | ✅ | Foto de perfil: base64 sin validar, se borra si falta, límite real de ~75 KB (se eliminó la foto) | `profesor.service.ts`, `Profesor.ts` |
-| I-36 | ✅ | Un tramo que no es objeto devuelve un mensaje interno de Mongoose | `horarioEscuela.service.ts:53` |
+| I-36 | ✅ | Un tramo que no es objeto devuelve un mensaje interno de Mongoose | `horarioEscuela.service.ts:56` |
 | I-37 | 💭 | Se aceptan tramos superpuestos y días extra (estos se descartan) | `calendarioSemanal.service.ts`, `horarioEscuela.service.ts` |
 | I-38 | 💭 | No hay forma de dar de baja un profesor | `profesor.routes.ts` |
 | I-39 | 🟡 | La patente no tiene formato: `"AB 123 CD"` y `"AB123CD"` son autos distintos | `models/Auto.ts` |
-| I-40 | ✅ | `PUT /api/autos/:id` con `_id` en el body responde 500 | `auto.service.ts:45` |
+| I-40 | ✅ | `PUT /api/autos/:id` con `_id` en el body responde 500 | `auto.service.ts:64` |
 | I-41 | 🟡 | `admin:bootstrap` sin terminal termina con código 0 sin crear nada | `scripts/bootstrapAdmin.ts` |
 | I-42 | 🔵 | Un comentario de `bootstrapAdminDesdeEnv.ts` dice que `create()` fallaría "con un error crudo" | `scripts/bootstrapAdminDesdeEnv.ts:31` |
 | I-43 | 💭 | Los scripts de admin dependen de `tsx` (devDependency) y no hay un script para `dist/` | `package.json` |
@@ -74,6 +74,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 | I-53 | 🔴 | Borrar un alumno deja sus clases futuras ocupando horarios | `alumno.service.ts` (`eliminar`) |
 | I-54 | 🔴 | Sumar o restar créditos puede perder una operación si llegan dos juntas | `alumno.service.ts` (`ajustarClasesPorReservar`) |
 | I-55 | 🔴 | Si un índice `unique` no se puede crear, el servidor arranca igual y acepta duplicados | `config/db.ts`, `server.ts` |
+| I-56 | 💭 | La colección `clases` no tiene índices: cada búsqueda de superposición la recorre entera (historial incluido) | `models/Clase.ts` |
 
 ---
 
@@ -110,18 +111,18 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-05 · Uso de la opción deprecada `new: true` de Mongoose
 - **Detectada:** 2026-10-22, por los warnings al correr los tests: *"the `new` option for `findOneAndUpdate()` … is deprecated. Use `returnDocument: 'after'`"*.
-- **Dónde:** `alumno.service.ts:66`, `administrador.service.ts:87`, `auto.service.ts:52` y `:73`, `profesor.service.ts:56` (líneas actualizadas el 2026-10-24, después de los DTO; la de `profesor.service` se actualizó el 2026-10-25). En cambio, `clase.service.ts` ya usa `returnDocument: 'after'`.
+- **Dónde:** `alumno.service.ts:66`, `administrador.service.ts:87`, `auto.service.ts:70` y `:91`, `profesor.service.ts:59` (líneas actualizadas el 2026-10-24, después de los DTO; las de `profesor.service` y `auto.service`, el 2026-10-26). En cambio, `clase.service.ts` ya usa `returnDocument: 'after'`.
 - **Propuesta:** reemplazar `new: true` por `returnDocument: 'after'` en todos.
 
 ### I-06 · La interfaz `Auto` no coincide con su esquema
 - **Detectada:** 2026-10-22, guía 08.
-- **Dónde:** `src/models/Auto.ts:65-71`.
+- **Dónde:** `src/models/Auto.ts:68-74`.
 - **Qué pasa:** `marca` y `modelo` son opcionales en el esquema, pero la interfaz los declara `string` obligatorios. `cambios` acepta solo `'AUTOMATICO'` o `'MANUAL'`, pero está tipado como cualquier `string`.
 - **Propuesta:** `marca?: string; modelo?: string; cambios: (typeof CAMBIOS)[number];`
 
 ### I-07 · Uniones de roles repetidas en lugar de `Rol`
 - **Detectada:** 2026-10-22, guía 02.
-- **Dónde:** `src/types/express.d.ts:6` y `src/services/clase.service.ts:23`.
+- **Dónde:** `src/types/express.d.ts:6` y `src/services/clase.service.ts:26`.
 - **Qué pasa:** repiten `'alumno' | 'administrador'` en lugar de usar `Rol` de `src/types/roles.ts`. Si se agrega un rol, hay que acordarse de cambiarlo en tres lugares.
 - **Propuesta:** importar y usar `Rol`.
 
@@ -142,7 +143,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-13 · `ErrorDeNegocio(…, 403)` hace lo mismo que `ErrorAutorizacion`
 - **Detectada:** 2026-10-22, guía 09.
-- **Dónde:** `clase.service.ts:164`: *"La cuenta autenticada ya no está activa"*.
+- **Dónde:** `clase.service.ts:52`: *"La cuenta autenticada ya no está activa"*.
 - **Qué pasa:** funciona, pero es un error de permisos con la clase de error de negocio.
 - **Propuesta:** usar `ErrorAutorizacion`.
 
@@ -154,7 +155,7 @@ desactualizada · 💭 decisión de diseño para discutir · ✅ resuelta
 
 ### I-31 · "No tenés clases disponibles" también se le dice a un admin
 - **Detectada:** 2026-10-22, flujo `agendar-una-clase`.
-- **Dónde:** `src/services/clase.service.ts:246`.
+- **Dónde:** `src/services/clase.service.ts:243`.
 - **Qué pasa:** cuando un admin reserva para un alumno sin saldo, la respuesta es 409 *"No tenés clases disponibles para reservar"*, como si el admin fuera el alumno.
 - **Propuesta:** usar un mensaje neutro ("El alumno no tiene clases disponibles para reservar") o elegirlo según `actor.rol`.
 
@@ -285,6 +286,13 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
 - **Qué pasa (comprobado):** con un único admin, `DELETE /api/administradores/<su propio id>` → **204**, y quedan 0 administradores. Nadie puede crear profesores, autos ni horarios hasta que se corra de nuevo un script por consola.
 - **Propuesta:** en `administrador.service.eliminar`, rechazar con 409 si es el último administrador.
 
+### I-56 · La colección `clases` no tiene índices
+- **Detectada:** 2026-10-26, al planificar las capas de model y service de turnos libres.
+- **Dónde:** `src/models/Clase.ts`.
+- **Qué pasa (comprobado leyendo el esquema):** ningún campo tiene `index` y no hay `claseSchema.index(...)`, así que la colección solo tiene `_id_`. `validarAusenciaDeConflictos` (`clase.service.ts:141`), que corre en cada reserva y en cada reprogramación, filtra por `inicio`/`fin` y por alumno, profesor o auto: sin índices, MongoDB recorre la colección entera, y la colección crece con cada clase. La consulta de turnos libres planificada agrega una búsqueda más del mismo tipo por pedido. `GET /api/clases` de un alumno (filtra por `alumno`) tampoco tiene índice.
+- **Medido (2026-10-26, base en memoria, `explain('executionStats')` de la consulta de `validarAusenciaDeConflictos`):** con 500 clases pasadas y 5 futuras del mismo profesor, reservar una clase nueva lee **505** documentos sin índices. Con `{ profesor: 1, inicio: 1 }` (y lo mismo para alumno y auto) sigue leyendo **500**: la condición `inicio < finNueva` solo pone un tope por arriba, así que recorre todo el historial. Con `{ profesor: 1, fin: 1 }` lee **5**: `fin > inicioNueva` arranca en la clase actual y deja afuera las pasadas.
+- **Propuesta:** tres índices compuestos en el esquema, por **`fin`**: `{ profesor: 1, fin: 1 }`, `{ alumno: 1, fin: 1 }` y `{ auto: 1, fin: 1 }`. Con un `$or`, MongoDB usa un índice por rama. Así la búsqueda lee solo las clases que todavía no terminaron, sin importar cuánto historial haya. Ver también I-55: hoy nadie espera a que los índices se creen.
+
 ---
 
 ## ✅ Resueltas
@@ -322,7 +330,7 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
 
 ### I-32 · `agregar` sin tramo guarda `null` y rompe las reservas de ese día
 - **Detectada:** 2026-10-22, flujo `configurar-horarios-de-la-escuela`.
-- **Dónde:** `src/services/horarioEscuela.service.ts:53`. El controller hace `const { dia, tramo } = req.body`, y el service no comprueba que `tramo` sea un objeto (`profesor.service` sí lo hace, con `tramoComoDatos`).
+- **Dónde:** `src/services/horarioEscuela.service.ts:56`. El controller hace `const { dia, tramo } = req.body`, y el service no comprueba que `tramo` sea un objeto (`profesor.service` sí lo hace, con `tramoComoDatos`).
 - **Qué pasa (comprobado):** `POST /api/horario-escuela/agregar { "dia": "martes" }` responde **200** y guarda `martes: [null]`. Desde ese momento:
   - toda reserva o modificación para un martes responde **500** (`TypeError: Cannot read properties of null (reading 'horaInicio')`, en `clase.service.validarHorarioClase`);
   - `POST /quitar` en ese día también responde 500 (`reading '_id'`, en `calendarioSemanal.service.quitarTramo`).
@@ -345,7 +353,7 @@ alternativa es `DELETE /api/profesores/:id/disponibilidad/:dia/:tramoId`.
 
 ### I-40 · `PUT /api/autos/:id` con `_id` en el body responde 500
 - **Detectada:** 2026-10-22, flujo `gestion-de-autos`.
-- **Dónde:** `src/services/auto.service.ts:45`. Pasa el body sin filtrar a `findByIdAndUpdate`.
+- **Dónde:** `src/services/auto.service.ts:64`. Pasa el body sin filtrar a `findByIdAndUpdate`.
 - **Qué pasa (comprobado):** `PUT /api/autos/<id> { "_id": "<otro id>" }` → MongoDB lanza `ImmutableField` (código 66), que el `errorHandler` no reconoce → **500** "Error interno del servidor", y el stack completo en la consola.
 - **Propuesta:** se resuelve con I-04: aceptar solo `marca`, `modelo`, `patente` y `cambios` en el `PUT`, y que `activo` se cambie únicamente por `PATCH`. Hoy el `PUT` también lo cambia.
 - **Resuelta:** 2026-10-24, con `aActualizarAutoDto`: `_id` no está en el contrato y responde 400 "No se pueden modificar estos campos: _id".

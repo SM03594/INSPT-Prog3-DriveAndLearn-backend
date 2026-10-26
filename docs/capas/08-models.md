@@ -44,7 +44,7 @@ colección "clases"                                                           �
 | `Auto.ts` | `AutoModel` | `autos` |
 | `Clase.ts` | `ClaseModel` | `clases` |
 | `HorarioEscuela.ts` | `HorarioEscuelaModel` | `horario_escuela` |
-| `CalendarioSemanal.ts`, `Horario.ts` | sub-esquemas y tipos | — (van **dentro** de otros documentos) |
+| `CalendarioSemanal.ts`, `Tramo.ts`, `Horario.ts` | sub-esquemas y tipos | — (van **dentro** de otros documentos) |
 
 ---
 
@@ -131,7 +131,7 @@ claseSchema.pre('validate', async function () {
 Un *hook* `pre('validate')` corre justo antes de validar el documento.
 `this.invalidate(campo, mensaje)` marca el campo como inválido, y el resultado
 es el mismo `ValidationError` que con cualquier otra regla. El tramo
-(`CalendarioSemanal.ts:51`) usa el mismo truco para exigir que `horaFin` sea
+(`Tramo.ts:35`) usa el mismo truco para exigir que `horaFin` sea
 posterior a `horaInicio`.
 
 **Importante:** este hook corre en `create()` y en `.save()`, pero **no** en

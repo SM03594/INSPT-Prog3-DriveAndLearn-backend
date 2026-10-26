@@ -9,12 +9,8 @@
 //   }
 
 
-import { Schema, Types } from 'mongoose';
-import {
-  horaDelDiaSchema,
-  aMinutos,
-  type HoraDelDia,
-} from './Horario.js';
+import { Schema } from 'mongoose';
+import { tramoSchema, type Tramo } from './Tramo.js';
 
 
 // --- Días de la semana válidos ---
@@ -32,37 +28,9 @@ export const DIAS = [
 export type Dia = (typeof DIAS)[number];
 
 // ============================================================
-//  Sub-esquema: un tramo (de una hora de inicio a una de fin)
-// ============================================================
-const tramoSchema = new Schema({
-  horaInicio: {
-    type: horaDelDiaSchema,
-    required: [true, 'La hora de inicio es obligatoria'],
-  },
-  horaFin: {
-    type: horaDelDiaSchema,
-    required: [true, 'La hora de fin es obligatoria'],
-  },
-});
-
-// Regla entre campos (validación a mano): el fin tiene que ser
-// posterior al inicio. Corre al validar el subdocumento (o sea, al
-// hacer .save() del documento que lo contiene).
-tramoSchema.pre('validate', async function () {
-  const inicio = this.get('horaInicio') as HoraDelDia | undefined;
-  const fin = this.get('horaFin') as HoraDelDia | undefined;
-
-  if (inicio && fin && aMinutos(inicio) >= aMinutos(fin)) {
-    this.invalidate(
-      'horaFin',
-      'La hora de fin debe ser posterior a la de inicio',
-    );
-  }
-});
-
-// ============================================================
 //  Sub-esquema: el calendario semanal (una lista de tramos por día)
 // ============================================================
+// Cada tramo usa el sub-esquema de Tramo.ts.
 // Un campo por día, cada uno arranca como array vacío. Las claves
 // tienen que coincidir con DIAS (el tipo de más abajo lo deriva de
 // ahí, así que si agregás un día, TS te obliga a sumar la clave).
@@ -80,14 +48,8 @@ export const calendarioSemanalSchema = new Schema(
 );
 
 // ============================================================
-//  Tipos (para TypeScript) — escritos a mano
+//  Tipo (para TypeScript) — escrito a mano
 // ============================================================
-export interface Tramo {
-  _id?: Types.ObjectId; // lo genera Mongoose al agregar el tramo
-  horaInicio: HoraDelDia;
-  horaFin: HoraDelDia;
-}
-
 // { lunes: Tramo[]; martes: Tramo[]; ...; domingo: Tramo[] }
 export type CalendarioSemanal = Record<Dia, Tramo[]>;
 

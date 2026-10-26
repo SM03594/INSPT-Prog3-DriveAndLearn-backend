@@ -7,6 +7,9 @@ import { Schema, model, HydratedDocument } from 'mongoose';
 // --- Valores permitidos para "cambios" ---
 export const CAMBIOS = ['AUTOMATICO', 'MANUAL'] as const;
 
+// 'AUTOMATICO' | 'MANUAL'
+export type Cambios = (typeof CAMBIOS)[number];
+
 // ============================================================
 //  Definición del esquema
 // ============================================================

@@ -21,6 +21,8 @@ import {
   actualizar,
   eliminar,
   obtenerPorIdAlumno,
+  listarSuperpuestas,
+  empiezaEnPunto,
   type ActorClase,
 } from '../../src/services/clase.service.js';
 import type { CrearClaseDto } from '../../src/dtos/clase.dto.js';
@@ -157,6 +159,27 @@ describe('clase.service', () => {
     ).rejects.toThrow(/exactamente una hora/i);
   });
 
+  it('rechaza una clase que no empieza en una hora en punto (09:20–10:20)', async () => {
+    const inicio = new Date(inicioBase.getTime() + 20 * 60 * 1000);
+
+    await expect(
+      crear({ ...datosValidos, inicio, fin: new Date(inicio.getTime() + 60 * 60 * 1000) }, actor),
+    ).rejects.toThrow('La clase debe empezar en una hora en punto (por ejemplo, 08:00)');
+  });
+
+  it('rechaza una clase con segundos, con el mismo mensaje de hora en punto', async () => {
+    const inicio = new Date(inicioBase.getTime() + 30 * 1000);
+
+    await expect(
+      crear({ ...datosValidos, inicio, fin: new Date(inicio.getTime() + 60 * 60 * 1000) }, actor),
+    ).rejects.toThrow(/hora en punto/);
+  });
+
+  it('empiezaEnPunto mira la hora de la escuela', () => {
+    expect(empiezaEnPunto(inicioBase)).toBe(true);
+    expect(empiezaEnPunto(new Date(inicioBase.getTime() + 30 * 60 * 1000))).toBe(false);
+  });
+
   it('rechaza reservas pasadas y fuera del horario escolar', async () => {
     await expect(
       crear({
@@ -191,7 +214,9 @@ describe('clase.service', () => {
 
   it('rechaza si no hay créditos o si profesor/auto ya están ocupados', async () => {
     await AlumnoModel.findByIdAndUpdate(alumnoId, { clasesPorReservar: 0 });
-    await expect(crear(datosValidos, actor)).rejects.toThrow(/clases disponibles/i);
+    await expect(crear(datosValidos, actor)).rejects.toThrow(
+      'No tenés clases disponibles para reservar',
+    );
 
     await AlumnoModel.findByIdAndUpdate(alumnoId, { clasesPorReservar: 2 });
     await crear(datosValidos, actor);
@@ -199,6 +224,14 @@ describe('clase.service', () => {
       ...datosValidos,
       alumno: otroAlumnoId.toString(),
     }, actorAdministrador)).rejects.toThrow(/ya tiene una clase/i);
+  });
+
+  it('a un admin que reserva para un alumno sin saldo le habla del alumno', async () => {
+    await AlumnoModel.findByIdAndUpdate(otroAlumnoId, { clasesPorReservar: 0 });
+
+    await expect(
+      crear({ ...datosValidos, alumno: otroAlumnoId.toString() }, actorAdministrador),
+    ).rejects.toThrow('El alumno no tiene clases disponibles para reservar');
   });
 
   it('no permite que un alumno reserve dos clases superpuestas con recursos diferentes', async () => {
@@ -241,6 +274,58 @@ describe('clase.service', () => {
       new Date(nuevaInicio.getTime() + 60 * 60 * 1000).toISOString(),
     );
     expect(alumno?.clasesPorReservar).toBe(1);
+  });
+
+  it('no permite reprogramar una clase a una hora que no es en punto', async () => {
+    const clase = await crear(datosValidos, actor);
+
+    await expect(
+      actualizar(
+        clase._id.toString(),
+        { inicio: new Date(inicioBase.getTime() + 90 * 60 * 1000) },
+        actor,
+      ),
+    ).rejects.toThrow(/hora en punto/);
+  });
+
+  // --------------------------------------------------------
+  //  listarSuperpuestas
+  // --------------------------------------------------------
+  it('listarSuperpuestas trae las clases del profesor, del alumno o de los autos que pisan el período', async () => {
+    const hora = 60 * 60 * 1000;
+    // 09–10: el alumno con el profesor y el auto principal
+    const delProfesor = await crear(datosValidos, actor);
+    // 10–11: el otro alumno con el profesor alternativo y el otro auto
+    const delOtroAuto = await crear({
+      profesor: profesorAlternativoId.toString(),
+      auto: autoAlternativoId.toString(),
+      inicio: new Date(inicioBase.getTime() + hora),
+      fin: new Date(inicioBase.getTime() + 2 * hora),
+    }, { id: otroAlumnoId.toString(), rol: 'alumno' });
+
+    const periodo = { inicio: inicioBase, fin: new Date(inicioBase.getTime() + 3 * hora) };
+    const ids = (clases: { _id: Types.ObjectId }[]) => clases.map((c) => c._id.toString()).sort();
+
+    // Solo el profesor principal y ningún auto: la de 10–11 no es suya.
+    expect(ids(await listarSuperpuestas({
+      ...periodo, profesor: profesorId.toString(), autos: [],
+    }))).toEqual([delProfesor._id.toString()]);
+
+    // Sumando el otro auto, aparece también la de 10–11.
+    expect(ids(await listarSuperpuestas({
+      ...periodo, profesor: profesorId.toString(), autos: [autoAlternativoId.toString()],
+    }))).toEqual(ids([delProfesor, delOtroAuto]));
+
+    // Por alumno: el otro alumno tiene la de 10–11.
+    expect(ids(await listarSuperpuestas({
+      ...periodo, profesor: new Types.ObjectId().toString(), alumno: otroAlumnoId.toString(), autos: [],
+    }))).toEqual([delOtroAuto._id.toString()]);
+
+    // Un período que termina justo cuando empieza la clase no la pisa.
+    expect(await listarSuperpuestas({
+      inicio: new Date(inicioBase.getTime() - hora), fin: inicioBase,
+      profesor: profesorId.toString(), autos: [],
+    })).toHaveLength(0);
   });
 
   // --------------------------------------------------------

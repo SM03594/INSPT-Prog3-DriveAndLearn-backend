@@ -18,7 +18,6 @@ router.use(requireAuthentication);
 
 router.get('/', horarioEscuelaController.obtener);
 router.put('/', requireAdministrator, validacionDeCuerpo, horarioEscuelaController.reemplazar);
-router.get('/validar/:dia', horarioEscuelaController.validar);
 router.post('/agregar', requireAdministrator, validacionDeCuerpo, horarioEscuelaController.agregar);
 router.post('/quitar', requireAdministrator, validacionDeCuerpo, horarioEscuelaController.quitar);
 

@@ -228,7 +228,7 @@ src/dtos/calendarioSemanal.dto.ts
    aReemplazarCalendarioDto ◄── horarioEscuela.controller.reemplazar
 ```
 
-`aReemplazarCalendarioDto` (`:91`) hace un chequeo más: exige los 7 días, y
+`aReemplazarCalendarioDto` (`:93`) hace un chequeo más: exige los 7 días, y
 que **cada elemento** de cada lista sea un objeto. Un `"lunes": [null]` se
 guardaba tal cual y rompía las reservas de ese día.
 

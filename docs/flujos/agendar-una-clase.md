@@ -183,7 +183,7 @@ superposición se calcula con `inicio < otro.fin && fin > otro.inicio`, y
 
 ### Paso 8. ⑥ Descontar el crédito
 
-`clase.service.ts:233`:
+`clase.service.ts:275`:
 
 ```ts
 const alumno = await AlumnoModel.findOneAndUpdate(
@@ -241,7 +241,7 @@ problemas, que termina en un 500.
 
 ### Paso 11. Consultar las reservas
 
-`GET /api/clases` (`clase.service.ts:181`):
+`GET /api/clases` (`clase.service.ts:222`):
 
 - Un **alumno** recibe solo **sus** clases, ordenadas por `inicio`. Ana ve 2.
 - Un **admin** recibe **todas**: en el ejemplo, 3.

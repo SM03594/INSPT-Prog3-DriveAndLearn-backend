@@ -5,6 +5,7 @@
 import {
   AutoModel,
   type AutoDoc,
+  type Cambios,
 } from '../models/Auto.js';
 import { verSiErrorClaveDuplicada } from '../errors/errorClaveDuplicada.js';
 import type { ActualizarAutoDto, CrearAutoDto } from '../dtos/auto.dto.js';
@@ -21,6 +22,23 @@ export async function listar(): Promise<AutoDoc[]> {
 
 export async function obtenerPorId(id: string): Promise<AutoDoc | null> {
   return AutoModel.findById(id);
+}
+
+// ============================================================
+//  listarActivos — los autos que se pueden reservar
+// ============================================================
+// Solo los que están en servicio, de un tipo de cambios o de los dos.
+// Trae solo lo que se le muestra al alumno para elegir, ordenado por
+// patente para que la lista salga siempre en el mismo orden.
+export async function listarActivos(cambios?: Cambios): Promise<AutoDoc[]> {
+  const filtro = cambios === undefined ? { activo: true } : { activo: true, cambios };
+  const autos = await AutoModel.find(filtro, {
+    marca: 1,
+    modelo: 1,
+    patente: 1,
+    cambios: 1,
+  }).sort({ patente: 1 });
+  return autos;
 }
 
 

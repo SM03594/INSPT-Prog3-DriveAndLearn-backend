@@ -45,11 +45,69 @@ export function obtenerJwtSecret(): string {
   return secret;
 }
 
-// --- ZONA_HORARIA ---
-// Zona IANA de la escuela. Todo cálculo "local" (qué día de la semana
-// es, qué hora marca el reloj en la escuela) usa esta constante, nunca
-// la zona del sistema operativo donde corre el server (un deploy suele
-// correr en UTC). Nombre IANA, no un offset fijo como "-03:00": si
-// vuelve el horario de verano, el nombre lo contempla solo.
-export const ZONA_HORARIA: string =
-  process.env.ZONA_HORARIA ?? 'America/Argentina/Buenos_Aires';
+// --- ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NOMAPE ---
+// Datos del primer administrador. Solo los usa el script
+// src/scripts/bootstrapAdminDesdeEnv.ts, no el servidor: por eso es
+// una función (como obtenerJwtSecret) y no una constante, así la app
+// arranca igual aunque no estén definidas.
+export interface DatosAdminInicial {
+  email: string;
+  password: string;
+  nomApe: string;
+}
+
+export function obtenerAdminInicial(): DatosAdminInicial {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? '';
+  const password = process.env.ADMIN_PASSWORD ?? '';
+  const nomApe = process.env.ADMIN_NOMAPE?.trim() || 'Administrador';
+
+  if (email === '' || password === '') {
+    throw new Error('ADMIN_EMAIL y ADMIN_PASSWORD deben estar configurados en el .env');
+  }
+
+  return { email, password, nomApe };
+}
+
+// --- OFFSET_UTC ---
+// Diferencia de la hora de la escuela con UTC, como "±HH:MM". Es la
+// ÚNICA fuente de la hora de la escuela: todo cálculo "local" (qué día
+// de la semana es, qué hora marca el reloj en la escuela, qué día es
+// hoy) usa esta constante, nunca la zona del sistema operativo donde
+// corre el server (un deploy suele correr en UTC).
+// Un offset fijo no contempla el horario de verano: si el país lo
+// adopta, hay que cambiar OFFSET_UTC y reiniciar el servidor.
+const OFFSET_UTC_POR_DEFECTO = '-03:00';
+const FORMATO_OFFSET = /^([+-])(\d{2}):(\d{2})$/;
+const HORAS_MAXIMAS_OFFSET = 14;
+
+export interface OffsetUtc {
+  texto: string; // "-03:00"
+  minutos: number; // -180
+}
+
+// Un valor mal escrito frena el arranque (como JWT_SECRET): un offset
+// equivocado correría todas las clases sin dar ningún error.
+// Se exporta para poder testearla sin tocar process.env.
+export function parsearOffsetUtc(valor: string | undefined): OffsetUtc {
+  // dotenv carga "OFFSET_UTC=" (sin valor) como "": por eso el
+  // default no puede ir con "??".
+  const texto = valor === undefined || valor.trim() === ''
+    ? OFFSET_UTC_POR_DEFECTO
+    : valor.trim();
+  const partes = FORMATO_OFFSET.exec(texto);
+  const horas = Number(partes?.[2]);
+  const minutos = Number(partes?.[3]);
+  const esOffsetValido =
+    partes !== null && horas <= HORAS_MAXIMAS_OFFSET && minutos <= 59;
+
+  if (!esOffsetValido) {
+    throw new Error('OFFSET_UTC debe tener el formato ±HH:MM (por ejemplo, -03:00)');
+  }
+
+  const signo = partes[1] === '-' ? -1 : 1;
+  return { texto, minutos: signo * (horas * 60 + minutos) };
+}
+
+const offsetUtc = parsearOffsetUtc(process.env.OFFSET_UTC);
+export const OFFSET_UTC: string = offsetUtc.texto;
+export const OFFSET_UTC_MINUTOS: number = offsetUtc.minutos;

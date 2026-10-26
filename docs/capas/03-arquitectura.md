@@ -177,7 +177,7 @@ y el service ni se entera. Ver [`06b-dtos.md`](06b-dtos.md).
 
 ### 5. El service: las reglas
 
-`src/services/auto.service.ts:66`:
+`src/services/auto.service.ts:84`:
 
 ```ts
 export async function cambiarEstado(id: string, estadoNuevo: boolean): Promise<AutoDoc | null> {
@@ -194,7 +194,7 @@ se convierte en 400 o 409 lo decide otra capa.
 
 ### 6. El model: la base
 
-`AutoModel` (`src/models/Auto.ts:84`) envía el update a MongoDB.
+`AutoModel` (`src/models/Auto.ts:87`) envía el update a MongoDB.
 `new: true` hace que devuelva el documento **ya actualizado**, y
 `runValidators` corre las validaciones del esquema también en el update.
 Cuando el controller hace `res.json(auto)`, el `toJSON` del esquema le saca

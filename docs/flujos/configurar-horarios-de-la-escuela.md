@@ -24,11 +24,11 @@ además pide admin:
 
 | Pedido | Quién | Service (`horarioEscuela.service.ts`) | Qué hace |
 |---|---|---|---|
-| `GET /api/horario-escuela` | 🔑 | `obtener` (`:18`) | Devuelve el calendario |
+| `GET /api/horario-escuela` | 🔑 | `obtener` (`:19`) | Devuelve el calendario |
 | `GET /api/horario-escuela/validar/:dia` | 🔑 | `validarDia` | ¿Es un nombre de día válido? |
-| `PUT /api/horario-escuela` | 🛡️ | `reemplazar` (`:34`) | Reemplaza **toda** la semana |
-| `POST /api/horario-escuela/agregar` `{ dia, tramo }` | 🛡️ | `agregarTramo` (`:45`) | Agrega un tramo |
-| `POST /api/horario-escuela/quitar` `{ dia, tramoId }` | 🛡️ | `quitarTramo` (`:57`) | Quita un tramo |
+| `PUT /api/horario-escuela` | 🛡️ | `reemplazar` (`:36`) | Reemplaza **toda** la semana |
+| `POST /api/horario-escuela/agregar` `{ dia, tramo }` | 🛡️ | `agregarTramo` (`:48`) | Agrega un tramo |
+| `POST /api/horario-escuela/quitar` `{ dia, tramoId }` | 🛡️ | `quitarTramo` (`:60`) | Quita un tramo |
 
 El documento pasa por tres estados:
 
@@ -57,7 +57,7 @@ semana vacía.
 
 ### Paso 1. Consultar
 
-`obtener()` (`horarioEscuela.service.ts:18`):
+`obtener()` (`horarioEscuela.service.ts:19`):
 
 ```ts
 const horario = await HorarioEscuelaModel.findById('escuela');
@@ -112,7 +112,7 @@ POST /api/horario-escuela/agregar
 La respuesta es el **calendario completo**, no el documento. El `_id` de cada
 tramo es lo que se usa para quitarlo.
 
-`aAgregarTramoDto` (`src/dtos/calendarioSemanal.dto.ts:61`) es el **mismo
+`aAgregarTramoDto` (`src/dtos/calendarioSemanal.dto.ts:63`) es el **mismo
 DTO** que usa la disponibilidad de un profesor: exige `dia` (texto) y `tramo`
 (objeto), y ningún otro campo. Que el día exista lo revisa el service
 (`diaValido`), y las horas, el esquema al hacer `.save()`.
@@ -144,7 +144,7 @@ limpiarlo es un `PUT` con la semana completa.
 
 ### Paso 4. Quitar un tramo
 
-Controller (`:34`) → service (`:57`). El controller usa `aQuitarTramoDto`:
+Controller (`:34`) → service (`:60`). El controller usa `aQuitarTramoDto`:
 `dia` y `tramoId`, los dos como texto.
 
 ```http
@@ -163,9 +163,9 @@ Se usa `POST` con el verbo en la URL (`/quitar`), no `DELETE`.
 
 ### Paso 5. Reemplazar la semana completa
 
-`aReemplazarCalendarioDto` (`src/dtos/calendarioSemanal.dto.ts:91`) exige un
+`aReemplazarCalendarioDto` (`src/dtos/calendarioSemanal.dto.ts:93`) exige un
 objeto con una **lista para cada uno de los 7 días**, en la que cada elemento
-sea un objeto. `reemplazar` (`horarioEscuela.service.ts:34`) lo guarda como el
+sea un objeto. `reemplazar` (`horarioEscuela.service.ts:36`) lo guarda como el
 nuevo calendario. Es la forma más cómoda de cargar
 una semana típica:
 
@@ -191,6 +191,7 @@ PUT /api/horario-escuela
 | `"lunes": "x"` | 400 "El lunes debe ser una lista" |
 | `"lunes": [null]` | 400 "Cada tramo del lunes debe ser un objeto" (antes se guardaba el `null`, como en I-32) |
 | Un tramo con el fin antes del inicio | 400 "La hora de fin debe ser posterior a la de inicio" |
+| Un tramo que no es en punto (09:00–12:30), en cualquier día | 400 "Los tramos deben empezar y terminar en una hora en punto" y no se guarda **nada** de la semana |
 | Un día extra (`"feriado": [...]`) | 400 "No se pueden enviar estos campos: feriado" |
 | `[]` (un array) | 400 "El cuerpo de la petición debe ser un objeto JSON" |
 
@@ -229,6 +230,7 @@ saltea esos requests (`modoSeguro`).
 | Un alumno modifica el horario | 403 "Se requieren permisos de administrador" |
 | Día con mayúscula o inexistente | 400 'Día inválido: …' |
 | Hora 24 o minuto 60 | 400 "La hora debe estar entre 0 y 23" / "Los minutos deben estar entre 0 y 59" |
+| Tramo que no es en punto (08:30–12:00) | 400 "Los tramos deben empezar y terminar en una hora en punto" |
 | `agregar` sin `tramo` | 400 "El tramo es obligatorio" |
 | `agregar` con un tramo que no es un objeto | 400 "El tramo debe ser un objeto" |
 | Una hora que no es un número (`"x"`) | 400 con un mensaje interno de Mongoose (I-47) |

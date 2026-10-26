@@ -20,6 +20,7 @@ validado (o argumentos comunes) y devuelve datos, o lanza un error.
 | `auto.service` | `AutoModel` | Alta y edición de autos, y ponerlos o sacarlos de servicio. |
 | `profesor.service` | `ProfesorModel` | Alta, nombre y disponibilidad de los profesores. |
 | `calendarioSemanal.service` | — (no toca la base) | Operaciones sobre **cualquier** calendario semanal. |
+| `tramo.service` | — (no toca la base) | Reglas de un tramo: que empiece y termine en una hora en punto. |
 | `horarioEscuela.service` | `HorarioEscuelaModel` | El horario único de la escuela. |
 | `clase.service` | `Clase`, `Alumno`, `Profesor`, `Auto`, `HorarioEscuela`, `Administrador` | Reservar, modificar y eliminar clases. |
 
@@ -28,7 +29,7 @@ Algunos services usan a otros:
 ```
 auth.service ─────────────► usuario.service
 horarioEscuela.service ──┐
-profesor.service ────────┴► calendarioSemanal.service
+profesor.service ────────┴► calendarioSemanal.service ──► tramo.service
 auth.middleware ──────────► administrador.service.existe()
                  └────────► clase.service.obtenerPorIdAlumno()
 clase.service ────────────► alumno.service.sumarClasesPorReservar()   (al eliminar)
@@ -128,7 +129,7 @@ exigir(auto.activo, 'El auto no está disponible para reservas', 409);
 
 El email de un usuario y la patente de un auto son `unique` en el esquema. Si
 se repiten, MongoDB lanza un error **crudo** (`code: 11000`). El service lo
-atrapa y lo convierte en un error del proyecto (`auto.service.ts:32`):
+atrapa y lo convierte en un error del proyecto (`auto.service.ts:50`):
 
 ```ts
 try {
@@ -159,7 +160,7 @@ una edición que solo cambia el nombre, devuelve los datos sin tocarlos.
 
 ### 6. Dos formas de modificar un documento
 
-**A. `findByIdAndUpdate`, en un solo paso** (`auto.service.ts:51`):
+**A. `findByIdAndUpdate`, en un solo paso** (`auto.service.ts:69`):
 
 ```ts
 AutoModel.findByIdAndUpdate(id, cambios, { new: true, runValidators: true });
@@ -194,7 +195,7 @@ La forma B tiene un punto débil. Entre el `findById` y el `.save()` pasa
 tiempo: si dos pedidos llegan a la vez, los dos leen el mismo saldo. Para
 operaciones administrativas poco frecuentes, como sumar clases, no es un
 problema. Para **reservar**, donde muchos alumnos compiten, `clase.service`
-usa una operación **condicional y atómica** (`clase.service.ts:233`):
+usa una operación **condicional y atómica** (`clase.service.ts:275`):
 
 ```ts
 AlumnoModel.findOneAndUpdate(

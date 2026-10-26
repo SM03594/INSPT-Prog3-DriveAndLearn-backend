@@ -36,7 +36,7 @@ sección 7.
 ### 1. Anotar tipos: lo mismo que en JS, con etiquetas
 
 Así se ve una función en JavaScript y su versión en TypeScript
-(`src/services/auto.service.ts:46`):
+(`src/services/auto.service.ts:64`):
 
 ```js
 // JavaScript
@@ -65,7 +65,7 @@ partir del valor (`const id = usuario._id.toString()` ya es `string`).
 
 ### 2. `interface` y `type`: describir la forma de un objeto
 
-Un `interface` describe qué campos tiene un objeto (`src/models/Auto.ts:65`):
+Un `interface` describe qué campos tiene un objeto (`src/models/Auto.ts:68`):
 
 ```ts
 export interface Auto {
@@ -131,7 +131,7 @@ Paso a paso:
 | `typeof ROLES` | "El tipo de la variable ROLES" (este `typeof` es del lado de los tipos, no el de JS). |
 | `[number]` | "El tipo de cualquier elemento del array", o sea la unión de sus valores. |
 
-El mismo patrón aparece en `DIAS` y `Dia` (`src/models/CalendarioSemanal.ts:21-32`)
+El mismo patrón aparece en `DIAS` y `Dia` (`src/models/CalendarioSemanal.ts:17-28`)
 y en `CAMBIOS` (`src/models/Auto.ts:8`). Si agregás un valor al array, el tipo
 se actualiza solo.
 
@@ -160,7 +160,7 @@ usa tres:
 | Utilitario | Qué hace | Ejemplo en el proyecto |
 |---|---|---|
 | `Partial<T>` | Todos los campos pasan a ser opcionales. | `ActualizarAlumnoDto = Partial<CrearAlumnoDto>`: una edición trae **algunos** campos (`src/dtos/alumno.dto.ts:24`). |
-| `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:105` |
+| `Pick<T, 'a' \| 'b'>` | Se queda solo con esos campos. | `Pick<Clase, 'inicio' \| 'fin'>` en `clase.service.ts:119` |
 | `Omit<T, 'a'>` | Saca esos campos. | `Omit<CrearAutoDto, 'activo'>` en `src/dtos/auto.dto.ts:27` |
 
 Se pueden combinar. Al editar un auto se acepta cualquiera de sus datos
@@ -172,7 +172,7 @@ export type ActualizarAutoDto = Partial<Omit<CrearAutoDto, 'activo'>>;
 ```
 
 `&` (intersección) **suma** campos. `HoraLocal` toma la hora y los minutos de
-`HoraDelDia` y le agrega el día de la semana (`src/utils/fechas.ts:87`):
+`HoraDelDia` y le agrega el día de la semana (`src/utils/fechas.ts:90`):
 
 ```ts
 export type HoraLocal = { dia: Dia } & HoraDelDia;
@@ -326,7 +326,7 @@ Otros dos guards que vale la pena leer:
 
 - `esPayloadAutenticado` (`src/middlewares/auth.middleware.ts:72`) confirma
   que el JWT trae `sub` y un `role` válido.
-- `validarDia` (`src/services/calendarioSemanal.service.ts:20`) usa una
+- `validarDia` (`src/services/calendarioSemanal.service.ts:21`) usa una
   variante, `asserts dia is Dia`: en lugar de devolver `true`/`false`, lanza
   un error si la comprobación falla, y después de llamarla `dia` ya es `Dia`.
 
@@ -352,7 +352,7 @@ export const DESCRIPCION_TIPO = {
 
 ```ts
 const auth = req.auth!;                          // clase.controller.ts:15
-delete (ret as Record<string, unknown>).__v;     // models/Auto.ts:57
+delete (ret as Record<string, unknown>).__v;     // models/Auto.ts:60
 ```
 
 - `!` significa "esto no es `undefined`". Acá es seguro porque la ruta pasó
@@ -448,11 +448,11 @@ import se borra por completo al compilar, así que no carga código en runtime.
 
 | Concepto | Para qué sirve | Ejemplo |
 |---|---|---|
-| Anotación `x: T` | Declarar el tipo de un parámetro o de un retorno | `auto.service.ts:46` |
+| Anotación `x: T` | Declarar el tipo de un parámetro o de un retorno | `auto.service.ts:64` |
 | `interface` / `extends` | La forma de un objeto, y heredar campos | `models/Usuario.ts:76` |
 | Unión `A \| B` | "Una cosa o la otra" | `AutoDoc \| null` |
 | `as const` + `typeof X[number]` | Una sola lista, usable como valor y como tipo | `types/roles.ts:8` |
-| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:27`, `services/clase.service.ts:105`, `utils/fechas.ts:87` |
+| `Partial` / `Pick` / `Omit` / `&` | Derivar tipos de otros | `dtos/auto.dto.ts:27`, `services/clase.service.ts:119`, `utils/fechas.ts:90` |
 | Genéricos `<T>` | Tipos con parámetro | `utils/password.ts:27`, `exigido` y `validarCampos` |
 | *Mapped types* | Calcular un tipo a partir de otro | `DatosValidados` en `utils/validacionCampos.ts:61` |
 | `unknown` + type guards | Validar datos externos de forma segura | `utils/cuerpoPeticion.ts:24` |

@@ -212,7 +212,7 @@ pasa por `validacionDeCuerpo`.
 
 \* En `GET /api/clases` y `POST /api/clases`, el router solo exige el token.
 Lo demás lo decide el **service**, que recibe quién hace el pedido:
-`clase.service.ts:181` (`listar`) filtra con `{ alumno: actor.id }` si el
+`clase.service.ts:222` (`listar`) filtra con `{ alumno: actor.id }` si el
 usuario no es admin, y al reservar, un alumno solo puede hacerlo para sí
 mismo. Se explica en [`../flujos/agendar-una-clase.md`](../flujos/agendar-una-clase.md).
 

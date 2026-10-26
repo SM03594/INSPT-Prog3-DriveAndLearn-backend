@@ -132,6 +132,23 @@ describe('reservas HTTP de clases', () => {
     expect(perfil.body.clasesPorReservar).toBe(1);
   });
 
+  it('rechaza una clase que no empieza en una hora en punto (08:20–09:20 → 400)', async () => {
+    const inicioConMinutos = new Date(inicio.getTime() + 20 * 60 * 1000);
+
+    const respuesta = await request(app)
+      .post('/api/clases')
+      .set('Authorization', `Bearer ${tokenAlumno}`)
+      .send({
+        profesor: profesorId,
+        auto: autoId,
+        inicio: inicioConMinutos.toISOString(),
+        fin: new Date(inicioConMinutos.getTime() + 60 * 60 * 1000).toISOString(),
+      })
+      .expect(400);
+
+    expect(respuesta.body.mensaje).toBe('La clase debe empezar en una hora en punto (por ejemplo, 08:00)');
+  });
+
   it('limita consultas de clases al alumno y permite al administrador ver todas', async () => {
     const propia = await request(app)
       .post('/api/clases')

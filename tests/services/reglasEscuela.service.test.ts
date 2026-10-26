@@ -16,8 +16,8 @@ import {
   DIAS,
   crearCalendarioSemanal,
   type Dia,
-  type Tramo,
 } from '../../src/models/CalendarioSemanal.js';
+import type { Tramo } from '../../src/models/Tramo.js';
 
 const DIA_INVALIDO = 'narnia' as unknown as Dia;
 
