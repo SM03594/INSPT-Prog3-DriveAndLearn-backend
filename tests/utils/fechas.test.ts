@@ -13,6 +13,8 @@ import {
   formatearFecha,
   hoyEnLaEscuela,
   instanteLocal,
+  parsearFecha,
+  parsearHoraDelDia,
   parsearInstante,
 } from '../../src/utils/fechas.js';
 import { ErrorDeNegocio } from '../../src/errors/errorDeNegocio.js';
@@ -51,6 +53,58 @@ describe('parsearInstante', () => {
 
   it('rechaza valores que no son string ni Date', () => {
     expect(() => parsearInstante(1758369600000, 'fin')).toThrow(/fin/);
+  });
+});
+
+describe('parsearFecha', () => {
+  it('convierte AAAA-MM-DD en un día del calendario', () => {
+    expect(parsearFecha('2026-11-09')).toEqual({ anio: 2026, mes: 11, diaDelMes: 9 });
+  });
+
+  it('acepta el 29 de febrero de un año bisiesto', () => {
+    expect(parsearFecha('2028-02-29')).toEqual({ anio: 2028, mes: 2, diaDelMes: 29 });
+  });
+
+  it('deja pasar undefined (lo obligatorio lo decide el DTO)', () => {
+    expect(parsearFecha(undefined)).toBeUndefined();
+  });
+
+  it.each([
+    '2026-02-31',
+    '2026-13-01',
+    '2027-02-29',
+    '09/11/2026',
+    '2026-11-9',
+    '2026-11-09T00:00:00Z',
+    '',
+  ])('rechaza %j', (valor) => {
+    const llamada = () => parsearFecha(valor);
+
+    expect(llamada).toThrow(ErrorDeNegocio);
+    expect(llamada).toThrow('La fecha debe tener el formato AAAA-MM-DD');
+  });
+});
+
+describe('parsearHoraDelDia', () => {
+  it.each([
+    ['08:00', { hora: 8, minuto: 0 }],
+    ['8:00', { hora: 8, minuto: 0 }],
+    ['00:00', { hora: 0, minuto: 0 }],
+    ['23:59', { hora: 23, minuto: 59 }],
+    ['12:30', { hora: 12, minuto: 30 }],
+  ])('convierte %s', (valor, esperado) => {
+    expect(parsearHoraDelDia(valor, 'El desde')).toEqual(esperado);
+  });
+
+  it('deja pasar undefined', () => {
+    expect(parsearHoraDelDia(undefined, 'El desde')).toBeUndefined();
+  });
+
+  it.each(['24:00', '08:60', '8:0', '008:00', '8', '08:00:00', ''])('rechaza %j', (valor) => {
+    const llamada = () => parsearHoraDelDia(valor, 'El hasta');
+
+    expect(llamada).toThrow(ErrorDeNegocio);
+    expect(llamada).toThrow('El hasta debe tener el formato HH:MM');
   });
 });
 

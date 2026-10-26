@@ -58,6 +58,59 @@ export function parsearInstante(
   return instante;
 }
 
+// AAAA-MM-DD, sin hora ni zona: un día del calendario de la escuela.
+const FECHA_CALENDARIO = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+// HH:MM o H:MM ("8:00" también vale), de 0:00 a 23:59. Los minutos,
+// siempre con dos dígitos.
+const HORA_DEL_DIA = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+// ============================================================
+//  parsearFecha — "2026-11-09" → { anio, mes, diaDelMes }
+// ============================================================
+// Comprueba que el día exista (2026-02-31 no). undefined pasa tal
+// cual: lo obligatorio lo decide cada DTO con exigido().
+export function parsearFecha(valor: string | undefined): FechaCalendario | undefined {
+  let fecha: FechaCalendario | undefined;
+
+  if (valor !== undefined) {
+    const partes = FECHA_CALENDARIO.exec(valor);
+    const anio = Number(partes?.[1]);
+    const mes = Number(partes?.[2]);
+    const diaDelMes = Number(partes?.[3]);
+
+    if (partes === null || !esDiaDeCalendario(anio, mes, diaDelMes)) {
+      throw new ErrorDeNegocio('La fecha debe tener el formato AAAA-MM-DD');
+    }
+    fecha = { anio, mes, diaDelMes };
+  }
+
+  return fecha;
+}
+
+// ============================================================
+//  parsearHoraDelDia — "08:00" → { hora: 8, minuto: 0 }
+// ============================================================
+// Una hora de reloj de la escuela, sin fecha. undefined pasa tal cual.
+// "campo" nombra el dato en el mensaje: "El desde", "El hasta".
+export function parsearHoraDelDia(
+  valor: string | undefined,
+  campo: string,
+): HoraDelDia | undefined {
+  let horaDelDia: HoraDelDia | undefined;
+
+  if (valor !== undefined) {
+    const partes = HORA_DEL_DIA.exec(valor);
+
+    if (partes === null) {
+      throw new ErrorDeNegocio(`${campo} debe tener el formato HH:MM`);
+    }
+    horaDelDia = { hora: Number(partes[1]), minuto: Number(partes[2]) };
+  }
+
+  return horaDelDia;
+}
+
 // ============================================================
 //  La hora de la escuela: el instante corrido por OFFSET_HORA_UTC
 // ============================================================
