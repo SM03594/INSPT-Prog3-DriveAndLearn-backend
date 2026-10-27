@@ -27,7 +27,6 @@ router.put(
   validacionDeCuerpo,
   alumnoController.actualizar,
 );
-router.delete('/:id', requireSelfOrAdministrator(), alumnoController.eliminar);
 router.patch(
   '/:id/sumar-clases',
   requireAdministrator,
