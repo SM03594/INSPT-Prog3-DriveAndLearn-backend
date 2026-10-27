@@ -1,0 +1,268 @@
+{
+  "info": {
+    "name": "DriveAndLearn — tests simples",
+    "description": "Recorrido básico de la API, sin scripts. Correr los requests en orden.\n\nComo no hay scripts, los tokens y los ids NO se guardan solos: después de cada request marcado con \"→ copiar\", copiar el valor indicado de la respuesta y pegarlo en el *Current value* de la variable del environment `DriveAndLearn — simple`.\n\n| Request | Copiar de la respuesta | A la variable |\n|---|---|---|\n| 01 Registrar alumno | `_id` | `alumnoId` |\n| 02 Login admin | `token` | `tokenAdmin` |\n| 03 Login alumno | `token` | `tokenAlumno` |\n| 04 Crear profesor | `_id` | `profesorId` |\n| 05 Crear auto | `_id` | `autoId` |\n\nCada nombre empieza con el status esperado: si la respuesta trae otro, el paso falló.\n\nAntes de empezar: levantar la API (`npm run dev`), tener un admin creado (`npm run admin:bootstrap`) y completar `adminEmail` y `adminPassword` en el environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{tokenAdmin}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "[201] 01 Registrar alumno (sin autenticar) → copiar _id a alumnoId",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{alumnoEmail}}\",\n  \"password\": \"{{alumnoPassword}}\",\n  \"nomApe\": \"Alumno Postman\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/alumnos",
+          "host": ["{{baseUrl}}"],
+          "path": ["alumnos"]
+        },
+        "description": "Registro público: no lleva token. El alumno arranca con `clasesPorReservar: 0`.\n\nSi responde 409, el email ya está registrado: cambiar `alumnoEmail` en el environment.\n\n**Copiar** `_id` de la respuesta → variable `alumnoId`."
+      }
+    },
+    {
+      "name": "[200] 02 Login admin → copiar token a tokenAdmin",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "La respuesta trae `usuario.role: \"administrador\"`.\n\n**Copiar** `token` de la respuesta → variable `tokenAdmin`. Dura 1 hora."
+      }
+    },
+    {
+      "name": "[200] 03 Login alumno → copiar token a tokenAlumno",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{alumnoEmail}}\",\n  \"password\": \"{{alumnoPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["auth", "login"]
+        },
+        "description": "La respuesta trae `usuario.role: \"alumno\"` y `usuario.id`, que es el mismo `alumnoId` del registro.\n\n**Copiar** `token` de la respuesta → variable `tokenAlumno`. Dura 1 hora."
+      }
+    },
+    {
+      "name": "[201] 04 Crear profesor (admin) → copiar _id a profesorId",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nomApe\": \"Profesor Postman\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/profesores",
+          "host": ["{{baseUrl}}"],
+          "path": ["profesores"]
+        },
+        "description": "Usa el token de la colección (`tokenAdmin`). El profesor nace sin disponibilidad.\n\n**Copiar** `_id` de la respuesta → variable `profesorId`."
+      }
+    },
+    {
+      "name": "[201] 05 Crear auto (admin) → copiar _id a autoId",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"marca\": \"Toyota\",\n  \"modelo\": \"Etios\",\n  \"patente\": \"{{patente}}\",\n  \"cambios\": \"MANUAL\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/autos",
+          "host": ["{{baseUrl}}"],
+          "path": ["autos"]
+        },
+        "description": "Usa el token de la colección (`tokenAdmin`). `cambios` es `MANUAL` o `AUTOMATICO`.\n\nSi responde 409, la patente ya existe: cambiar `patente` en el environment.\n\n**Copiar** `_id` de la respuesta → variable `autoId`."
+      }
+    },
+    {
+      "name": "[200] 06 Configurar horario de la escuela (admin)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lunes\": [\n    { \"horaInicio\": { \"hora\": 8, \"minuto\": 0 }, \"horaFin\": { \"hora\": 20, \"minuto\": 0 } }\n  ],\n  \"martes\": [\n    { \"horaInicio\": { \"hora\": 8, \"minuto\": 0 }, \"horaFin\": { \"hora\": 20, \"minuto\": 0 } }\n  ],\n  \"miercoles\": [\n    { \"horaInicio\": { \"hora\": 8, \"minuto\": 0 }, \"horaFin\": { \"hora\": 20, \"minuto\": 0 } }\n  ],\n  \"jueves\": [\n    { \"horaInicio\": { \"hora\": 8, \"minuto\": 0 }, \"horaFin\": { \"hora\": 20, \"minuto\": 0 } }\n  ],\n  \"viernes\": [\n    { \"horaInicio\": { \"hora\": 8, \"minuto\": 0 }, \"horaFin\": { \"hora\": 20, \"minuto\": 0 } }\n  ],\n  \"sabado\": [\n    { \"horaInicio\": { \"hora\": 9, \"minuto\": 0 }, \"horaFin\": { \"hora\": 13, \"minuto\": 0 } }\n  ],\n  \"domingo\": []\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/horario-escuela",
+          "host": ["{{baseUrl}}"],
+          "path": ["horario-escuela"]
+        },
+        "description": "**Reemplaza** el horario completo de la escuela: lunes a viernes de 8 a 20, sábados de 9 a 13, domingos cerrado.\n\nLos 7 días son obligatorios (un día sin clases va con `[]`) y los tramos tienen que empezar y terminar en punto."
+      }
+    },
+    {
+      "name": "[200] 07 Configurar disponibilidad del profesor (admin)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dia\": \"lunes\",\n  \"tramo\": {\n    \"horaInicio\": { \"hora\": 9, \"minuto\": 0 },\n    \"horaFin\": { \"hora\": 13, \"minuto\": 0 }\n  }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/profesores/{{profesorId}}/disponibilidad",
+          "host": ["{{baseUrl}}"],
+          "path": ["profesores", "{{profesorId}}", "disponibilidad"]
+        },
+        "description": "Agrega un tramo a la disponibilidad del profesor: los lunes de 9 a 13.\n\n`fechaClase` del environment tiene que caer en lunes, porque es el único día en que el profesor está disponible."
+      }
+    },
+    {
+      "name": "[200] 08 Cargar clases al alumno (admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cantidad\": 5\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/alumnos/{{alumnoId}}/sumar-clases",
+          "host": ["{{baseUrl}}"],
+          "path": ["alumnos", "{{alumnoId}}", "sumar-clases"]
+        },
+        "description": "Paso necesario: el alumno se registra con 0 clases, y sin saldo no puede ver turnos libres ni reservar (409 \"No tenés clases disponibles para reservar\").\n\nLa respuesta trae `clasesPorReservar: 5`."
+      }
+    },
+    {
+      "name": "[200] 09 Ver turnos libres (alumno)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAlumno}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fecha\": \"{{fechaClase}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/profesores/{{profesorId}}/turnos-libres",
+          "host": ["{{baseUrl}}"],
+          "path": ["profesores", "{{profesorId}}", "turnos-libres"]
+        },
+        "description": "Usa `tokenAlumno`. Es una consulta: no crea nada.\n\nCon los datos de los pasos anteriores, la respuesta trae 4 turnos de una hora (9, 10, 11 y 12), cada uno con el auto creado en la lista `autos`.\n\nOpcionales en el body: `cambios` (`MANUAL` / `AUTOMATICO`), `desde` y `hasta` (`\"HH:MM\"`)."
+      }
+    },
+    {
+      "name": "[201] 10 Agendar una clase (alumno)",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tokenAlumno}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{fechaClase}}T10:00:00{{offsetZona}}\",\n  \"fin\": \"{{fechaClase}}T11:00:00{{offsetZona}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/clases",
+          "host": ["{{baseUrl}}"],
+          "path": ["clases"]
+        },
+        "description": "Usa `tokenAlumno`. El alumno reserva para sí mismo: no manda el campo `alumno`.\n\nReserva el turno de las 10 que mostró el paso 09. La clase dura exactamente una hora, empieza en punto y la fecha tiene que ser futura. Al reservar, el saldo del alumno baja de 5 a 4.\n\nSi se corre dos veces, la segunda responde 409: el profesor y el auto ya tienen una clase a esa hora."
+      }
+    }
+  ]
+}
