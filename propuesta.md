@@ -19,7 +19,7 @@ Los alumnos podrán:
 
 1. Crearse una cuenta e iniciar sesión
 2. Agendar clases eligiendo el tipo de auto (Manual/Automatico), el horario y el profesor
-3. Consultar, modificar o cancelar sus clases
+3. Consultar o cancelar sus clases
 
 ### 🔧 Administradores
 
