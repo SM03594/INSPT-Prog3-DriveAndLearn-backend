@@ -9,6 +9,10 @@ const profesorSchema = new mongoose.Schema(
     },
   },
 
+  /*
+    PENDIENTE: horariosDisponibilidad
+  */
+
   {
     timestamps: true,
 
