@@ -7,6 +7,7 @@ const usuarioSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: [4, 'El nombre y apellido debe tener al menos 4 caracteres'],
     },
 
     email: {
