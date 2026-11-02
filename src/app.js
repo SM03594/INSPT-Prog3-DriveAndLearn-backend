@@ -22,7 +22,6 @@ app.use('/api/alumnos', alumnosRoutes);
 app.use('/api/administradores', administradoresRoutes);
 app.use('/api/profesores', profesoresRoutes);
 app.use('/api/clases', clasesRoutes);
-app.use('/api/horario-escuela', horarioEscuelaRoutes);
 */
 
 // Ninguna ruta anterior matcheó.
