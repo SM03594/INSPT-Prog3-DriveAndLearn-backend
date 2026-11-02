@@ -1,3 +1,6 @@
+import ErrorCampoInvalido from '../errors/ErrorCampoInvalido.js';
+import ErrorDeTipo from '../errors/ErrorDeTipo.js';
+
 function tieneTipoValido(valor, tipoEsperado) {
   return (
     typeof valor === tipoEsperado &&
@@ -14,7 +17,7 @@ export function validarEstructuraYTipos(
   const clavesEnviadas = Object.keys(datos);
 
   if (clavesEnviadas.length === 0) {
-    throw new Error('El cuerpo de la solicitud no puede estar vacío');
+    throw new ErrorCampoInvalido('El cuerpo de la solicitud no puede estar vacío');
   }
 
   const camposNoPermitidos = clavesEnviadas.filter(
@@ -25,25 +28,27 @@ export function validarEstructuraYTipos(
     (campo) => datos[campo] === undefined
   );
 
-  const camposConTipoErroneo = clavesEnviadas
-    .filter((campo) => camposPermitidos.includes(campo))
-    .filter((campo) => !tieneTipoValido(datos[campo], tiposCampos[campo]))
-    .map((campo) => `${campo} (se esperaba ${tiposCampos[campo]})`);
-
-  const mensajesError = [
+  const erroresDeCampos = [
     camposNoPermitidos.length > 0
       ? `Campos no permitidos: ${camposNoPermitidos.join(', ')}`
       : null,
     camposFaltantes.length > 0
       ? `Campos obligatorios faltantes: ${camposFaltantes.join(', ')}`
       : null,
-    camposConTipoErroneo.length > 0
-      ? `Tipos de datos incorrectos en: ${camposConTipoErroneo.join(', ')}`
-      : null,
   ].filter(Boolean);
 
-  if (mensajesError.length > 0) {
-    throw new Error(mensajesError.join(' | '));
+  if (erroresDeCampos.length > 0) {
+    throw new ErrorCampoInvalido(erroresDeCampos.join(' | '));
+  }
+
+  const camposConTipoErroneo = clavesEnviadas
+    .filter((campo) => !tieneTipoValido(datos[campo], tiposCampos[campo]))
+    .map((campo) => `${campo} (se esperaba ${tiposCampos[campo]})`);
+
+  if (camposConTipoErroneo.length > 0) {
+    throw new ErrorDeTipo(
+      `Tipos de datos incorrectos en: ${camposConTipoErroneo.join(', ')}`
+    );
   }
 
   return Object.fromEntries(
