@@ -5,14 +5,14 @@ const usuarioSchema = new mongoose.Schema(
   {
     NomApe: {
       type: String,
-      required: true,
+      required: [true, 'El nombre y apellido es obligatorio'],
       trim: true,
       minlength: [4, 'El nombre y apellido debe tener al menos 4 caracteres'],
     },
 
     email: {
       type: String,
-      required: true,
+      required: [true, 'El correo electrónico es obligatorio'],
       unique: true,
       lowercase: true,
       trim: true,
@@ -24,12 +24,12 @@ const usuarioSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true,
+      required: [true, 'La contraseña es obligatoria'],
     },
 
     rol: {
       type: String,
-      required: true,
+      required: [true, 'El rol es obligatorio'],
       enum: ROLES_ENUM,
     },
   },

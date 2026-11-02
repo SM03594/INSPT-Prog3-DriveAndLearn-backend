@@ -45,7 +45,6 @@ Los administradores podrán:
 - `profesores`: profesores y su disponibilidad semanal.
 - `autos`: vehículos y su estado de servicio.
 - `clases`: reservas con alumno, profesor, auto, inicio y fin.
-- `horario_escuela`: horarios de atención de la escuela.
 - `tokens_revocados`: tokens JWT cerrados antes de su vencimiento.
 
 La disponibilidad semanal está dentro del documento de cada profesor; `horario_escuela` contiene un único documento.
@@ -56,11 +55,11 @@ El inicio de sesión devuelve un JWT que se envía para acceder a las rutas prot
 
 ## 📚 CRUD del parcial
 
-El CRUD completo se implementará sobre **clases**: crear, listar y consultar una clase, modificarla y eliminarla.
+El CRUD completo se implementará sobre **clases**: crear, listar y consultar una clase y eliminarla.
 
 ## 🕒 Asignación de clases
 
-Una clase se registra únicamente si el horario está dentro del horario de la escuela y de la disponibilidad del profesor, y el auto está activo. Además, no puede superponerse con otra clase del mismo alumno, profesor o auto. Para detectar cruces se comparan los intervalos de inicio y fin; no se requiere un calendario avanzado.
+Una clase se registra únicamente si el horario está dentro de la disponibilidad del profesor, y el auto está activo. Además, no puede superponerse con otra clase del mismo alumno, profesor o auto. Para detectar cruces se comparan los intervalos de inicio y fin; no se requiere un calendario avanzado.
 
 ---
 

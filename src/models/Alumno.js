@@ -6,7 +6,7 @@ const alumnoSchema = new mongoose.Schema(
   {
     saldoClases: {
       type: Number,
-      required: true,
+      required: [true, 'El saldo de clases es obligatorio'],
       default: 0,
       min: [0, 'El saldo de clases no puede ser negativo'],
       validate: {

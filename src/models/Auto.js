@@ -5,19 +5,19 @@ const autoSchema = new mongoose.Schema(
   {
     marca: {
       type: String,
-      required: true,
+      required: [true, 'La marca es obligatoria'],
       trim: true,
     },
 
     modelo: {
       type: String,
-      required: true,
+      required: [true, 'El modelo es obligatorio'],
       trim: true,
     },
 
     patente: {
       type: String,
-      required: true,
+      required: [true, 'La patente es obligatoria'],
       unique: true,
       uppercase: true,
       trim: true,
@@ -29,7 +29,7 @@ const autoSchema = new mongoose.Schema(
 
     cambios: {
       type: String,
-      required: true,
+      required: [true, 'El tipo de cambios es obligatorio'],
       uppercase: true,
       trim: true,
       enum: CAMBIOS_ENUM,
