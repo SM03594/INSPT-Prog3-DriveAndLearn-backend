@@ -1,5 +1,5 @@
 // ============================================================
-//  server.ts — Punto de entrada: conecta la base y levanta HTTP
+//  server.js — Punto de entrada: conecta la base y levanta HTTP
 // ============================================================
 // Primero connectDB(), recién después app.listen(): si la base no
 // responde, no tiene sentido aceptar pedidos.

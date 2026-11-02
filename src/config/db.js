@@ -1,5 +1,5 @@
 // ============================================================
-//  db.ts — Conexión a MongoDB con Mongoose
+//  db.js — Conexión a MongoDB con Mongoose
 // ============================================================
 // En el template "recetorium", este archivo empezaba siendo una
 // base de datos SIMULADA en memoria (arrays de JS). Acá ya damos
@@ -17,11 +17,11 @@ import { MONGODB_URI } from './env.js';
 
 /**
  * Abre la conexión con MongoDB.
- * La llamamos desde server.ts ANTES de poner a escuchar el
+ * La llamamos desde server.js ANTES de poner a escuchar el
  * servidor HTTP: si la base no responde, no tiene sentido
  * aceptar pedidos.
  */
-export async function connectDB(): Promise<void> {
+export async function connectDB() {
   if (!MONGODB_URI) {
     // Falla temprana y explícita: mejor un error claro ahora
     // que un timeout raro en el primer request.
@@ -37,7 +37,7 @@ export async function connectDB(): Promise<void> {
 
   // mongoose.connect devuelve una promesa que resuelve cuando la
   // conexión quedó establecida. Si falla (URI mala, red caída),
-  // rechaza y el error sube hasta server.ts.
+  // rechaza y el error sube hasta server.js.
   await mongoose.connect(MONGODB_URI);
   console.log('✅ Conectado a MongoDB');
 }
@@ -46,6 +46,6 @@ export async function connectDB(): Promise<void> {
  * Cierra la conexión de forma ordenada.
  * Útil para apagar el proceso "limpio" (Ctrl+C, tests, etc.).
  */
-export async function disconnectDB(): Promise<void> {
+export async function disconnectDB() {
   await mongoose.disconnect();
 }

@@ -17,10 +17,9 @@ Desarrollo de un software de gestión integral para una escuela de manejo. La pl
 
 Los alumnos podrán:
 
-1. Crearse una cuenta
-2. Iniciar sesión y agendar clases en horarios disponibles
-3. Elegir un auto manual o automático y un profesor
-4. Consultar, modificar o cancelar sus clases
+1. Crearse una cuenta e iniciar sesión
+2. Agendar clases eligiendo el tipo de auto (Manual/Automatico), el horario y el profesor
+3. Consultar, modificar o cancelar sus clases
 
 ### 🔧 Administradores
 
@@ -30,7 +29,6 @@ Los administradores podrán:
 2. Agregar y quitar autos
 3. Definir los horarios de disponibilidad de los profesores
 4. Poner y sacar a los autos de servicio
-5. Definir los días y horarios de clase de la escuela
 
 ---
 
