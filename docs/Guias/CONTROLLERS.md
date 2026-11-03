@@ -246,6 +246,27 @@ Controlador responsable del proceso de autenticación de usuarios y emisión de 
   - **`401 Unauthorized`**: Si el email no se encuentra registrado o la contraseña no coincide con el hash (arrojado como `ErrorAutenticacion` y traducido automáticamente a status 401 por el middleware `errorHandler.js`).
   - **`500 Internal Server Error`**: Si ocurre un error inesperado al firmar el token JWT o ante fallas en la base de datos.
 
+---
+
+### `logout(req, res)`
+
+- **Propósito:** Cerrar la sesión del usuario autenticado revocando su token JWT e ingresándolo a la lista negra para impedir su reutilización.
+- **Parámetros:**
+  - `req`: Objeto de petición HTTP de Express. Consume directamente `req.token`, el cual fue extraído, limpiado y verificado previamente por el middleware `autenticar`.
+  - `res`: Objeto de respuesta HTTP de Express empleado para enviar el status y la confirmación JSON al cliente.
+- **Flujo de Ejecución:**
+  1. Invoca `await authService.logout(req.token);`:
+     - El servicio comprueba la validez del token y extrae su fecha de expiración.
+     - Persiste el token en la colección `tokens_revocados` con su fecha de expiración para su posterior limpieza por el índice TTL.
+     - Si el token ya había sido revocado previamente, la operación es idempotente y concluye sin error.
+  2. Guarda el resultado devuelto en la variable descriptiva `respuestaLogout`.
+  3. Responde con código de estado HTTP **`200 OK`** junto con `{ "mensaje": "Sesión cerrada exitosamente" }`.
+- **Manejo de Errores:**
+  - **`401 Unauthorized`**: Si el token es inválido o no fue provisto (arrojado por el middleware `autenticar` o el servicio `authService`).
+  - **`500 Internal Server Error`**: Si ocurre un fallo inesperado de persistencia en la base de datos.
+
+
+
 
 
 

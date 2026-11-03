@@ -9,3 +9,8 @@ export async function login(req, res) {
   res.status(200).json(respuestaLogin);
 }
 
+export async function logout(req, res) {
+  const respuestaLogout = await authService.logout(req.token);
+
+  res.status(200).json(respuestaLogout);
+}

@@ -53,6 +53,8 @@ Gestiona las rutas de autenticación del sistema bajo el prefijo base `/api/auth
 | Método | Ruta | Middlewares Previos | Controlador Asociado | Descripción | Status Exitoso |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `POST` | `/login` | `validarObjetoJson` | `authController.login` | Autentica a un usuario mediante `email` y `password`, emitiendo su token JWT y perfil. | `200 OK` |
+| `POST` | `/logout` | `autenticar` | `authController.logout` | Revoca el token JWT actual y lo agrega a la lista negra (`tokens_revocados`). | `200 OK` |
+
 
 
 
