@@ -44,4 +44,15 @@ Gestiona los endpoints para el recurso de alumnos bajo el prefijo base `/api/alu
 > [!NOTE]
 > **Sin endpoint `DELETE`:** Al igual que en administradores, los alumnos no poseen ruta de eliminación (`DELETE /api/alumnos/:id`) para garantizar la trazabilidad académica e histórica de las clases en las que participan.
 
+---
+
+### 2.3. `auth.routes.js`
+
+Gestiona las rutas de autenticación del sistema bajo el prefijo base `/api/auth`.
+
+| Método | Ruta | Middlewares Previos | Controlador Asociado | Descripción | Status Exitoso |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `POST` | `/login` | `validarObjetoJson` | `authController.login` | Autentica a un usuario mediante `email` y `password`, emitiendo su token JWT y perfil. | `200 OK` |
+
+
 

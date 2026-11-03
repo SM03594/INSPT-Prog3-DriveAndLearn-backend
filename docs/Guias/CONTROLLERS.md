@@ -213,6 +213,40 @@ Controlador encargado de responder a las solicitudes sobre el recurso de alumnos
 > [!NOTE]
 > **Restricción de Eliminación:** Al igual que en los administradores, los alumnos no poseen función de eliminación física (`eliminar`), garantizando la preservación histórica de sus clases registradas y trazabilidad académica.
 
+---
+
+### 2.3. `auth.controller.js`
+
+Controlador responsable del proceso de autenticación de usuarios y emisión de credenciales de acceso JWT (`/api/auth`).
+
+#### Funciones:
+
+### `login(req, res)`
+
+- **Propósito:** Iniciar sesión en el sistema comprobando las credenciales provistas (`email` y `password`), emitiendo un token JWT firmado junto con el perfil público del usuario (`id`, `NomApe`, `email`, `rol`).
+- **Parámetros:**
+  - `req`: Objeto de petición HTTP de Express. Contiene en `req.body` las credenciales del usuario: `email` y `password`.
+  - `res`: Objeto de respuesta HTTP de Express empleado para enviar el status y el cuerpo JSON al cliente.
+- **Flujo de Ejecución:**
+  1. Invoca `validarLoginDTO(req.body);`:
+     - Verifica que el cuerpo no esté vacío.
+     - Exige la presencia obligatoria y exclusiva de `email` y `password`.
+     - Rechaza cualquier campo extraño no permitido.
+     - Comprueba que ambos sean cadenas de texto (`string`).
+     - Si la validación falla, arroja `ErrorCampoInvalido` o `ErrorDeTipo` (`400 Bad Request`).
+  2. Invoca `await authService.login(req.body);`:
+     - El servicio normaliza el email (en minúsculas y sin espacios laterales).
+     - Busca el usuario en la base de datos mediante el modelo `Usuario`. Si no existe, arroja `ErrorAutenticacion('Credenciales inválidas')`.
+     - Compara la contraseña en texto plano recibida con el hash almacenado en MongoDB utilizando `bcrypt.compare`. Si no coincide, arroja `ErrorAutenticacion('Credenciales inválidas')`.
+     - Genera un token JWT con vigencia de 24 horas (`expiresIn: '24h'`) firmado con el secreto `JWT_SECRET` (obtenido mediante `obtenerJwtSecret()`), conteniendo en su payload `id`, `email`, `rol` y `NomApe`.
+  3. Almacena el resultado en la variable descriptiva `respuestaLogin` (objeto `{ token, usuario }`).
+  4. Responde al cliente con código HTTP **`200 OK`** y el payload JSON resultante.
+- **Manejo de Errores:**
+  - **`400 Bad Request`**: Si el cuerpo viene vacío, faltan campos requeridos (`email` o `password`), se envían propiedades no permitidas o los tipos no son cadenas.
+  - **`401 Unauthorized`**: Si el email no se encuentra registrado o la contraseña no coincide con el hash (arrojado como `ErrorAutenticacion` y traducido automáticamente a status 401 por el middleware `errorHandler.js`).
+  - **`500 Internal Server Error`**: Si ocurre un error inesperado al firmar el token JWT o ante fallas en la base de datos.
+
+
 
 
 
