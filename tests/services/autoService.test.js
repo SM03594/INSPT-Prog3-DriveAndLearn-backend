@@ -9,7 +9,7 @@ setupTestDB();
 
 describe('autoService', () => {
   describe('crear', () => {
-    it('debería crear un auto válido con patente tradicional o Mercosur, normalizando a mayúsculas y activo en true por defecto', async () => {
+    it('debería crear un auto válido con patente tradicional o Mercosur normalizando a mayúsculas', async () => {
       const autoTradicional = await autoService.crear({
         marca: 'Volkswagen',
         modelo: 'Gol Trend',
@@ -22,7 +22,6 @@ describe('autoService', () => {
       expect(autoTradicional.modelo).toBe('Gol Trend');
       expect(autoTradicional.patente).toBe('ABC123');
       expect(autoTradicional.cambios).toBe(CAMBIOS.MANUAL);
-      expect(autoTradicional.activo).toBe(true);
 
       const autoMercosur = await autoService.crear({
         marca: 'Toyota',
@@ -103,8 +102,8 @@ describe('autoService', () => {
     });
   });
 
-  describe('listar y listarActivos', () => {
-    it('debería listar todos los autos registrados (activos e inactivos)', async () => {
+  describe('listar', () => {
+    it('debería listar todos los autos registrados cuando no se especifica tipo de cambios', async () => {
       await autoService.crear({
         marca: 'Volkswagen',
         modelo: 'Gol',
@@ -117,7 +116,6 @@ describe('autoService', () => {
         modelo: 'Yaris',
         patente: 'AB123CD',
         cambios: CAMBIOS.AUTOMATICO,
-        activo: false,
       });
 
       const lista = await autoService.listar();
@@ -125,13 +123,12 @@ describe('autoService', () => {
       expect(lista).toHaveLength(2);
     });
 
-    it('debería listar solo los autos activos cuando no se especifica tipo de cambios', async () => {
+    it('debería filtrar los autos por tipo de cambios (MANUAL o AUTOMATICO)', async () => {
       await autoService.crear({
         marca: 'Volkswagen',
         modelo: 'Gol',
         patente: 'ABC123',
         cambios: CAMBIOS.MANUAL,
-        activo: true,
       });
 
       await autoService.crear({
@@ -139,61 +136,21 @@ describe('autoService', () => {
         modelo: 'Etios',
         patente: 'AB123CD',
         cambios: CAMBIOS.AUTOMATICO,
-        activo: true,
       });
 
-      await autoService.crear({
-        marca: 'Fiat',
-        modelo: 'Cronos',
-        patente: 'AD456EF',
-        cambios: CAMBIOS.MANUAL,
-        activo: false,
-      });
+      const manuales = await autoService.listar(CAMBIOS.MANUAL);
+      expect(manuales).toHaveLength(1);
+      expect(manuales[0].patente).toBe('ABC123');
 
-      const activos = await autoService.listarActivos();
-
-      expect(activos).toHaveLength(2);
-      expect(activos.every((auto) => auto.activo === true)).toBe(true);
+      const automaticos = await autoService.listar('automatico');
+      expect(automaticos).toHaveLength(1);
+      expect(automaticos[0].patente).toBe('AB123CD');
     });
 
-    it('debería filtrar los autos activos por tipo de cambios (MANUAL o AUTOMATICO)', async () => {
-      await autoService.crear({
-        marca: 'Volkswagen',
-        modelo: 'Gol',
-        patente: 'ABC123',
-        cambios: CAMBIOS.MANUAL,
-        activo: true,
-      });
-
-      await autoService.crear({
-        marca: 'Toyota',
-        modelo: 'Etios',
-        patente: 'AB123CD',
-        cambios: CAMBIOS.AUTOMATICO,
-        activo: true,
-      });
-
-      await autoService.crear({
-        marca: 'Peugeot',
-        modelo: '208',
-        patente: 'AE789FG',
-        cambios: CAMBIOS.AUTOMATICO,
-        activo: false,
-      });
-
-      const manualesActivos = await autoService.listarActivos(CAMBIOS.MANUAL);
-      expect(manualesActivos).toHaveLength(1);
-      expect(manualesActivos[0].patente).toBe('ABC123');
-
-      const automaticosActivos = await autoService.listarActivos('automatico');
-      expect(automaticosActivos).toHaveLength(1);
-      expect(automaticosActivos[0].patente).toBe('AB123CD');
-    });
-
-    it('debería lanzar ErrorDeNegocio si se filtra activos con un tipo de cambios inválido', async () => {
-      await expect(
-        autoService.listarActivos('SECUENCIAL')
-      ).rejects.toThrow(ErrorDeNegocio);
+    it('debería lanzar ErrorDeNegocio si se filtra con un tipo de cambios inválido', async () => {
+      await expect(autoService.listar('SECUENCIAL')).rejects.toThrow(
+        ErrorDeNegocio
+      );
     });
   });
 
@@ -224,7 +181,7 @@ describe('autoService', () => {
   });
 
   describe('actualizar', () => {
-    it('debería actualizar marca, modelo, patente, cambios y estado activo de un auto', async () => {
+    it('debería actualizar marca, modelo, patente y cambios de un auto', async () => {
       const auto = await autoService.crear({
         marca: 'Volkswagen',
         modelo: 'Gol',
@@ -236,13 +193,11 @@ describe('autoService', () => {
         modelo: 'Gol Trend',
         patente: 'ab555cd',
         cambios: CAMBIOS.AUTOMATICO,
-        activo: false,
       });
 
       expect(actualizado.modelo).toBe('Gol Trend');
       expect(actualizado.patente).toBe('AB555CD');
       expect(actualizado.cambios).toBe(CAMBIOS.AUTOMATICO);
-      expect(actualizado.activo).toBe(false);
     });
 
     it('debería rechazar la actualización si la nueva patente es inválida o ya pertenece a otro auto', async () => {

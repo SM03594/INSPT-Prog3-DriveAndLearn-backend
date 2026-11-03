@@ -7,12 +7,8 @@ export async function crear(datos) {
   return await Auto.create(datos);
 }
 
-export async function listar() {
-  return await Auto.find({});
-}
-
-export async function listarActivos(cambios) {
-  const filtro = { activo: true };
+export async function listar(cambios) {
+  const filtro = {};
 
   if (cambios !== undefined) {
     const cambiosNormalizado =

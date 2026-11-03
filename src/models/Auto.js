@@ -34,11 +34,6 @@ const autoSchema = new mongoose.Schema(
       trim: true,
       enum: CAMBIOS_ENUM,
     },
-
-    activo: {
-      type: Boolean,
-      default: true,
-    },
   },
 
   {
