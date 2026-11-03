@@ -11,6 +11,7 @@ import cors from 'cors';
 import administradorRoutes from './routes/administradorRoutes.js';
 import alumnoRoutes from './routes/alumnoRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import autoRoutes from './routes/autoRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -21,10 +22,10 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/administradores', administradorRoutes);
 app.use('/api/alumnos', alumnoRoutes);
+app.use('/api/autos', autoRoutes);
 /*
-app.use('/api/autos', autosRoutes);
-app.use('/api/profesores', profesoresRoutes);
-app.use('/api/clases', clasesRoutes);
+app.use('/api/profesores', profesorRoutes);
+app.use('/api/clases', claseRoutes);
 */
 
 // Ninguna ruta anterior matcheó.
