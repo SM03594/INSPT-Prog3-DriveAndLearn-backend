@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validarObjetoJson } from '../middlewares/validarObjetoJson.js';
-import * as alumnoController from '../controllers/alumno.controller.js';
+import * as alumnoController from '../controllers/alumnoController.js';
 
 const router = Router();
 

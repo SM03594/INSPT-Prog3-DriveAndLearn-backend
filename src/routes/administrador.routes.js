@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validarObjetoJson } from '../middlewares/validarObjetoJson.js';
-import * as administradorController from '../controllers/administrador.controller.js';
+import * as administradorController from '../controllers/administradorController.js';
 
 const router = Router();
 
