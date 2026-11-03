@@ -8,9 +8,9 @@
 
 import express from 'express';
 import cors from 'cors';
-import administradorRoutes from './routes/administrador.routes.js';
-import alumnoRoutes from './routes/alumno.routes.js';
-import authRoutes from './routes/auth.routes.js';
+import administradorRoutes from './routes/administradorRoutes.js';
+import alumnoRoutes from './routes/alumnoRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
