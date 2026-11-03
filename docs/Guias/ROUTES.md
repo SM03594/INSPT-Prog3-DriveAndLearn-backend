@@ -28,3 +28,20 @@ Gestiona los endpoints para el recurso de administradores bajo el prefijo base `
 > [!NOTE]
 > **Sin endpoint `DELETE`:** Siguiendo las reglas de integridad histórica del sistema, los administradores no cuentan con endpoint de borrado (`DELETE /api/administradores/:id`). Si se invoca, el servidor responderá automáticamente `404 Ruta no encontrada` al no estar definida.
 
+---
+
+### 2.2. `alumno.routes.js`
+
+Gestiona los endpoints para el recurso de alumnos bajo el prefijo base `/api/alumnos`.
+
+| Método | Ruta | Middlewares Previos | Controlador Asociado | Descripción | Status Exitoso |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `GET` | `/` | — | `alumnoController.listar` | Obtiene el listado de todos los alumnos registrados junto con su saldo de clases. | `200 OK` |
+| `GET` | `/:id` | — | `alumnoController.obtener` | Obtiene el detalle y saldo de un alumno específico mediante su ID de MongoDB. | `200 OK` |
+| `POST` | `/` | `validarObjetoJson` | `alumnoController.crear` | Registra un nuevo alumno validando cuerpo JSON, campos obligatorios y formato. | `201 Created` |
+| `PUT` | `/:id` | `validarObjetoJson` | `alumnoController.actualizar` | Modifica los datos personales (`NomApe`, `email`, `password`) de un alumno. | `200 OK` |
+
+> [!NOTE]
+> **Sin endpoint `DELETE`:** Al igual que en administradores, los alumnos no poseen ruta de eliminación (`DELETE /api/alumnos/:id`) para garantizar la trazabilidad académica e histórica de las clases en las que participan.
+
+
