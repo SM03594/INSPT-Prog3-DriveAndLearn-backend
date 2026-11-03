@@ -1,7 +1,8 @@
-export default class ErrorCampoInvalido extends Error {
+import ErrorPeticionInvalida from './ErrorPeticionInvalida.js';
+
+export default class ErrorCampoInvalido extends ErrorPeticionInvalida {
   constructor(mensaje) {
-    super(mensaje);
+    super(mensaje, 400);
     this.name = 'ErrorCampoInvalido';
-    this.statusCode = 400;
   }
 }

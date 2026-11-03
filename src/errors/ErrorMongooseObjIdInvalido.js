@@ -1,7 +1,8 @@
-export default class ErrorMongooseObjIdInvalido extends Error {
+import ErrorPeticionInvalida from './ErrorPeticionInvalida.js';
+
+export default class ErrorMongooseObjIdInvalido extends ErrorPeticionInvalida {
   constructor(mensaje = 'El formato del ID no es un ObjectId válido') {
-    super(mensaje);
+    super(mensaje, 400);
     this.name = 'ErrorMongooseObjIdInvalido';
-    this.statusCode = 400;
   }
 }
