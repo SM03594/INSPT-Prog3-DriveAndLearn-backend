@@ -113,6 +113,110 @@ Controlador encargado de responder a las solicitudes sobre el recurso de adminis
 > [!NOTE]
 > **Restricción de Eliminación:** Por regla del dominio del negocio y requerimientos del proyecto, los administradores no poseen función de eliminación (`eliminar`). Esto preserva la trazabilidad y la integridad histórica de auditoría de la escuela de manejo. La eliminación física solo está permitida para el recurso `Clase`.
 
+---
+
+### 2.2. `alumno.controller.js`
+
+Controlador encargado de responder a las solicitudes sobre el recurso de alumnos (`/api/alumnos`).
+
+#### Funciones:
+
+### `listar(_req, res)`
+
+- **Propósito:** Recuperar y devolver la lista de todos los alumnos registrados en el sistema, incluyendo sus atributos base de usuario (`NomApe`, `email`) y su saldo disponible de clases prácticas (`saldoClases`).
+- **Parámetros:**
+  - `_req`: Objeto de petición HTTP de Express. Se prefija con guion bajo (`_`) dado que esta operación de lectura general no consume parámetros de ruta, cuerpo ni query strings.
+  - `res`: Objeto de respuesta HTTP de Express empleado para enviar el código de estado y la lista en formato JSON al cliente.
+- **Flujo de Ejecución:**
+  1. Invoca `await alumnoService.listar()`, el cual consulta a la colección de usuarios filtrando por el discriminador correspondiente (`rol: 'alumno'`) a través de Mongoose.
+  2. Almacena la colección resultante en la variable descriptiva `listaAlumnos`.
+  3. Devuelve una respuesta HTTP con código **`200 OK`** conteniendo el array de alumnos en formato JSON (excluyendo automáticamente la contraseña hasheada y `__v` gracias a la transformación `toJSON` del esquema de usuario).
+- **Manejo de Errores:**
+  - Si la base de datos se encuentra inaccesible o surge un error imprevisto, la promesa rechazada es interceptada nativamente por Express 5 y transferida a `errorHandler.js`, respondiendo un status **`500 Internal Server Error`** con `{ "mensaje": "Error interno del servidor" }`.
+
+---
+
+### `crear(req, res)`
+
+- **Propósito:** Dar de alta un nuevo alumno en la plataforma luego de comprobar la integridad y tipos de los datos de entrada recibidos en el cuerpo.
+- **Parámetros:**
+  - `req`: Objeto de petición HTTP de Express. Contiene en `req.body` los datos obligatorios (`NomApe`, `email`, `password`) y el dato opcional de saldo inicial (`saldoClases`).
+  - `res`: Objeto de respuesta HTTP de Express empleado para enviar el status y el cuerpo JSON al cliente.
+- **Flujo de Ejecución:**
+  1. Invoca `validarCrearAlumnoDTO(req.body);`:
+     - Verifica que el cuerpo no esté vacío.
+     - Valida la presencia ineludible de los campos obligatorios: `NomApe`, `email` y `password`.
+     - Permite opcionalmente el campo `saldoClases`.
+     - Rechaza cualquier campo adicional no permitido para evitar inyecciones indebidas.
+     - Verifica que los tipos sean correctos (`string` para `NomApe`, `email`, `password` y `number` para `saldoClases`).
+     - Ante discrepancias, arroja `ErrorCampoInvalido` o `ErrorDeTipo` (`400 Bad Request`).
+  2. Invoca `await alumnoService.crear(req.body);`:
+     - El servicio valida que la contraseña tenga como mínimo 8 caracteres (arrojando `ErrorPasswordInvalida` si es menor).
+     - Hashea la contraseña con `bcrypt`.
+     - Persiste el nuevo registro usando el modelo `Alumno` (el cual asigna automáticamente `rol: 'alumno'` y `saldoClases: 0` si no fue provisto).
+     - Si el email ya está registrado o no cumple con el formato regex, Mongoose o MongoDB disparan el error correspondiente (`400 Bad Request`).
+  3. Guarda el resultado en `alumnoCreado`.
+  4. Responde con código HTTP **`201 Created`** adjuntando el documento del nuevo alumno (sin exponer el hash de la contraseña ni `__v`).
+- **Manejo de Errores:**
+  - **`400 Bad Request`**: Por campos faltantes, campos no permitidos, tipos inválidos, contraseña corta (< 8 caracteres), formato de email incorrecto o email ya existente.
+  - **`500 Internal Server Error`**: Si ocurre un fallo crítico de infraestructura o conexión con la base de datos.
+
+---
+
+### `obtener(req, res)` *(alias: `obtenerPorId`)*
+
+- **Propósito:** Recuperar y devolver un único alumno identificado por su `id` de MongoDB, informando su saldo de clases y datos personales.
+- **Parámetros:**
+  - `req`: Objeto de petición HTTP de Express. Se extrae `req.params.id`.
+  - `res`: Objeto de respuesta HTTP de Express empleado para enviar el status y el cuerpo JSON al cliente.
+- **Flujo de Ejecución:**
+  1. Extrae `const { id } = req.params;`.
+  2. Invoca `await alumnoService.obtenerPorId(id);`:
+     - El servicio valida el formato con `validarMongooseObjId(id)`. Si no es un ObjectId válido de MongoDB, arroja `ErrorMongooseObjIdInvalido` (`400 Bad Request`).
+     - Realiza la búsqueda en MongoDB por ID.
+  3. Si la búsqueda arroja `null` (el alumno no existe o el ID pertenece a otro rol como administrador), el controlador corta el flujo respondiendo inmediatamente código **`404 Not Found`** con `{ "mensaje": "Alumno no encontrado" }`.
+  4. Si existe, asigna el resultado a la variable descriptiva `alumnoEncontrado` y responde con código **`200 OK`** junto con el documento JSON (sin contraseña ni `__v`).
+- **Manejo de Errores:**
+  - **`400 Bad Request`**: Si el parámetro `id` no tiene formato válido de ObjectId de MongoDB.
+  - **`404 Not Found`**: Si el ID es válido pero no existe ningún alumno registrado con ese identificador.
+  - **`500 Internal Server Error`**: Ante fallos imprevistos de conexión con la base de datos.
+
+---
+
+### `actualizar(req, res)`
+
+- **Propósito:** Modificar de forma parcial o total la información de un alumno existente (`NomApe`, `email` y/o `password`).
+- **Parámetros:**
+  - `req`: Objeto de petición HTTP de Express.
+    - `req.params.id`: Identificador único de MongoDB del alumno a editar.
+    - `req.body`: Objeto JSON con los atributos a actualizar.
+  - `res`: Objeto de respuesta HTTP de Express empleado para enviar el status y el cuerpo JSON al cliente.
+- **Flujo de Ejecución:**
+  1. Extrae `const { id } = req.params;`.
+  2. Invoca `validarActualizarAlumnoDTO(req.body);`:
+     - Verifica que el cuerpo no esté vacío.
+     - Comprueba que solo contenga campos permitidos para la edición estándar (`NomApe`, `email`, `password`). El saldo de clases no se modifica por esta vía genérica para preservar la integridad financiera (cuenta con operaciones específicas de saldo).
+     - Valida los tipos de datos primitivos (`string`).
+     - Arroja `ErrorCampoInvalido` o `ErrorDeTipo` (`400 Bad Request`) si hay irregularidades.
+  3. Invoca `await alumnoService.actualizar(id, req.body);`:
+     - Valida el formato de `id` con `validarMongooseObjId(id)`. Si es inválido, arroja `ErrorMongooseObjIdInvalido` (`400 Bad Request`).
+     - Si se envía una nueva `password`, valida longitud mínima de 8 caracteres y la hashea con `bcrypt`.
+     - Actualiza el documento en MongoDB activando validadores de esquema (`runValidators: true`).
+     - Si el email modificado colisiona con otro usuario registrado, MongoDB dispara el error 11000 (`400 Bad Request`).
+  4. Si no se encuentra ningún alumno con ese `id` (`null`), el controlador responde status **`404 Not Found`** con `{ "mensaje": "Alumno no encontrado" }`.
+  5. Si la actualización concluye con éxito, guarda el resultado en `alumnoActualizado` y responde con status **`200 OK`** junto con el documento modificado (sin contraseña ni `__v`).
+- **Manejo de Errores:**
+  - **`400 Bad Request`**: Si el `id` no tiene formato ObjectId válido, el cuerpo está vacío, contiene campos no permitidos, tipos incorrectos, contraseña < 8 caracteres o email duplicado.
+  - **`404 Not Found`**: Si el `id` tiene formato válido pero no existe ningún alumno con dicho identificador.
+  - **`500 Internal Server Error`**: Ante fallas imprevistas de infraestructura o conexión con la base de datos.
+
+> [!NOTE]
+> **Restricción de Eliminación:** Al igual que en los administradores, los alumnos no poseen función de eliminación física (`eliminar`), garantizando la preservación histórica de sus clases registradas y trazabilidad académica.
+
+
+
+
+
 
 
 
