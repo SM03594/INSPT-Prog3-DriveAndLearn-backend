@@ -4,11 +4,13 @@ import {
   validarActualizarAlumnoDTO,
 } from '../dtos/alumnoDTO.js';
 
+
 export async function listar(_req, res) {
   const listaAlumnos = await alumnoService.listar();
 
   res.status(200).json(listaAlumnos);
 }
+
 
 export async function obtener(req, res) {
   const { id } = req.params;
@@ -21,7 +23,6 @@ export async function obtener(req, res) {
   res.status(200).json(alumnoEncontrado);
 }
 
-export const obtenerPorId = obtener;
 
 export async function crear(req, res) {
   validarCrearAlumnoDTO(req.body);
@@ -30,6 +31,7 @@ export async function crear(req, res) {
 
   res.status(201).json(alumnoCreado);
 }
+
 
 export async function actualizar(req, res) {
   const { id } = req.params;

@@ -4,11 +4,13 @@ import {
   validarActualizarAdministradorDTO,
 } from '../dtos/administradorDTO.js';
 
+
 export async function listar(_req, res) {
   const listaAdministradores = await administradorService.listar();
 
   res.status(200).json(listaAdministradores);
 }
+
 
 export async function obtener(req, res) {
   const { id } = req.params;
@@ -21,7 +23,6 @@ export async function obtener(req, res) {
   res.status(200).json(administradorEncontrado);
 }
 
-export const obtenerPorId = obtener;
 
 export async function crear(req, res) {
   validarCrearAdministradorDTO(req.body);
@@ -30,6 +31,7 @@ export async function crear(req, res) {
 
   res.status(201).json(administradorCreado);
 }
+
 
 export async function actualizar(req, res) {
   const { id } = req.params;
