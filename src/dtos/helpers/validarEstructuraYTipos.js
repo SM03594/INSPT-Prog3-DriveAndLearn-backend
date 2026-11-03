@@ -1,5 +1,5 @@
-import ErrorCampoInvalido from '../errors/ErrorCampoInvalido.js';
-import ErrorDeTipo from '../errors/ErrorDeTipo.js';
+import ErrorCampoInvalido from '../../errors/ErrorCampoInvalido.js';
+import ErrorDeTipo from '../../errors/ErrorDeTipo.js';
 
 function tieneTipoValido(valor, tipoEsperado) {
   return (
