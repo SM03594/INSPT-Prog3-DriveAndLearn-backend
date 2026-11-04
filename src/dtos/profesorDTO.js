@@ -5,27 +5,29 @@ const TIPOS_CAMPOS_PROFESOR = Object.freeze({
     NomApe: 'string',
 });
 
-const CAMPOS_PROFESOR = ['NomApe'];
+const CAMPOS_PROFESOR = Object.keys(TIPOS_CAMPOS_PROFESOR);
 
 const TIPOS_CAMPOS_MODIFICAR_DISPONIBILIDAD = Object.freeze({
     tramos: 'object',
 });
 
-const CAMPOS_MODIFICAR_DISPONIBILIDAD = ['tramos'];
+const CAMPOS_MODIFICAR_DISPONIBILIDAD = Object.keys(
+    TIPOS_CAMPOS_MODIFICAR_DISPONIBILIDAD
+);
 
 const TIPOS_CAMPOS_ITEM_DISPONIBILIDAD = Object.freeze({
     dia: 'string',
     tramoHorario: 'object',
 });
 
-const CAMPOS_ITEM_DISPONIBILIDAD = ['dia', 'tramoHorario'];
+const CAMPOS_ITEM_DISPONIBILIDAD = Object.keys(TIPOS_CAMPOS_ITEM_DISPONIBILIDAD);
 
 const TIPOS_CAMPOS_TRAMO_HORARIO = Object.freeze({
     horaInicio: 'string',
     horaFin: 'string',
 });
 
-const CAMPOS_TRAMO_HORARIO = ['horaInicio', 'horaFin'];
+const CAMPOS_TRAMO_HORARIO = Object.keys(TIPOS_CAMPOS_TRAMO_HORARIO);
 
 
 function validarItemDisponibilidad(item) {
@@ -38,7 +40,6 @@ function validarItemDisponibilidad(item) {
     validarEstructuraYTipos(
         item,
         TIPOS_CAMPOS_ITEM_DISPONIBILIDAD,
-        CAMPOS_ITEM_DISPONIBILIDAD,
         CAMPOS_ITEM_DISPONIBILIDAD
     );
 
@@ -49,7 +50,6 @@ function validarItemDisponibilidad(item) {
     validarEstructuraYTipos(
         item.tramoHorario,
         TIPOS_CAMPOS_TRAMO_HORARIO,
-        CAMPOS_TRAMO_HORARIO,
         CAMPOS_TRAMO_HORARIO
     );
 }
@@ -59,7 +59,6 @@ export function validarCrearProfesorDTO(body) {
     return validarEstructuraYTipos(
         body,
         TIPOS_CAMPOS_PROFESOR,
-        CAMPOS_PROFESOR,
         CAMPOS_PROFESOR
     );
 }
@@ -69,6 +68,7 @@ export function validarActualizarProfesorDTO(body) {
     return validarEstructuraYTipos(
         body,
         TIPOS_CAMPOS_PROFESOR,
+        [],
         CAMPOS_PROFESOR
     );
 }
@@ -78,7 +78,6 @@ export function validarModificarDisponibilidadDTO(body) {
     validarEstructuraYTipos(
         body,
         TIPOS_CAMPOS_MODIFICAR_DISPONIBILIDAD,
-        CAMPOS_MODIFICAR_DISPONIBILIDAD,
         CAMPOS_MODIFICAR_DISPONIBILIDAD
     );
 

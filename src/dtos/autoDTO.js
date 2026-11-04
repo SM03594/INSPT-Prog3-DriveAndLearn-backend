@@ -7,17 +7,12 @@ const TIPOS_CAMPOS_AUTO = Object.freeze({
   cambios: 'string',
 });
 
-const CAMPOS_AUTO = ['marca', 'modelo', 'patente', 'cambios'];
+const CAMPOS_AUTO = Object.keys(TIPOS_CAMPOS_AUTO);
 
 export function validarCrearAutoDTO(body) {
-  return validarEstructuraYTipos(
-    body,
-    TIPOS_CAMPOS_AUTO,
-    CAMPOS_AUTO,
-    CAMPOS_AUTO
-  );
+  return validarEstructuraYTipos(body, TIPOS_CAMPOS_AUTO, CAMPOS_AUTO);
 }
 
 export function validarActualizarAutoDTO(body) {
-  return validarEstructuraYTipos(body, TIPOS_CAMPOS_AUTO, CAMPOS_AUTO);
+  return validarEstructuraYTipos(body, TIPOS_CAMPOS_AUTO, [], CAMPOS_AUTO);
 }

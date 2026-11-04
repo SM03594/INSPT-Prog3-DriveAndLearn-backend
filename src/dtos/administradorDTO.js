@@ -6,16 +6,14 @@ const TIPOS_CAMPOS_ADMINISTRADOR = Object.freeze({
   password: 'string',
 });
 
-const CAMPOS_REQUERIDOS_CREAR = ['NomApe', 'email', 'password'];
-const CAMPOS_PERMITIDOS_CREAR = [...CAMPOS_REQUERIDOS_CREAR];
+const CAMPOS_REQUERIDOS_CREAR = Object.keys(TIPOS_CAMPOS_ADMINISTRADOR);
 
-const CAMPOS_PERMITIDOS_ACTUALIZAR = ['NomApe', 'email', 'password'];
+const CAMPOS_OPCIONALES_ACTUALIZAR = Object.keys(TIPOS_CAMPOS_ADMINISTRADOR);
 
 export function validarCrearAdministradorDTO(cuerpoPeticion) {
   return validarEstructuraYTipos(
     cuerpoPeticion,
     TIPOS_CAMPOS_ADMINISTRADOR,
-    CAMPOS_PERMITIDOS_CREAR,
     CAMPOS_REQUERIDOS_CREAR
   );
 }
@@ -24,7 +22,8 @@ export function validarActualizarAdministradorDTO(cuerpoPeticion) {
   return validarEstructuraYTipos(
     cuerpoPeticion,
     TIPOS_CAMPOS_ADMINISTRADOR,
-    CAMPOS_PERMITIDOS_ACTUALIZAR
+    [],
+    CAMPOS_OPCIONALES_ACTUALIZAR
   );
 }
 

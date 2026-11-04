@@ -5,14 +5,12 @@ const TIPOS_CAMPOS_LOGIN = Object.freeze({
   password: 'string',
 });
 
-const CAMPOS_REQUERIDOS_LOGIN = ['email', 'password'];
-const CAMPOS_PERMITIDOS_LOGIN = [...CAMPOS_REQUERIDOS_LOGIN];
+const CAMPOS_REQUERIDOS_LOGIN = Object.keys(TIPOS_CAMPOS_LOGIN);
 
 export function validarLoginDTO(cuerpoPeticion) {
   return validarEstructuraYTipos(
     cuerpoPeticion,
     TIPOS_CAMPOS_LOGIN,
-    CAMPOS_PERMITIDOS_LOGIN,
     CAMPOS_REQUERIDOS_LOGIN
   );
 }

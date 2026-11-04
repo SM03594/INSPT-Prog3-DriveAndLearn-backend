@@ -8,12 +8,15 @@ function tieneTipoValido(valor, tipoEsperado) {
   );
 }
 
+// Los campos requeridos siempre están permitidos; los opcionales se suman a ellos.
+// Así no hace falta repetir la lista cuando todos los campos son obligatorios.
 export function validarEstructuraYTipos(
   datos,
   tiposCampos,
-  camposPermitidos,
-  camposRequeridos = []
+  camposRequeridos,
+  camposOpcionales = []
 ) {
+  const camposPermitidos = [...camposRequeridos, ...camposOpcionales];
   const clavesEnviadas = Object.keys(datos);
 
   if (clavesEnviadas.length === 0) {
