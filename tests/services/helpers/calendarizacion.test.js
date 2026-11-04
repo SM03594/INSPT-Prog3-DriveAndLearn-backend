@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import ErrorDeNegocio from '../../../src/errors/ErrorDeNegocio.js';
 import ErrorFormatoDeFecha from '../../../src/errors/ErrorFormatoDeFecha.js';
 import ErrorPeticionInvalida from '../../../src/errors/ErrorPeticionInvalida.js';
@@ -8,6 +9,7 @@ import {
   validarIntervaloDeClase,
   estaDentroDeDisponibilidad,
   obtenerTurnosDeUnaHora,
+  verificarFechaFutura,
 } from '../../../src/services/helpers/calendarizacion.js';
 
 describe('calendarizacion helper', () => {
@@ -280,6 +282,45 @@ describe('calendarizacion helper', () => {
       expect(turnos).toHaveLength(3);
       expect(turnos[0].start.toFormat('HH:mm')).toBe('10:00');
       expect(turnos[2].end.toFormat('HH:mm')).toBe('13:00');
+    });
+  });
+
+  describe('verificarFechaFutura', () => {
+    const referenciaFija = DateTime.fromISO('2026-11-04T12:00');
+
+    it('debería aceptar una fecha y hora posterior a la referencia', () => {
+      const resultado = verificarFechaFutura(
+        '2026-11-04T13:00',
+        referenciaFija
+      );
+      expect(resultado.isValid).toBe(true);
+      expect(resultado.toFormat('yyyy-MM-dd HH:mm')).toBe('2026-11-04 13:00');
+    });
+
+    it('debería lanzar ErrorDeNegocio si la fecha es anterior a la referencia', () => {
+      expect(() =>
+        verificarFechaFutura('2026-11-04T11:00', referenciaFija)
+      ).toThrow(ErrorDeNegocio);
+
+      expect(() =>
+        verificarFechaFutura('2026-11-03T18:00', referenciaFija)
+      ).toThrow('No se pueden agendar clases en fechas u horarios pasados');
+    });
+
+    it('debería lanzar ErrorDeNegocio si la fecha es exactamente igual a la referencia', () => {
+      expect(() =>
+        verificarFechaFutura('2026-11-04T12:00', referenciaFija)
+      ).toThrow(ErrorDeNegocio);
+    });
+
+    it('debería lanzar ErrorFormatoDeFecha si el formato no es válido o la fecha no existe', () => {
+      expect(() =>
+        verificarFechaFutura('2026-11-05T10:30', referenciaFija)
+      ).toThrow(ErrorFormatoDeFecha);
+
+      expect(() =>
+        verificarFechaFutura('2026-02-30T10:00', referenciaFija)
+      ).toThrow(ErrorFormatoDeFecha);
     });
   });
 });

@@ -179,6 +179,23 @@ export function validarIntervaloDeClase(inicioStr, finStr) {
 }
 
 
+// Verifica que la fecha y hora proporcionada sea estrictamente posterior al momento actual
+// (o a una fechaReferencia provista, útil para tests deterministas).
+export function verificarFechaFutura(fechaHoraStr, fechaReferencia = DateTime.now()) {
+  const fechaHora = parsearFechaHoraClase(fechaHoraStr);
+
+  if (fechaHora <= fechaReferencia) {
+    throw new ErrorDeNegocio(
+      'No se pueden agendar clases en fechas u horarios pasados'
+    );
+  }
+
+  return fechaHora;
+}
+
+export const validarFechaFutura = verificarFechaFutura;
+
+
 // Proyecta la disponibilidad semanal de un profesor sobre una ventana de 3 días
 // (día anterior, día de referencia y día siguiente) y fusiona los intervalos contiguos
 // con Interval.merge() para contemplar la continuidad en medianoche (24:00 -> 00:00).
