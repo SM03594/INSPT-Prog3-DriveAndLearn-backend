@@ -12,6 +12,7 @@ import administradorRoutes from './routes/administradorRoutes.js';
 import alumnoRoutes from './routes/alumnoRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import autoRoutes from './routes/autoRoutes.js';
+import profesorRoutes from './routes/profesorRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -23,8 +24,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/administradores', administradorRoutes);
 app.use('/api/alumnos', alumnoRoutes);
 app.use('/api/autos', autoRoutes);
-/*
 app.use('/api/profesores', profesorRoutes);
+/*
 app.use('/api/clases', claseRoutes);
 */
 
