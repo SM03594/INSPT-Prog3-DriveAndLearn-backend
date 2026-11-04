@@ -1,21 +1,12 @@
 import ErrorCampoInvalido from '../../src/errors/ErrorCampoInvalido.js';
 import ErrorDeTipo from '../../src/errors/ErrorDeTipo.js';
 import ErrorPeticionInvalida from '../../src/errors/ErrorPeticionInvalida.js';
+import { capturarError } from '../helpers/capturarError.js';
 import {
   validarCrearAutoDTO,
   validarActualizarAutoDTO,
 } from '../../src/dtos/autoDTO.js';
 
-// Ejecuta la validación esperando que falle y devuelve el error lanzado,
-// para poder verificar tanto su clase como su mensaje exacto.
-function capturarError(validacion) {
-  try {
-    validacion();
-  } catch (error) {
-    return error;
-  }
-  throw new Error('Se esperaba que la validación lanzara un error');
-}
 
 function crearCuerpoAutoValido() {
   return {
