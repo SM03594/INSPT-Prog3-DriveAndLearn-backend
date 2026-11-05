@@ -6,7 +6,7 @@ import {
   validarEntradaTramosDisponibilidad,
   agregarTramosADia,
   quitarTramosDeDia,
-} from './helpers/calendarizacion.js';
+} from './helpers/disponibilidadHelper.js';
 
 function verificarQueNoIncluyaDisponibilidad(datos) {
   if (datos && datos.disponibilidad !== undefined) {

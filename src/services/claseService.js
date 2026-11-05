@@ -9,7 +9,7 @@ import {
   validarIntervaloDeClase,
   estaDentroDeDisponibilidad,
   verificarFechaFutura,
-} from './helpers/calendarizacion.js';
+} from './helpers/turnosYFechasHelper.js';
 import * as alumnoService from './alumnoService.js';
 import * as profesorService from './profesorService.js';
 import * as autoService from './autoService.js';
