@@ -2,6 +2,8 @@ import * as alumnoService from '../services/alumnoService.js';
 import {
   validarCrearAlumnoDTO,
   validarActualizarAlumnoDTO,
+  validarSumarSaldoClasesDTO,
+  validarRestarSaldoClasesDTO,
 } from '../dtos/alumnoDTO.js';
 
 
@@ -39,6 +41,36 @@ export async function actualizar(req, res) {
   validarActualizarAlumnoDTO(req.body);
 
   const alumnoActualizado = await alumnoService.actualizar(id, req.body);
+
+  if (!alumnoActualizado) {
+    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  }
+
+  res.status(200).json(alumnoActualizado);
+}
+
+
+export async function sumarSaldoClases(req, res) {
+  const { id } = req.params;
+
+  validarSumarSaldoClasesDTO(req.body);
+
+  const alumnoActualizado = await alumnoService.sumarSaldoClases(id, req.body);
+
+  if (!alumnoActualizado) {
+    return res.status(404).json({ mensaje: 'Alumno no encontrado' });
+  }
+
+  res.status(200).json(alumnoActualizado);
+}
+
+
+export async function restarSaldoClases(req, res) {
+  const { id } = req.params;
+
+  validarRestarSaldoClasesDTO(req.body);
+
+  const alumnoActualizado = await alumnoService.restarSaldoClases(id, req.body);
 
   if (!alumnoActualizado) {
     return res.status(404).json({ mensaje: 'Alumno no encontrado' });
