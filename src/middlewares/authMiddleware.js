@@ -1,8 +1,37 @@
 import jwt from 'jsonwebtoken';
 import { obtenerJwtSecret } from '../config/env.js';
+import { ROLES } from '../constants/roles.js';
 import ErrorAutenticacion from '../errors/ErrorAutenticacion.js';
 import ErrorAutorizacion from '../errors/ErrorAutorizacion.js';
 import TokenRevocado from '../models/TokenRevocado.js';
+
+
+function validarJWT(token) {
+  try {
+    return jwt.verify(token, obtenerJwtSecret());
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new ErrorAutenticacion('Token expirado');
+    }
+    throw new ErrorAutenticacion('Token inválido');
+  }
+}
+
+
+function autorizarRol(...rolesPermitidos) {
+  return (req, _res, next) => {
+    if (!req.usuario) {
+      throw new ErrorAutenticacion('No autenticado');
+    }
+
+    if (!rolesPermitidos.includes(req.usuario.rol)) {
+      throw new ErrorAutorizacion('No tiene permisos para acceder a este recurso');
+    }
+
+    next();
+  };
+}
+
 
 export async function autenticar(req, _res, next) {
   const cabeceraAutorizacion = req.headers.authorization;
@@ -23,16 +52,7 @@ export async function autenticar(req, _res, next) {
     throw new ErrorAutenticacion('Token inválido o sesión cerrada');
   }
 
-  let payloadVerificado;
-
-  try {
-    payloadVerificado = jwt.verify(token, obtenerJwtSecret());
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      throw new ErrorAutenticacion('Token expirado');
-    }
-    throw new ErrorAutenticacion('Token inválido');
-  }
+  const payloadVerificado = validarJWT(token);
 
   req.usuario = payloadVerificado;
   req.user = payloadVerificado;
@@ -41,17 +61,7 @@ export async function autenticar(req, _res, next) {
   next();
 }
 
-export function autorizarRol(...rolesPermitidos) {
-  return (req, _res, next) => {
-    if (!req.usuario) {
-      throw new ErrorAutenticacion('No autenticado');
-    }
 
-    if (!rolesPermitidos.includes(req.usuario.rol)) {
-      throw new ErrorAutorizacion('No tiene permisos para acceder a este recurso');
-    }
-
-    next();
-  };
+export function verificarSiAdmin(req, res, next) {
+  return autorizarRol(ROLES.ADMINISTRADOR)(req, res, next);
 }
-
