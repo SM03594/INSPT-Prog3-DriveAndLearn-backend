@@ -96,8 +96,8 @@ export function estaDentroDeDisponibilidad(disponibilidad, inicioStr, finStr) {
 
 // Valida que la fecha provista sea un string en formato "YYYY-MM-DD", corresponda a un día real
 // en el calendario y no sea una fecha pasada respecto al día actual (o fechaReferencia).
-// Retorna un objeto con la instancia DateTime, la fecha en formato ISO y el nombre del día en español.
-export function validarFechaConsulta(
+// Retorna la instancia DateTime de Luxon en hora local de la escuela.
+export function parsearFechaConsulta(
   fechaStr,
   fechaReferencia = DateTime.now()
 ) {
@@ -127,13 +127,44 @@ export function validarFechaConsulta(
     );
   }
 
-  const nombreDia = MAPA_WEEKDAY_DIA[fechaDateTime.weekday];
+  return fechaDateTime;
+}
 
-  return {
-    fechaDateTime,
-    fechaISO: fechaLimpia,
-    nombreDia,
-  };
+
+// Obtiene el nombre del día de la semana en español ('lunes', 'martes', etc.) a partir de una
+// fecha (string "YYYY-MM-DD" o instancia de DateTime de Luxon). Valida formato y existencia real.
+export function obtenerDiaDeLaSemana(fecha) {
+  if (!fecha) {
+    throw new ErrorPeticionInvalida('La fecha es obligatoria');
+  }
+
+  let fechaDateTime;
+
+  if (DateTime.isDateTime(fecha)) {
+    fechaDateTime = fecha;
+  } else if (typeof fecha === 'string') {
+    const fechaLimpia = fecha.trim();
+
+    if (!REGEX_FECHA_DIA_YYYY_MM_DD.test(fechaLimpia)) {
+      throw new ErrorFormatoDeFecha(
+        'La fecha debe tener el formato YYYY-MM-DD y ser válida'
+      );
+    }
+
+    fechaDateTime = DateTime.fromISO(fechaLimpia);
+  } else {
+    throw new ErrorPeticionInvalida(
+      'La fecha debe ser un string o una instancia de DateTime'
+    );
+  }
+
+  if (!fechaDateTime.isValid) {
+    throw new ErrorFormatoDeFecha(
+      'La fecha proporcionada no es válida en el calendario'
+    );
+  }
+
+  return MAPA_WEEKDAY_DIA[fechaDateTime.weekday];
 }
 
 
