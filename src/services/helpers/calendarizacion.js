@@ -1,8 +1,12 @@
-import { DateTime, Interval } from 'luxon';
+import { DateTime, Interval, Settings } from 'luxon';
+import { ZONA_HORARIA } from '../../config/env.js';
 import { DIAS_SEMANA, MAPA_WEEKDAY_DIA } from '../../constants/diasSemana.js';
 import ErrorDeNegocio from '../../errors/ErrorDeNegocio.js';
 import ErrorPeticionInvalida from '../../errors/ErrorPeticionInvalida.js';
 import ErrorFormatoDeFecha from '../../errors/ErrorFormatoDeFecha.js';
+
+// Establece la zona horaria oficial de la escuela para todas las operaciones con Luxon.
+Settings.defaultZone = ZONA_HORARIA;
 
 // Expresión regular para validar horas en punto entre "00:00" y "24:00".
 const REGEX_HORA_EN_PUNTO = /^(?:[01]\d|2[0-3]):00$|^24:00$/;
