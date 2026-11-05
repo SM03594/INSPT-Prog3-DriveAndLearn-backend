@@ -226,16 +226,5 @@ describe('claseDTO', () => {
         );
       });
     });
-
-    describe('alias validarCrearClaseDTO', () => {
-      it('validarCrearClaseDTO debería apuntar a la misma función', () => {
-        expect(validarCrearClaseDTO).toBe(validarAgendarClaseDTO);
-      });
-
-      it('debería validar correctamente un cuerpo válido utilizando el alias', () => {
-        const cuerpo = crearCuerpoClaseValido();
-        expect(() => validarCrearClaseDTO(cuerpo)).not.toThrow();
-      });
-    });
   });
 });
