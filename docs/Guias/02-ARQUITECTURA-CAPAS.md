@@ -40,18 +40,22 @@ Además de las 4 capas principales, el proyecto cuenta con módulos de soporte b
 ### 3.1. Organización de `helpers/` por Capa
 Para evitar una carpeta genérica donde se mezclen funciones de distintas capas, **cada capa posee su propia subcarpeta `helpers/`** para sus funciones auxiliares internas:
 - **`src/dtos/helpers/`**: ej. `validarEstructuraYTipos.js` (usado exclusivamente por los DTOs para escanear campos permitidos, faltantes y tipos).
-- **`src/services/helpers/`**: ej. `validarMongooseObjId.js`, `manejoDePassword.js`, `calendario.js` (usados exclusivamente por los Services).
+- **`src/services/helpers/`**: ej. `validarMongooseObjId.js`, `manejoDePassword.js`, `calendarizacion.js` (usados exclusivamente por los Services).
 - **`src/middlewares/helpers/`**: ej. `verSiErrorLecturaCuerpo.js` (usado por `errorHandler.js`).
 
 ### 3.2. Middlewares (`src/middlewares/`)
 - **`validarObjetoJson.js`**: Garantiza que `req.body` sea un objeto JSON plano antes de pasar al DTO/Controller.
-- **`authMiddleware.js`**: Verifica el token JWT y los permisos según el rol del usuario.
+- **`authMiddleware.js`**: Módulo central de seguridad que expone:
+  - `validarJWT(token)`: Validación criptográfica de firma y expiración del token JWT.
+  - `autenticar(req, res, next)`: Comprueba la cabecera `Authorization: Bearer <token>`, valida contra la lista negra (`tokens_revocados`), valida el JWT e inyecta `req.usuario`.
+  - `autorizarRol(...rolesPermitidos)`: Fábrica de control de acceso basada en roles (RBAC).
+  - `verificarSiAdmin(req, res, next)`: Middleware que verifica que el usuario autenticado sea administrador (usado para operaciones administrativas como sumar/restar saldo de clases).
 - **`errorHandler.js`**: Punto único de salida para todos los errores lanzados en cualquier capa, traduciéndolos a una respuesta JSON uniforme `{ "mensaje": "..." }` con su código HTTP correspondiente.
 
 ### 3.3. Jerarquía de Errores (`src/errors/`)
 Los errores están tipados en clases para que el `errorHandler` determine automáticamente el código HTTP:
-- **`ErrorPeticionInvalida` (`400`)**: Clase base para errores de formato de entrada (`ErrorCampoInvalido`, `ErrorDeTipo`, `ErrorMongooseObjIdInvalido`, `ErrorLecturaCuerpo`).
-- **`ErrorDeNegocio` (`400`)**: Clase base para violaciones a reglas del dominio (`ErrorPasswordInvalida`, `ErrorSaldoClasesInsuficiente`, etc.).
+- **`ErrorPeticionInvalida` (`400`)**: Clase base para errores de formato o sintaxis de entrada (`ErrorCampoInvalido`, `ErrorDeTipo`, `ErrorMongooseObjIdInvalido`, `ErrorLecturaCuerpo`, `ErrorFormatoDeFecha`).
+- **`ErrorDeNegocio` (`400`)**: Clase base para violaciones a reglas del dominio (`ErrorPasswordInvalida`, `ErrorSaldoClasesInsuficiente`, etc.) y su subclase **`ErrorRegistroInexistente` (`404`)**.
 - **`ErrorAutenticacion` (`401`)** y **`ErrorAutorizacion` (`403`)**: Errores de sesión y permisos.
 
 ### 3.4. Constantes y Configuración (`src/constants/` y `src/config/`)
@@ -65,17 +69,17 @@ Los errores están tipados en clases para que el `errorHandler` determine autom�
 ```text
 src/
 ├── config/                  # Configuración de entorno (env.js) y conexión a MongoDB (db.js)
-├── constants/               # Constantes y enums de dominio (roles.js, cambios.js, etc.)
+├── constants/               # Constantes y enums de dominio (roles.js, cambios.js, diasSemana.js)
 ├── errors/                  # Clases de error personalizadas (ErrorDeNegocio, ErrorPeticionInvalida, etc.)
-├── middlewares/             # Middlewares HTTP (errorHandler.js, validarObjetoJson.js, auth)
-│   └── helpers/             # Helpers exclusivos de middlewares
-├── routes/                  # Definición de rutas Express (/api/*)
-├── controllers/             # Controladores HTTP delgados
+├── middlewares/             # Middlewares HTTP (errorHandler.js, validarObjetoJson.js, authMiddleware.js)
+│   └── helpers/             # Helpers exclusivos de middlewares (verSiErrorLecturaCuerpo.js)
+├── routes/                  # Definición de rutas Express (/api/auth, /api/alumnos, /api/clases, etc.)
+├── controllers/             # Controladores HTTP delgados (alumno, profesor, auto, clase, auth, admin)
 ├── dtos/                    # Validadores de estructura y tipos de entrada JSON
 │   └── helpers/             # Helpers exclusivos de DTOs (validarEstructuraYTipos.js)
-├── services/                # Lógica de negocio y casos de uso
-│   └── helpers/             # Helpers exclusivos de Services (manejoDePassword.js, validarMongooseObjId.js)
-├── models/                  # Modelos y esquemas de Mongoose
-├── app.js                   # Configuración de la aplicación Express
+├── services/                # Lógica de negocio y casos de uso (claseService, alumnoService, etc.)
+│   └── helpers/             # Helpers exclusivos de Services (calendarizacion.js, validarMongooseObjId.js, etc.)
+├── models/                  # Modelos y esquemas de Mongoose (Clase, Profesor, Alumno, Auto, etc.)
+├── app.js                   # Configuración y montaje de rutas de la aplicación Express
 └── server.js                # Punto de entrada que conecta la BD y levanta el servidor HTTP
 ```

@@ -4,6 +4,7 @@
 
 
 import 'dotenv/config';
+import { IANAZone } from 'luxon';
 
 
 export const PORT = Number(process.env.PORT) || 3000;
@@ -43,9 +44,10 @@ export function obtenerAdminInicial() {
 }
 
 
-export const OFFSET_HORA_UTC = Number(process.env.OFFSET_HORA_UTC || -3);
+export const ZONA_HORARIA =
+  process.env.ZONA_HORARIA?.trim() || 'America/Argentina/Buenos_Aires';
 
 
-if (Number.isNaN(OFFSET_HORA_UTC)) {
-  throw new Error('OFFSET_HORA_UTC debe ser un número de horas (por ejemplo, -3)');
+if (!IANAZone.isValidZone(ZONA_HORARIA)) {
+  throw new Error(`ZONA_HORARIA no es una zona IANA válida: "${ZONA_HORARIA}"`);
 }

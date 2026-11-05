@@ -322,5 +322,23 @@ describe('calendarizacion helper', () => {
         verificarFechaFutura('2026-02-30T10:00', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
     });
+
+    it('debería usar la zona horaria oficial de la escuela (Buenos Aires) con DateTime.now() por defecto', () => {
+      // Si en UTC son las 15:00:00Z, en Buenos Aires (UTC-3) son las 12:00:00
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-11-05T15:00:00Z'));
+
+      try {
+        // En Buenos Aires (12:00), 13:00 es en el futuro -> debe ser aceptada
+        expect(() => verificarFechaFutura('2026-11-05T13:00')).not.toThrow();
+
+        // En Buenos Aires (12:00), 11:00 ya pasó -> debe lanzar ErrorDeNegocio
+        expect(() => verificarFechaFutura('2026-11-05T11:00')).toThrow(
+          ErrorDeNegocio
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

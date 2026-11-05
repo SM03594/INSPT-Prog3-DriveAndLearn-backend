@@ -192,6 +192,9 @@ Verifica si el intervalo de la clase solicitada queda totalmente cubierto (`engu
 #### 3. `obtenerTurnosDeUnaHora(intervalo)`
 Divide un intervalo cualquiera en bloques discretos de 1 hora mediante `intervalo.splitBy({ hours: DURACION_CLASE_HORAS })`.
 
+#### 4. `verificarFechaFutura(fechaHoraStr, fechaReferencia = DateTime.now())` (alias `validarFechaFutura`)
+Parsea la fecha de inicio con `parsearFechaHoraClase` y comprueba que sea estrictamente posterior al momento actual (`fechaHora > fechaReferencia`). Si la fecha u hora ya pasó, arroja `ErrorDeNegocio('No se pueden agendar clases en fechas u horarios pasados')`. Admite un segundo parámetro opcional `fechaReferencia` para facilitar pruebas unitarias deterministas.
+
 ---
 
 ## 5. Integración en `profesorService.js`
@@ -263,7 +266,17 @@ function agruparTramosPorDia(listaTramos) {
 
 ---
 
-## 6. Casos Prácticos de Transformación de Tramos
+## 6. Integración en `claseService.js`
+
+El servicio de clases consume el helper `calendarizacion.js` en tres momentos críticos del agendamiento (`claseService.agendar`):
+
+1. **`verificarFechaFutura(inicio)`**: Comprueba que la clase no se programe en fechas u horarios pasados.
+2. **`validarIntervaloDeClase(inicio, fin)`**: Verifica el formato en punto `"YYYY-MM-DDTHH:00"`, la validez en el calendario y que la duración sea de exactamente 1 hora.
+3. **`estaDentroDeDisponibilidad(profesor.disponibilidad, inicio, fin)`**: Proyecta la disponibilidad semanal del profesor sobre la ventana de 3 días (`proyectarDisponibilidadEnVentana`), resuelve la continuidad en medianoche mediante `Interval.merge()` y evalúa si el bloque cubre totalmente la clase con `bloque.engulfs(intervaloClase)`.
+
+---
+
+## 7. Casos Prácticos de Transformación de Tramos
 
 | Operación | Disponibilidad Previa del Día | Tramo(s) Enviado(s) | Resultado Final en la Base de Datos |
 | :--- | :--- | :--- | :--- |
@@ -276,3 +289,11 @@ function agruparTramosPorDia(listaTramos) {
 | **Quitar (recorte de fin)** | `[{ horaInicio: "08:00", horaFin: "14:00" }]` | `{ horaInicio: "12:00", horaFin: "14:00" }` | `[{ horaInicio: "08:00", horaFin: "12:00" }]` |
 | **Quitar (división intermedia / split)** | `[{ horaInicio: "08:00", horaFin: "14:00" }]` | `{ horaInicio: "10:00", horaFin: "12:00" }` | `[{ horaInicio: "08:00", horaFin: "10:00" }, { horaInicio: "12:00", horaFin: "14:00" }]` |
 | **Quitar (cobertura total)** | `[{ horaInicio: "08:00", horaFin: "12:00" }]` | `{ horaInicio: "06:00", horaFin: "14:00" }` | `[]` |
+
+---
+
+## 8. Guías de Flujo Relacionadas
+
+Para consultar los diagramas de secuencia completos y la interacción con controladores y rutas, referirse a:
+- [Flujo de Asignación y Eliminación de Disponibilidad de Profesores](file:///home/owl64/Proyectos/docker-sandbox/agy-env/workspace/INSPT-Prog3-DriveAndLearn-backend/docs/Guias/Flujos/disponibilidad-profesor.md)
+- [Flujo de Asignación y Eliminación de Clases](file:///home/owl64/Proyectos/docker-sandbox/agy-env/workspace/INSPT-Prog3-DriveAndLearn-backend/docs/Guias/Flujos/clases.md)

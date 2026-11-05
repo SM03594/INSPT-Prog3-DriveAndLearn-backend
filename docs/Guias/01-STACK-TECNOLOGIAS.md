@@ -18,7 +18,7 @@ Esta guía describe las tecnologías, librerías y herramientas utilizadas en el
 | :--- | :--- | :--- |
 | **`express`** | `^5.2.1` | Framework HTTP para construir la API REST (enrutamiento, middlewares y manejo nativo de promesas rechazadas en controladores `async` sin necesidad de `try/catch`). |
 | **`mongoose`** | `^9.9.4` | ODM (*Object Document Mapper*) para **MongoDB**. Permite definir esquemas, validaciones a nivel de modelo, relaciones (`ObjectId` + `ref`) y herencia mediante *discriminators* (`Usuario` → `Alumno` y `Administrador`). |
-| **`luxon`** | `^3.5.0` | Librería para el manejo de fechas, horas e intervalos (`DateTime`, `Interval`). Se utiliza en la capa de servicios para validar horarios en punto, calcular duraciones exactas de 1 hora, fusionar bloques continuos en medianoche (`Interval.merge`) y verificar disponibilidad semanal (`engulfs` / `overlaps`). |
+| **`luxon`** | `^3.5.0` | Librería para el manejo de fechas, horas e intervalos (`DateTime`, `Interval`). Se utiliza en la capa de servicios para validar horarios en punto, calcular duraciones exactas de 1 hora, comprobar fechas futuras (`verificarFechaFutura`), fusionar bloques continuos en medianoche (`Interval.merge`) y verificar disponibilidad semanal (`engulfs` / `overlaps`). |
 | **`bcrypt`** | `^6.0.0` | Librería para el hasheo seguro de contraseñas con *salt* antes de almacenarlas en la base de datos y su posterior comparación durante el inicio de sesión. |
 | **`jsonwebtoken`** | `^9.0.3` | Generación y verificación de tokens **JWT** para la autenticación *stateless* y control de acceso por roles (`alumno` y `administrador`). |
 | **`cors`** | `^2.8.6` | Middleware de Express para habilitar *Cross-Origin Resource Sharing* y permitir que el frontend consuma la API. |
