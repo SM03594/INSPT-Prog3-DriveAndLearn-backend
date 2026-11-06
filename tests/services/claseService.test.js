@@ -840,4 +840,31 @@ describe('claseService', () => {
       expect(todasLasClases).toHaveLength(2);
     });
   });
+
+  describe('listarPorFecha', () => {
+    it('debería listar únicamente las clases que correspondan a la fecha indicada', async () => {
+      const alumno = await crearAlumnoFixture({ saldo: 3 });
+      const profesor = await crearProfesorFixture();
+      const auto = await crearAutoFixture();
+      const usuarioActual = { id: alumno._id.toString(), rol: ROLES.ALUMNO };
+
+      await claseService.agendar(
+        {
+          alumno: alumno._id.toString(),
+          profesor: profesor._id.toString(),
+          auto: auto._id.toString(),
+          inicio: '2026-11-09T10:00',
+          fin: '2026-11-09T11:00',
+        },
+        usuarioActual
+      );
+
+      const clasesDia9 = await claseService.listarPorFecha('2026-11-09');
+      const clasesDia10 = await claseService.listarPorFecha('2026-11-10');
+
+      expect(clasesDia9).toHaveLength(1);
+      expect(clasesDia9[0].inicio).toBe('2026-11-09T10:00');
+      expect(clasesDia10).toHaveLength(0);
+    });
+  });
 });
