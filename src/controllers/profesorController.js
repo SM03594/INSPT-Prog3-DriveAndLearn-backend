@@ -4,6 +4,7 @@ import {
   validarActualizarProfesorDTO,
   validarAgregarDisponibilidadDTO,
   validarQuitarDisponibilidadDTO,
+  validarTurnosLibresQueryDTO,
 } from '../dtos/profesorDTO.js';
 
 
@@ -85,4 +86,20 @@ export async function quitarDisponibilidad(req, res) {
   );
 
   res.status(200).json(profesorActualizado);
+}
+
+
+export async function verTurnosLibres(req, res) {
+  const { id } = req.params;
+  validarTurnosLibresQueryDTO(req.query);
+
+  const { fecha, cambios } = req.query;
+
+  const resultado = await profesorService.obtenerTurnosLibres({
+    profesorId: id,
+    fecha,
+    cambios,
+  });
+
+  res.status(200).json(resultado);
 }

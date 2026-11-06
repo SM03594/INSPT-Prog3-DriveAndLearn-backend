@@ -8,6 +8,7 @@ const router = Router();
 router.get('/', profesorController.listar);
 router.get('/:id', profesorController.obtener);
 router.get('/:id/disponibilidad', profesorController.verDisponibilidad);
+router.get('/:id/turnos-libres', profesorController.verTurnosLibres);
 
 // Endpoints de escritura
 router.post('/', validarObjetoJson, profesorController.crear);
