@@ -47,10 +47,10 @@ export async function actualizar(id, datos) {
 }
 
 
-export async function obtenerAutosLibresEnTurno(inicio, cambios) {
+export async function obtenerAutosLibresEnTurno(inicio, fin, cambios) {
   const [flotaAutos, clasesEnHorario] = await Promise.all([
     listar(cambios),
-    claseService.listar({ inicio }),
+    claseService.listarEnIntervalo(inicio, fin),
   ]);
 
   const idsAutosOcupados = new Set(
@@ -67,7 +67,11 @@ export async function adjuntarAutosATurnos(turnos = [], cambios) {
   const turnosConAutos = [];
 
   for (const turno of turnos) {
-    const autos = await obtenerAutosLibresEnTurno(turno.inicio, cambios);
+    const autos = await obtenerAutosLibresEnTurno(
+      turno.inicio,
+      turno.fin,
+      cambios
+    );
 
     turnosConAutos.push({
       inicio: turno.inicio,

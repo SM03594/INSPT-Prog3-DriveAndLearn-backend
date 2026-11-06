@@ -11,6 +11,7 @@ import {
   parsearFechaConsulta,
   obtenerDiaDeLaSemana,
   generarTurnosDeFecha,
+  seSuperponenIntervalos,
 } from './helpers/turnosYFechasHelper.js';
 import * as autoService from './autoService.js';
 import * as claseService from './claseService.js';
@@ -122,13 +123,21 @@ export async function quitarDisponibilidad(id, listaTramos) {
 
 function filtrarTurnosOcupadosDelProfesor(turnos, clases, profesorId) {
   const profesorIdStr = profesorId.toString();
-  const horasOcupadas = new Set(
-    clases
-      .filter((clase) => clase.profesor.toString() === profesorIdStr)
-      .map((clase) => clase.inicio)
+  const clasesDelProfesor = clases.filter(
+    (clase) => clase.profesor.toString() === profesorIdStr
   );
 
-  return turnos.filter((turno) => !horasOcupadas.has(turno.inicio));
+  return turnos.filter(
+    (turno) =>
+      !clasesDelProfesor.some((clase) =>
+        seSuperponenIntervalos(
+          turno.inicio,
+          turno.fin,
+          clase.inicio,
+          clase.fin
+        )
+      )
+  );
 }
 
 

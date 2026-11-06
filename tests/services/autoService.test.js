@@ -246,7 +246,8 @@ describe('autoService', () => {
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00'
+        '2026-11-10T10:00',
+        '2026-11-10T11:00'
       );
 
       expect(autosLibres).toHaveLength(2);
@@ -280,11 +281,85 @@ describe('autoService', () => {
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00'
+        '2026-11-10T10:00',
+        '2026-11-10T11:00'
       );
 
       expect(autosLibres).toHaveLength(1);
       expect(autosLibres[0]._id.toString()).toBe(autoLibre._id.toString());
+    });
+
+    it('debería excluir un auto con clase de 2 horas al consultar la segunda hora del turno', async () => {
+      const auto = await autoService.crear({
+        marca: 'Fiat',
+        modelo: 'Cronos',
+        patente: 'AD123EF',
+        cambios: CAMBIOS.MANUAL,
+      });
+
+      await Clase.create({
+        alumno: new mongoose.Types.ObjectId(),
+        profesor: new mongoose.Types.ObjectId(),
+        auto: auto._id,
+        inicio: '2026-11-10T10:00',
+        fin: '2026-11-10T12:00',
+      });
+
+      const autosLibres = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T11:00',
+        '2026-11-10T12:00'
+      );
+
+      expect(autosLibres).toHaveLength(0);
+    });
+
+    it('debería excluir un auto con clase desfasada que se solapa parcialmente', async () => {
+      const auto = await autoService.crear({
+        marca: 'Chevrolet',
+        modelo: 'Onix',
+        patente: 'AF321GH',
+        cambios: CAMBIOS.MANUAL,
+      });
+
+      await Clase.create({
+        alumno: new mongoose.Types.ObjectId(),
+        profesor: new mongoose.Types.ObjectId(),
+        auto: auto._id,
+        inicio: '2026-11-10T10:30',
+        fin: '2026-11-10T11:30',
+      });
+
+      const autosLibres = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T10:00',
+        '2026-11-10T11:00'
+      );
+
+      expect(autosLibres).toHaveLength(0);
+    });
+
+    it('debería incluir un auto si su clase previa es contigua y no se solapa', async () => {
+      const auto = await autoService.crear({
+        marca: 'Ford',
+        modelo: 'Ka',
+        patente: 'AG999JJ',
+        cambios: CAMBIOS.MANUAL,
+      });
+
+      await Clase.create({
+        alumno: new mongoose.Types.ObjectId(),
+        profesor: new mongoose.Types.ObjectId(),
+        auto: auto._id,
+        inicio: '2026-11-10T09:00',
+        fin: '2026-11-10T10:00',
+      });
+
+      const autosLibres = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T10:00',
+        '2026-11-10T11:00'
+      );
+
+      expect(autosLibres).toHaveLength(1);
+      expect(autosLibres[0]._id.toString()).toBe(auto._id.toString());
     });
 
     it('debería filtrar por tipo de cambios cuando se especifica', async () => {
@@ -303,6 +378,7 @@ describe('autoService', () => {
 
       const autosManuales = await autoService.obtenerAutosLibresEnTurno(
         '2026-11-10T10:00',
+        '2026-11-10T11:00',
         'manual'
       );
 
@@ -311,6 +387,7 @@ describe('autoService', () => {
 
       const autosAutomaticos = await autoService.obtenerAutosLibresEnTurno(
         '2026-11-10T10:00',
+        '2026-11-10T11:00',
         'AUTOMATICO'
       );
 
@@ -320,7 +397,11 @@ describe('autoService', () => {
 
     it('debería rechazar si cambios no es MANUAL ni AUTOMATICO', async () => {
       await expect(
-        autoService.obtenerAutosLibresEnTurno('2026-11-10T10:00', 'ELECTRICO')
+        autoService.obtenerAutosLibresEnTurno(
+          '2026-11-10T10:00',
+          '2026-11-10T11:00',
+          'ELECTRICO'
+        )
       ).rejects.toThrow(ErrorDeNegocio);
     });
   });

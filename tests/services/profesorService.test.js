@@ -10,6 +10,7 @@ import * as profesorService from '../../src/services/profesorService.js';
 import * as autoService from '../../src/services/autoService.js';
 import * as alumnoService from '../../src/services/alumnoService.js';
 import * as claseService from '../../src/services/claseService.js';
+import Clase from '../../src/models/Clase.js';
 import { ROLES } from '../../src/constants/roles.js';
 
 setupTestDB();
@@ -549,6 +550,66 @@ describe('profesorService', () => {
       expect(resultado.turnos_libres).toHaveLength(2);
       expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T10:00');
       expect(resultado.turnos_libres[1].inicio).toBe('2026-11-10T12:00');
+    });
+
+    it('debería excluir múltiples turnos si el profesor tiene una clase de duración extendida', async () => {
+      // Clase de 2 horas (10:00 a 12:00) para el profesor
+      await Clase.create({
+        alumno: alumno._id,
+        profesor: profesor._id,
+        auto: autoManual._id,
+        inicio: '2026-11-10T10:00',
+        fin: '2026-11-10T12:00',
+      });
+
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      // Se deben excluir 10:00 y 11:00 -> solo queda 12:00 a 13:00
+      expect(resultado.turnos_libres).toHaveLength(1);
+      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T12:00');
+    });
+
+    it('debería excluir turnos solapados si la clase del profesor inicia fuera de hora en punto', async () => {
+      // Clase de 10:30 a 11:30 (se solapa tanto con 10:00-11:00 como con 11:00-12:00)
+      await Clase.create({
+        alumno: alumno._id,
+        profesor: profesor._id,
+        auto: autoManual._id,
+        inicio: '2026-11-10T10:30',
+        fin: '2026-11-10T11:30',
+      });
+
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      // Se deben excluir 10:00 y 11:00 -> solo queda 12:00 a 13:00
+      expect(resultado.turnos_libres).toHaveLength(1);
+      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T12:00');
+    });
+
+    it('debería mantener un turno como libre si la clase previa del profesor es contigua y no solapa', async () => {
+      // Clase contigua de 09:00 a 10:00
+      await Clase.create({
+        alumno: alumno._id,
+        profesor: profesor._id,
+        auto: autoManual._id,
+        inicio: '2026-11-10T09:00',
+        fin: '2026-11-10T10:00',
+      });
+
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      // Deben mantenerse los 3 turnos: 10:00, 11:00 y 12:00
+      expect(resultado.turnos_libres).toHaveLength(3);
+      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T10:00');
     });
 
     it('debería excluir un auto de un turno si está asignado a otra clase a esa misma hora con otro profesor', async () => {
