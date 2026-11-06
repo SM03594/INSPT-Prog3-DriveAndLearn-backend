@@ -8,7 +8,7 @@ import {
   estaDentroDeDisponibilidad,
   obtenerTurnosDeUnaHora,
   verificarFechaFutura,
-  validarFechaConsulta,
+  parsearFechaConsulta,
   obtenerDiaDeLaSemana,
   generarTurnosDeFecha,
 } from '../../../src/services/helpers/turnosYFechasHelper.js';
@@ -183,81 +183,81 @@ describe('turnosYFechasHelper', () => {
     });
   });
 
-  describe('validarFechaConsulta', () => {
+  describe('parsearFechaConsulta', () => {
     const referenciaFija = DateTime.fromISO('2026-11-05T12:00');
 
     it('debería aceptar una fecha futura válida y devolver su DateTime', () => {
       // 2026-11-10 es martes
-      const resultado = validarFechaConsulta('2026-11-10', referenciaFija);
+      const resultado = parsearFechaConsulta('2026-11-10', referenciaFija);
 
       expect(resultado.isValid).toBe(true);
       expect(resultado.toISODate()).toBe('2026-11-10');
     });
 
     it('debería aceptar la fecha del día actual', () => {
-      const resultado = validarFechaConsulta('2026-11-05', referenciaFija);
+      const resultado = parsearFechaConsulta('2026-11-05', referenciaFija);
 
       expect(resultado.isValid).toBe(true);
       expect(resultado.toISODate()).toBe('2026-11-05');
     });
 
     it('debería lanzar ErrorPeticionInvalida si fecha no es provista o es vacía', () => {
-      expect(() => validarFechaConsulta(undefined, referenciaFija)).toThrow(
+      expect(() => parsearFechaConsulta(undefined, referenciaFija)).toThrow(
         ErrorPeticionInvalida
       );
-      expect(() => validarFechaConsulta('', referenciaFija)).toThrow(
+      expect(() => parsearFechaConsulta('', referenciaFija)).toThrow(
         'El parámetro fecha es obligatorio'
       );
-      expect(() => validarFechaConsulta('   ', referenciaFija)).toThrow(
+      expect(() => parsearFechaConsulta('   ', referenciaFija)).toThrow(
         ErrorPeticionInvalida
       );
-      expect(() => validarFechaConsulta(12345, referenciaFija)).toThrow(
+      expect(() => parsearFechaConsulta(12345, referenciaFija)).toThrow(
         ErrorPeticionInvalida
       );
     });
 
     it('debería lanzar ErrorFormatoDeFecha si el formato no es YYYY-MM-DD', () => {
       expect(() =>
-        validarFechaConsulta('10-11-2026', referenciaFija)
+        parsearFechaConsulta('10-11-2026', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
       expect(() =>
-        validarFechaConsulta('2026/11/10', referenciaFija)
+        parsearFechaConsulta('2026/11/10', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
       expect(() =>
-        validarFechaConsulta('2026-11-1', referenciaFija)
+        parsearFechaConsulta('2026-11-1', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
       expect(() =>
-        validarFechaConsulta('invalido', referenciaFija)
+        parsearFechaConsulta('invalido', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
     });
 
     it('debería lanzar ErrorFormatoDeFecha si el mes es inválido', () => {
       expect(() =>
-        validarFechaConsulta('2026-14-03', referenciaFija)
+        parsearFechaConsulta('2026-14-03', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
       expect(() =>
-        validarFechaConsulta('2026-00-10', referenciaFija)
+        parsearFechaConsulta('2026-00-10', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
     });
 
     it('debería lanzar ErrorFormatoDeFecha si el día no existe en el calendario', () => {
       expect(() =>
-        validarFechaConsulta('2026-02-30', referenciaFija)
+        parsearFechaConsulta('2026-02-30', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
       expect(() =>
-        validarFechaConsulta('2026-11-31', referenciaFija)
+        parsearFechaConsulta('2026-11-31', referenciaFija)
       ).toThrow(ErrorFormatoDeFecha);
     });
 
     it('debería lanzar ErrorDeNegocio si la fecha es estrictamente anterior al día de hoy', () => {
       expect(() =>
-        validarFechaConsulta('2026-11-04', referenciaFija)
+        parsearFechaConsulta('2026-11-04', referenciaFija)
       ).toThrow(ErrorDeNegocio);
       expect(() =>
-        validarFechaConsulta('2026-11-04', referenciaFija)
+        parsearFechaConsulta('2026-11-04', referenciaFija)
       ).toThrow('No se pueden consultar turnos libres de fechas pasadas');
       expect(() =>
-        validarFechaConsulta('2020-01-01', referenciaFija)
+        parsearFechaConsulta('2020-01-01', referenciaFija)
       ).toThrow(ErrorDeNegocio);
     });
   });

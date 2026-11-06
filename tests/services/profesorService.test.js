@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { vi } from 'vitest';
 import { setupTestDB } from '../helpers/setupTestDB.js';
 import ErrorDeNegocio from '../../src/errors/ErrorDeNegocio.js';
 import ErrorFormatoDeFecha from '../../src/errors/ErrorFormatoDeFecha.js';
@@ -6,6 +7,10 @@ import ErrorPeticionInvalida from '../../src/errors/ErrorPeticionInvalida.js';
 import ErrorRegistroInexistente from '../../src/errors/ErrorRegistroInexistente.js';
 import ErrorMongooseObjIdInvalido from '../../src/errors/ErrorMongooseObjIdInvalido.js';
 import * as profesorService from '../../src/services/profesorService.js';
+import * as autoService from '../../src/services/autoService.js';
+import * as alumnoService from '../../src/services/alumnoService.js';
+import * as claseService from '../../src/services/claseService.js';
+import { ROLES } from '../../src/constants/roles.js';
 
 setupTestDB();
 
@@ -437,6 +442,301 @@ describe('profesorService', () => {
       await expect(
         profesorService.verDisponibilidad('id-invalido')
       ).rejects.toThrow(ErrorMongooseObjIdInvalido);
+    });
+  });
+
+  describe('obtenerTurnosLibres', () => {
+    let profesor;
+    let autoManual;
+    let autoAutomatico;
+    let alumno;
+
+    beforeEach(async () => {
+      profesor = await profesorService.crear({ NomApe: 'Profesor Carlos' });
+      await profesorService.agregarDisponibilidad(profesor._id.toString(), [
+        {
+          dia: 'martes',
+          tramoHorario: { horaInicio: '10:00', horaFin: '13:00' },
+        },
+      ]);
+
+      autoManual = await autoService.crear({
+        marca: 'Ford',
+        modelo: 'Ka',
+        patente: 'AA111AA',
+        cambios: 'MANUAL',
+      });
+
+      autoAutomatico = await autoService.crear({
+        marca: 'Toyota',
+        modelo: 'Corolla',
+        patente: 'BB222BB',
+        cambios: 'AUTOMATICO',
+      });
+
+      alumno = await alumnoService.crear({
+        NomApe: 'Alumno Prueba',
+        email: `alumno.${Date.now()}.${Math.random()}@test.com`,
+        password: 'password123',
+        saldoClases: 5,
+      });
+    });
+
+    it('debería devolver turnos libres con todos los autos disponibles para un día futuro con disponibilidad', async () => {
+      // 2026-11-10 es martes en el futuro
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      expect(resultado.turnos_libres).toHaveLength(3);
+      expect(resultado.turnos_libres[0]).toMatchObject({
+        inicio: '2026-11-10T10:00',
+        fin: '2026-11-10T11:00',
+      });
+      expect(resultado.turnos_libres[0].autos).toHaveLength(2);
+      expect(resultado.turnos_libres[1]).toMatchObject({
+        inicio: '2026-11-10T11:00',
+        fin: '2026-11-10T12:00',
+      });
+      expect(resultado.turnos_libres[2]).toMatchObject({
+        inicio: '2026-11-10T12:00',
+        fin: '2026-11-10T13:00',
+      });
+    });
+
+    it('debería filtrar los autos disponibles si se indica cambios MANUAL o AUTOMATICO', async () => {
+      const resManual = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+        cambios: 'manual',
+      });
+
+      expect(resManual.turnos_libres).toHaveLength(3);
+      expect(resManual.turnos_libres[0].autos).toHaveLength(1);
+      expect(resManual.turnos_libres[0].autos[0].cambios).toBe('MANUAL');
+
+      const resAuto = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+        cambios: 'AUTOMATICO',
+      });
+
+      expect(resAuto.turnos_libres).toHaveLength(3);
+      expect(resAuto.turnos_libres[0].autos).toHaveLength(1);
+      expect(resAuto.turnos_libres[0].autos[0].cambios).toBe('AUTOMATICO');
+    });
+
+    it('debería excluir turnos en los que el profesor ya tiene una clase agendada', async () => {
+      // Agendamos una clase para este profesor el martes 10 de 11:00 a 12:00
+      await claseService.agendar(
+        {
+          alumno: alumno._id.toString(),
+          profesor: profesor._id.toString(),
+          auto: autoManual._id.toString(),
+          inicio: '2026-11-10T11:00',
+          fin: '2026-11-10T12:00',
+        },
+        { rol: ROLES.ALUMNO, id: alumno._id.toString() }
+      );
+
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      // Se deben excluir las 11:00 -> quedan 10:00 y 12:00
+      expect(resultado.turnos_libres).toHaveLength(2);
+      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T10:00');
+      expect(resultado.turnos_libres[1].inicio).toBe('2026-11-10T12:00');
+    });
+
+    it('debería excluir un auto de un turno si está asignado a otra clase a esa misma hora con otro profesor', async () => {
+      const otroProfesor = await profesorService.crear({ NomApe: 'Profesor Segundo' });
+      await profesorService.agregarDisponibilidad(otroProfesor._id.toString(), [
+        {
+          dia: 'martes',
+          tramoHorario: { horaInicio: '10:00', horaFin: '12:00' },
+        },
+      ]);
+
+      // El otro profesor usa el autoManual de 10:00 a 11:00
+      await claseService.agendar(
+        {
+          alumno: alumno._id.toString(),
+          profesor: otroProfesor._id.toString(),
+          auto: autoManual._id.toString(),
+          inicio: '2026-11-10T10:00',
+          fin: '2026-11-10T11:00',
+        },
+        { rol: ROLES.ALUMNO, id: alumno._id.toString() }
+      );
+
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      // El turno de las 10:00 solo tiene autoAutomatico disponible
+      const turno10 = resultado.turnos_libres.find((t) => t.inicio === '2026-11-10T10:00');
+      expect(turno10.autos).toHaveLength(1);
+      expect(turno10.autos[0]._id.toString()).toBe(autoAutomatico._id.toString());
+
+      // El turno de las 12:00 tiene ambos autos
+      const turno12 = resultado.turnos_libres.find((t) => t.inicio === '2026-11-10T12:00');
+      expect(turno12.autos).toHaveLength(2);
+    });
+
+    it('debería incluir el turno con autos: [] si todos los autos están ocupados a esa hora (Opción B)', async () => {
+      const otroProfesor = await profesorService.crear({ NomApe: 'Profesor Tercero' });
+      await profesorService.agregarDisponibilidad(otroProfesor._id.toString(), [
+        {
+          dia: 'martes',
+          tramoHorario: { horaInicio: '10:00', horaFin: '12:00' },
+        },
+      ]);
+
+      const alumnoDos = await alumnoService.crear({
+        NomApe: 'Alumno Dos',
+        email: `alumno2.${Date.now()}.${Math.random()}@test.com`,
+        password: 'password123',
+        saldoClases: 5,
+      });
+
+      // Ocupamos autoManual a las 10:00 con otroProfesor
+      await claseService.agendar(
+        {
+          alumno: alumno._id.toString(),
+          profesor: otroProfesor._id.toString(),
+          auto: autoManual._id.toString(),
+          inicio: '2026-11-10T10:00',
+          fin: '2026-11-10T11:00',
+        },
+        { rol: ROLES.ALUMNO, id: alumno._id.toString() }
+      );
+
+      // Creamos un cuarto profesor para ocupar el segundo auto a las 10:00
+      const cuartoProfesor = await profesorService.crear({ NomApe: 'Profesor Cuarto' });
+      await profesorService.agregarDisponibilidad(cuartoProfesor._id.toString(), [
+        {
+          dia: 'martes',
+          tramoHorario: { horaInicio: '10:00', horaFin: '12:00' },
+        },
+      ]);
+
+      await claseService.agendar(
+        {
+          alumno: alumnoDos._id.toString(),
+          profesor: cuartoProfesor._id.toString(),
+          auto: autoAutomatico._id.toString(),
+          inicio: '2026-11-10T10:00',
+          fin: '2026-11-10T11:00',
+        },
+        { rol: ROLES.ALUMNO, id: alumnoDos._id.toString() }
+      );
+
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-10',
+      });
+
+      // A las 10:00 el profesor está libre, pero autos está vacío []
+      const turno10 = resultado.turnos_libres.find((t) => t.inicio === '2026-11-10T10:00');
+      expect(turno10).toBeDefined();
+      expect(turno10.autos).toEqual([]);
+    });
+
+    it('debería devolver turnos_libres: [] si el profesor no tiene disponibilidad configurada en ese día', async () => {
+      // 2026-11-11 es miércoles (no tiene disponibilidad)
+      const resultado = await profesorService.obtenerTurnosLibres({
+        profesorId: profesor._id.toString(),
+        fecha: '2026-11-11',
+      });
+
+      expect(resultado).toEqual({ turnos_libres: [] });
+    });
+
+    it('debería descartar turnos pasados si la fecha consultada es hoy', async () => {
+      // Supongamos que hoy es 2026-11-10 (martes) a las 11:30 hora de Buenos Aires (14:30 UTC)
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-11-10T14:30:00Z'));
+
+      try {
+        const resultado = await profesorService.obtenerTurnosLibres({
+          profesorId: profesor._id.toString(),
+          fecha: '2026-11-10',
+        });
+
+        // 10:00 y 11:00 ya pasaron (o empezaron antes de las 11:30) -> solo queda 12:00 a 13:00
+        expect(resultado.turnos_libres).toHaveLength(1);
+        expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T12:00');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('debería lanzar ErrorMongooseObjIdInvalido si profesorId no es un ObjectId válido', async () => {
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: 'invalido',
+          fecha: '2026-11-10',
+        })
+      ).rejects.toThrow(ErrorMongooseObjIdInvalido);
+    });
+
+    it('debería lanzar ErrorRegistroInexistente si el profesor no existe', async () => {
+      const idInexistente = new mongoose.Types.ObjectId().toString();
+
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: idInexistente,
+          fecha: '2026-11-10',
+        })
+      ).rejects.toThrow(ErrorRegistroInexistente);
+    });
+
+    it('debería lanzar ErrorPeticionInvalida si fecha no es provista o está vacía', async () => {
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: profesor._id.toString(),
+          fecha: '',
+        })
+      ).rejects.toThrow(ErrorPeticionInvalida);
+    });
+
+    it('debería lanzar ErrorFormatoDeFecha si la fecha no tiene formato YYYY-MM-DD o es inválida', async () => {
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: profesor._id.toString(),
+          fecha: '2026-14-03',
+        })
+      ).rejects.toThrow(ErrorFormatoDeFecha);
+
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: profesor._id.toString(),
+          fecha: '2026-02-30',
+        })
+      ).rejects.toThrow(ErrorFormatoDeFecha);
+    });
+
+    it('debería lanzar ErrorDeNegocio si la fecha es anterior a hoy', async () => {
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: profesor._id.toString(),
+          fecha: '2020-01-01',
+        })
+      ).rejects.toThrow(ErrorDeNegocio);
+    });
+
+    it('debería lanzar ErrorDeNegocio si cambios no es MANUAL ni AUTOMATICO', async () => {
+      await expect(
+        profesorService.obtenerTurnosLibres({
+          profesorId: profesor._id.toString(),
+          fecha: '2026-11-10',
+          cambios: 'ELECTRICO',
+        })
+      ).rejects.toThrow(ErrorDeNegocio);
     });
   });
 });

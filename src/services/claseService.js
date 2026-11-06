@@ -218,3 +218,13 @@ export async function listar(filtros = {}, usuarioActual) {
 
   return await Clase.find(filtroFinal);
 }
+
+
+// Obtiene todas las clases dictadas en una fecha dada (formato "YYYY-MM-DD").
+// Se utiliza $regex con '^' porque 'inicio' se almacena como string con fecha y hora
+// (ej. "YYYY-MM-DDTHH:00"), permitiendo traer todas las clases del día sin importar la hora.
+export async function listarPorFecha(fecha) {
+  return await Clase.find({
+    inicio: { $regex: `^${fecha}T` },
+  });
+}

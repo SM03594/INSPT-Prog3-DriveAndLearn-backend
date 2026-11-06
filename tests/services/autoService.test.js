@@ -3,6 +3,7 @@ import { setupTestDB } from '../helpers/setupTestDB.js';
 import { CAMBIOS } from '../../src/constants/cambios.js';
 import ErrorDeNegocio from '../../src/errors/ErrorDeNegocio.js';
 import ErrorMongooseObjIdInvalido from '../../src/errors/ErrorMongooseObjIdInvalido.js';
+import Clase from '../../src/models/Clase.js';
 import * as autoService from '../../src/services/autoService.js';
 
 setupTestDB();
@@ -226,6 +227,153 @@ describe('autoService', () => {
           patente: auto1.patente,
         })
       ).rejects.toThrow();
+    });
+  });
+
+  describe('obtenerAutosLibresEnTurno', () => {
+    it('debería retornar todos los autos de la flota si no hay clases agendadas en ese turno', async () => {
+      const auto1 = await autoService.crear({
+        marca: 'Volkswagen',
+        modelo: 'Gol',
+        patente: 'ABC123',
+        cambios: CAMBIOS.MANUAL,
+      });
+      const auto2 = await autoService.crear({
+        marca: 'Toyota',
+        modelo: 'Etios',
+        patente: 'AB123CD',
+        cambios: CAMBIOS.AUTOMATICO,
+      });
+
+      const autosLibres = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T10:00'
+      );
+
+      expect(autosLibres).toHaveLength(2);
+      expect(autosLibres.map((a) => a.patente)).toContain('ABC123');
+      expect(autosLibres.map((a) => a.patente)).toContain('AB123CD');
+    });
+
+    it('debería excluir los autos ocupados en ese turno si tienen una clase agendada', async () => {
+      const autoLibre = await autoService.crear({
+        marca: 'Peugeot',
+        modelo: '208',
+        patente: 'AA111BB',
+        cambios: CAMBIOS.MANUAL,
+      });
+      const autoOcupado = await autoService.crear({
+        marca: 'Renault',
+        modelo: 'Clio',
+        patente: 'CC222DD',
+        cambios: CAMBIOS.MANUAL,
+      });
+
+      const dummyProfesorId = new mongoose.Types.ObjectId();
+      const dummyAlumnoId = new mongoose.Types.ObjectId();
+
+      await Clase.create({
+        alumno: dummyAlumnoId,
+        profesor: dummyProfesorId,
+        auto: autoOcupado._id,
+        inicio: '2026-11-10T10:00',
+        fin: '2026-11-10T11:00',
+      });
+
+      const autosLibres = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T10:00'
+      );
+
+      expect(autosLibres).toHaveLength(1);
+      expect(autosLibres[0]._id.toString()).toBe(autoLibre._id.toString());
+    });
+
+    it('debería filtrar por tipo de cambios cuando se especifica', async () => {
+      await autoService.crear({
+        marca: 'Volkswagen',
+        modelo: 'Gol',
+        patente: 'AE123FG',
+        cambios: CAMBIOS.MANUAL,
+      });
+      await autoService.crear({
+        marca: 'Toyota',
+        modelo: 'Corolla',
+        patente: 'AF456GH',
+        cambios: CAMBIOS.AUTOMATICO,
+      });
+
+      const autosManuales = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T10:00',
+        'manual'
+      );
+
+      expect(autosManuales).toHaveLength(1);
+      expect(autosManuales[0].cambios).toBe(CAMBIOS.MANUAL);
+
+      const autosAutomaticos = await autoService.obtenerAutosLibresEnTurno(
+        '2026-11-10T10:00',
+        'AUTOMATICO'
+      );
+
+      expect(autosAutomaticos).toHaveLength(1);
+      expect(autosAutomaticos[0].cambios).toBe(CAMBIOS.AUTOMATICO);
+    });
+
+    it('debería rechazar si cambios no es MANUAL ni AUTOMATICO', async () => {
+      await expect(
+        autoService.obtenerAutosLibresEnTurno('2026-11-10T10:00', 'ELECTRICO')
+      ).rejects.toThrow(ErrorDeNegocio);
+    });
+  });
+
+  describe('adjuntarAutosATurnos', () => {
+    it('debería adjuntar los autos disponibles para cada turno recibido', async () => {
+      const auto = await autoService.crear({
+        marca: 'Volkswagen',
+        modelo: 'Gol',
+        patente: 'AB123CD',
+        cambios: CAMBIOS.MANUAL,
+      });
+
+      const turnos = [
+        { inicio: '2026-11-10T10:00', fin: '2026-11-10T11:00' },
+        { inicio: '2026-11-10T11:00', fin: '2026-11-10T12:00' },
+      ];
+
+      const resultado = await autoService.adjuntarAutosATurnos(turnos);
+
+      expect(resultado).toHaveLength(2);
+      expect(resultado[0].inicio).toBe('2026-11-10T10:00');
+      expect(resultado[0].autos).toHaveLength(1);
+      expect(resultado[0].autos[0]._id.toString()).toBe(auto._id.toString());
+      expect(resultado[1].inicio).toBe('2026-11-10T11:00');
+      expect(resultado[1].autos).toHaveLength(1);
+    });
+
+    it('debería filtrar por tipo de cambios en todos los turnos', async () => {
+      await autoService.crear({
+        marca: 'Volkswagen',
+        modelo: 'Gol',
+        patente: 'AC123EF',
+        cambios: CAMBIOS.MANUAL,
+      });
+      await autoService.crear({
+        marca: 'Toyota',
+        modelo: 'Etios',
+        patente: 'AD456GH',
+        cambios: CAMBIOS.AUTOMATICO,
+      });
+
+      const turnos = [
+        { inicio: '2026-11-10T10:00', fin: '2026-11-10T11:00' },
+      ];
+
+      const resultado = await autoService.adjuntarAutosATurnos(
+        turnos,
+        'AUTOMATICO'
+      );
+
+      expect(resultado[0].autos).toHaveLength(1);
+      expect(resultado[0].autos[0].cambios).toBe(CAMBIOS.AUTOMATICO);
     });
   });
 });
