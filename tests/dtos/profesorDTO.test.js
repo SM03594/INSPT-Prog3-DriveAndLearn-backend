@@ -8,6 +8,7 @@ import {
   validarModificarDisponibilidadDTO,
   validarAgregarDisponibilidadDTO,
   validarQuitarDisponibilidadDTO,
+  validarTurnosLibresQueryDTO,
 } from '../../src/dtos/profesorDTO.js';
 
 function crearCuerpoProfesorValido() {
@@ -583,6 +584,112 @@ describe('profesorDTO', () => {
         const cuerpo = crearCuerpoDisponibilidadValido();
 
         expect(() => validarQuitarDisponibilidadDTO(cuerpo)).not.toThrow();
+      });
+    });
+  });
+
+  describe('validarTurnosLibresQueryDTO', () => {
+    describe('casos válidos', () => {
+      it('debería aceptar query solo con fecha requerida', () => {
+        const query = { fecha: '2026-11-10' };
+
+        expect(() => validarTurnosLibresQueryDTO(query)).not.toThrow();
+      });
+
+      it('debería aceptar query con fecha y cambios opcional', () => {
+        const query = { fecha: '2026-11-10', cambios: 'MANUAL' };
+
+        expect(() => validarTurnosLibresQueryDTO(query)).not.toThrow();
+      });
+
+      it('debería devolver una copia con los campos válidos sin mutar el original', () => {
+        const query = { fecha: '2026-11-10', cambios: 'MANUAL' };
+        const copia = { ...query };
+
+        const resultado = validarTurnosLibresQueryDTO(query);
+
+        expect(resultado).toEqual(query);
+        expect(resultado).not.toBe(query);
+        expect(query).toEqual(copia);
+      });
+    });
+
+    describe('query vacía o inválida', () => {
+      it('debería rechazar si query es null, undefined o no es objeto con ErrorDeTipo', () => {
+        expect(() => validarTurnosLibresQueryDTO(null)).toThrow(ErrorDeTipo);
+        expect(() => validarTurnosLibresQueryDTO(undefined)).toThrow(
+          ErrorDeTipo
+        );
+        expect(() => validarTurnosLibresQueryDTO('string')).toThrow(
+          ErrorDeTipo
+        );
+        expect(() => validarTurnosLibresQueryDTO(['array'])).toThrow(
+          ErrorDeTipo
+        );
+      });
+
+      it('debería rechazar un objeto vacío con ErrorCampoInvalido', () => {
+        const error = capturarError(() => validarTurnosLibresQueryDTO({}));
+
+        expect(error).toBeInstanceOf(ErrorCampoInvalido);
+        expect(error.statusCode).toBe(400);
+        expect(error.message).toBe('Los parámetros de consulta no pueden estar vacíos');
+      });
+    });
+
+    describe('campos obligatorios faltantes', () => {
+      it('debería rechazar si falta el campo obligatorio fecha', () => {
+        const error = capturarError(() =>
+          validarTurnosLibresQueryDTO({ cambios: 'MANUAL' })
+        );
+
+        expect(error).toBeInstanceOf(ErrorCampoInvalido);
+        expect(error.message).toContain('Campos obligatorios faltantes: fecha');
+      });
+    });
+
+    describe('campos no permitidos', () => {
+      it('debería rechazar si se envían parámetros de consulta no permitidos', () => {
+        const error = capturarError(() =>
+          validarTurnosLibresQueryDTO({
+            fecha: '2026-11-10',
+            invalido: 'algo',
+          })
+        );
+
+        expect(error).toBeInstanceOf(ErrorCampoInvalido);
+        expect(error.message).toContain('Campos no permitidos: invalido');
+      });
+    });
+
+    describe('tipos de datos incorrectos', () => {
+      it('debería rechazar si fecha no es un string', () => {
+        const error = capturarError(() =>
+          validarTurnosLibresQueryDTO({ fecha: 12345 })
+        );
+
+        expect(error).toBeInstanceOf(ErrorDeTipo);
+        expect(error.message).toContain('fecha (se esperaba string)');
+      });
+
+      it('debería rechazar si fecha es un array por parameter pollution', () => {
+        const error = capturarError(() =>
+          validarTurnosLibresQueryDTO({
+            fecha: ['2026-11-10', '2026-11-11'],
+          })
+        );
+
+        expect(error).toBeInstanceOf(ErrorDeTipo);
+        expect(error.message).toContain('fecha (se esperaba string)');
+      });
+
+      it('debería rechazar si cambios no es un string', () => {
+        const error = capturarError(() =>
+          validarTurnosLibresQueryDTO({ fecha: '2026-11-10', cambios: 123 })
+        );
+
+        expect(error).toBeInstanceOf(ErrorDeTipo);
+        expect(error.message).toContain('cambios (se esperaba string)');
       });
     });
   });

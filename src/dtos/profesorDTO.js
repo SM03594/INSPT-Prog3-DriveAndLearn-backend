@@ -1,4 +1,5 @@
 import ErrorDeTipo from '../errors/ErrorDeTipo.js';
+import ErrorCampoInvalido from '../errors/ErrorCampoInvalido.js';
 import { validarEstructuraYTipos } from './helpers/validarEstructuraYTipos.js';
 
 const TIPOS_CAMPOS_PROFESOR = Object.freeze({
@@ -6,6 +7,14 @@ const TIPOS_CAMPOS_PROFESOR = Object.freeze({
 });
 
 const CAMPOS_PROFESOR = Object.keys(TIPOS_CAMPOS_PROFESOR);
+
+const TIPOS_CAMPOS_TURNOS_LIBRES_QUERY = Object.freeze({
+    fecha: 'string',
+    cambios: 'string',
+});
+
+const CAMPOS_REQUERIDOS_TURNOS_LIBRES_QUERY = ['fecha'];
+const CAMPOS_OPCIONALES_TURNOS_LIBRES_QUERY = ['cambios'];
 
 const TIPOS_CAMPOS_MODIFICAR_DISPONIBILIDAD = Object.freeze({
     tramos: 'object',
@@ -92,3 +101,26 @@ export function validarModificarDisponibilidadDTO(body) {
 
 export const validarAgregarDisponibilidadDTO = validarModificarDisponibilidadDTO;
 export const validarQuitarDisponibilidadDTO = validarModificarDisponibilidadDTO;
+
+
+export function validarTurnosLibresQueryDTO(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query)) {
+        throw new ErrorDeTipo(
+            'Los parámetros de consulta deben ser un objeto válido'
+        );
+    }
+
+    const claves = Object.keys(query);
+    if (claves.length === 0) {
+        throw new ErrorCampoInvalido(
+            'Los parámetros de consulta no pueden estar vacíos'
+        );
+    }
+
+    return validarEstructuraYTipos(
+        query,
+        TIPOS_CAMPOS_TURNOS_LIBRES_QUERY,
+        CAMPOS_REQUERIDOS_TURNOS_LIBRES_QUERY,
+        CAMPOS_OPCIONALES_TURNOS_LIBRES_QUERY
+    );
+}
