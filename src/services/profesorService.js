@@ -7,6 +7,14 @@ import {
   agregarTramosADia,
   quitarTramosDeDia,
 } from './helpers/disponibilidadHelper.js';
+import {
+  parsearFechaConsulta,
+  obtenerDiaDeLaSemana,
+  generarTurnosDeFecha,
+} from './helpers/turnosYFechasHelper.js';
+import * as autoService from './autoService.js';
+import * as claseService from './claseService.js';
+
 
 function verificarQueNoIncluyaDisponibilidad(datos) {
   if (datos && datos.disponibilidad !== undefined) {
@@ -15,6 +23,7 @@ function verificarQueNoIncluyaDisponibilidad(datos) {
     );
   }
 }
+
 
 function agruparTramosPorDia(listaTramos) {
   return listaTramos.reduce((acumulador, { dia, tramoHorario }) => {
@@ -26,6 +35,7 @@ function agruparTramosPorDia(listaTramos) {
   }, {});
 }
 
+
 async function obtenerProfesorExistente(id) {
   const profesor = await obtenerPorId(id);
 
@@ -36,21 +46,25 @@ async function obtenerProfesorExistente(id) {
   return profesor;
 }
 
+
 export async function crear(datos) {
   verificarQueNoIncluyaDisponibilidad(datos);
 
   return await Profesor.create(datos);
 }
 
+
 export async function listar() {
   return await Profesor.find({});
 }
+
 
 export async function obtenerPorId(id) {
   validarMongooseObjId(id);
 
   return await Profesor.findById(id);
 }
+
 
 export async function actualizar(id, datos) {
   validarMongooseObjId(id);
@@ -62,11 +76,13 @@ export async function actualizar(id, datos) {
   });
 }
 
+
 export async function verDisponibilidad(id) {
   const profesor = await obtenerProfesorExistente(id);
 
   return profesor.disponibilidad;
 }
+
 
 export async function agregarDisponibilidad(id, listaTramos) {
   validarEntradaTramosDisponibilidad(listaTramos);
@@ -85,6 +101,7 @@ export async function agregarDisponibilidad(id, listaTramos) {
   return await profesor.save();
 }
 
+
 export async function quitarDisponibilidad(id, listaTramos) {
   validarEntradaTramosDisponibilidad(listaTramos);
 
@@ -100,4 +117,63 @@ export async function quitarDisponibilidad(id, listaTramos) {
   }
 
   return await profesor.save();
+}
+
+
+function filtrarTurnosOcupadosDelProfesor(turnos, clases, profesorId) {
+  const profesorIdStr = profesorId.toString();
+  const horasOcupadas = new Set(
+    clases
+      .filter((clase) => clase.profesor.toString() === profesorIdStr)
+      .map((clase) => clase.inicio)
+  );
+
+  return turnos.filter((turno) => !horasOcupadas.has(turno.inicio));
+}
+
+
+function obtenerTurnosPosibles(disponibilidad, fechaDateTime) {
+  const nombreDia = obtenerDiaDeLaSemana(fechaDateTime);
+  const tramosDelDia = disponibilidad?.[nombreDia] || [];
+
+  if (tramosDelDia.length === 0) {
+    return [];
+  }
+
+  return generarTurnosDeFecha(fechaDateTime, tramosDelDia);
+}
+
+
+export async function obtenerTurnosLibres({ profesorId, fecha, cambios } = {}) {
+  validarMongooseObjId(profesorId);
+
+  const fechaDateTime = parsearFechaConsulta(fecha);
+  const profesor = await obtenerProfesorExistente(profesorId);
+
+  const turnosPosibles = obtenerTurnosPosibles(
+    profesor.disponibilidad,
+    fechaDateTime
+  );
+
+  if (turnosPosibles.length === 0) {
+    return { turnos_libres: [] };
+  }
+
+  const clasesDelDia = await claseService.listarPorFecha(fecha.trim());
+  const turnosLibresProfesor = filtrarTurnosOcupadosDelProfesor(
+    turnosPosibles,
+    clasesDelDia,
+    profesorId
+  );
+
+  if (turnosLibresProfesor.length === 0) {
+    return { turnos_libres: [] };
+  }
+
+  const turnos_libres = await autoService.adjuntarAutosATurnos(
+    turnosLibresProfesor,
+    cambios
+  );
+
+  return { turnos_libres };
 }
