@@ -9,6 +9,7 @@ import {
   validarIntervaloDeClase,
   estaDentroDeDisponibilidad,
   verificarFechaFutura,
+  crearFiltroSuperposicion,
 } from './helpers/turnosYFechasHelper.js';
 import * as alumnoService from './alumnoService.js';
 import * as profesorService from './profesorService.js';
@@ -84,11 +85,17 @@ function verificarDisponibilidadProfesor(disponibilidad, inicio, fin) {
 }
 
 
-async function verificarSuperposiciones({ alumnoId, profesorId, autoId, inicio }) {
+async function verificarSuperposiciones(
+  alumnoId,
+  profesorId,
+  autoId,
+  inicio,
+  fin
+) {
   const [claseAlumno, claseProfesor, claseAuto] = await Promise.all([
-    Clase.exists({ alumno: alumnoId, inicio }),
-    Clase.exists({ profesor: profesorId, inicio }),
-    Clase.exists({ auto: autoId, inicio }),
+    Clase.exists(crearFiltroSuperposicion(inicio, fin, { alumno: alumnoId })),
+    Clase.exists(crearFiltroSuperposicion(inicio, fin, { profesor: profesorId })),
+    Clase.exists(crearFiltroSuperposicion(inicio, fin, { auto: autoId })),
   ]);
 
   if (claseAlumno) {
@@ -120,14 +127,14 @@ export async function agendar(datosClase, usuarioActual) {
   validarMongooseObjId(profesorId);
   validarMongooseObjId(autoId);
 
-  // Regla 1: Solo el propio alumno puede agendarse clases a sí mismo
+  // Solo el propio alumno puede agendarse clases a sí mismo
   verificarPermisoAgendamiento(alumnoId, usuarioActual);
 
-  // Regla de horario: La fecha debe ser futura y la clase durar exactamente 1 hora en punto
+  // La fecha debe ser futura y la clase durar exactamente 1 hora en punto
   verificarFechaFutura(inicio);
   validarIntervaloDeClase(inicio, fin);
 
-  // Regla 0: Validar existencia de entidades (única responsabilidad: comprobar existencia)
+  // Validar existencia de entidades (única responsabilidad: comprobar existencia)
   const { alumno, profesor } = await verificarEntidadesExistentes({
     alumnoId,
     profesorId,
@@ -137,16 +144,17 @@ export async function agendar(datosClase, usuarioActual) {
   // Validar que el alumno posea saldo disponible
   verificarSaldoSuficiente(alumno);
 
-  // Regla 3: El horario debe estar dentro de la disponibilidad del profesor
+  // El horario debe estar dentro de la disponibilidad del profesor
   verificarDisponibilidadProfesor(profesor.disponibilidad, inicio, fin);
 
-  // Reglas 2, 4 y 5: Verificar que ni alumno, ni profesor, ni auto tengan superposición
-  await verificarSuperposiciones({
+  // Verificar que ni alumno, ni profesor, ni auto tengan superposición
+  await verificarSuperposiciones(
     alumnoId,
     profesorId,
     autoId,
     inicio,
-  });
+    fin
+  );
 
   // Descontar saldo de clases al alumno vía alumnoService
   await alumnoService.restarSaldoClases(alumnoId, { cantidad: 1 });
@@ -227,4 +235,12 @@ export async function listarPorFecha(fecha) {
   return await Clase.find({
     inicio: { $regex: `^${fecha}T` },
   });
+}
+
+
+// Obtiene todas las clases que se superponen con el intervalo [inicio, fin).
+// Permite especificar un filtro adicional opcional (ej. { auto: autoId }).
+export async function listarEnIntervalo(inicio, fin, filtroAdicional = {}) {
+  const filtro = crearFiltroSuperposicion(inicio, fin, filtroAdicional);
+  return await Clase.find(filtro);
 }

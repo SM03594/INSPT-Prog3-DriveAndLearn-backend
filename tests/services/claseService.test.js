@@ -867,4 +867,53 @@ describe('claseService', () => {
       expect(clasesDia10).toHaveLength(0);
     });
   });
+
+  describe('listarEnIntervalo', () => {
+    it('debería listar clases que se solapen con el intervalo y excluir contiguas o no superpuestas', async () => {
+      const alumno = await crearAlumnoFixture({ saldo: 3 });
+      const profesor = await crearProfesorFixture();
+      const auto = await crearAutoFixture();
+      const usuarioActual = { id: alumno._id.toString(), rol: ROLES.ALUMNO };
+
+      await claseService.agendar(
+        {
+          alumno: alumno._id.toString(),
+          profesor: profesor._id.toString(),
+          auto: auto._id.toString(),
+          inicio: '2026-11-09T10:00',
+          fin: '2026-11-09T11:00',
+        },
+        usuarioActual
+      );
+
+      // Superposición idéntica
+      const clasesSolapadas = await claseService.listarEnIntervalo(
+        '2026-11-09T10:00',
+        '2026-11-09T11:00'
+      );
+      expect(clasesSolapadas).toHaveLength(1);
+
+      // Contigua posterior (11:00 a 12:00) -> NO debe incluirse
+      const clasesContiguas = await claseService.listarEnIntervalo(
+        '2026-11-09T11:00',
+        '2026-11-09T12:00'
+      );
+      expect(clasesContiguas).toHaveLength(0);
+
+      // Con filtro adicional por auto
+      const clasesConAuto = await claseService.listarEnIntervalo(
+        '2026-11-09T10:00',
+        '2026-11-09T11:00',
+        { auto: auto._id }
+      );
+      expect(clasesConAuto).toHaveLength(1);
+
+      const clasesConOtroAuto = await claseService.listarEnIntervalo(
+        '2026-11-09T10:00',
+        '2026-11-09T11:00',
+        { auto: new mongoose.Types.ObjectId() }
+      );
+      expect(clasesConOtroAuto).toHaveLength(0);
+    });
+  });
 });
