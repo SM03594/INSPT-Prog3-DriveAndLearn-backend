@@ -11,6 +11,9 @@ import {
   parsearFechaConsulta,
   obtenerDiaDeLaSemana,
   generarTurnosDeFecha,
+  crearIntervaloValido,
+  seSuperponenIntervalos,
+  crearFiltroSuperposicion,
 } from '../../../src/services/helpers/turnosYFechasHelper.js';
 
 describe('turnosYFechasHelper', () => {
@@ -371,6 +374,183 @@ describe('turnosYFechasHelper', () => {
         { inicio: '2026-11-05T14:00', fin: '2026-11-05T15:00' },
         { inicio: '2026-11-05T15:00', fin: '2026-11-05T16:00' },
       ]);
+    });
+  });
+
+  describe('seSuperponenIntervalos', () => {
+    it('debería devolver true cuando los intervalos son idénticos', () => {
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T10:00',
+          '2026-11-10T11:00',
+          '2026-11-10T10:00',
+          '2026-11-10T11:00'
+        )
+      ).toBe(true);
+    });
+
+    it('debería devolver false cuando los intervalos son contiguos consecutivos', () => {
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T10:00',
+          '2026-11-10T11:00',
+          '2026-11-10T11:00',
+          '2026-11-10T12:00'
+        )
+      ).toBe(false);
+
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T11:00',
+          '2026-11-10T12:00',
+          '2026-11-10T10:00',
+          '2026-11-10T11:00'
+        )
+      ).toBe(false);
+    });
+
+    it('debería devolver true cuando un intervalo engloba o contiene al otro', () => {
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T10:00',
+          '2026-11-10T12:00',
+          '2026-11-10T10:30',
+          '2026-11-10T11:30'
+        )
+      ).toBe(true);
+
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T10:30',
+          '2026-11-10T11:30',
+          '2026-11-10T10:00',
+          '2026-11-10T12:00'
+        )
+      ).toBe(true);
+    });
+
+    it('debería devolver true cuando hay solapamiento parcial al inicio', () => {
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T09:30',
+          '2026-11-10T10:30',
+          '2026-11-10T10:00',
+          '2026-11-10T11:00'
+        )
+      ).toBe(true);
+    });
+
+    it('debería devolver true cuando hay solapamiento parcial al final', () => {
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T10:30',
+          '2026-11-10T11:30',
+          '2026-11-10T10:00',
+          '2026-11-10T11:00'
+        )
+      ).toBe(true);
+    });
+
+    it('debería devolver false cuando los intervalos son completamente disjuntos', () => {
+      expect(
+        seSuperponenIntervalos(
+          '2026-11-10T08:00',
+          '2026-11-10T09:00',
+          '2026-11-10T14:00',
+          '2026-11-10T15:00'
+        )
+      ).toBe(false);
+    });
+
+    it('debería lanzar ErrorFormatoDeFecha si alguna fecha es inválida', () => {
+      expect(() =>
+        seSuperponenIntervalos(
+          '2026-02-30T10:00',
+          '2026-02-30T11:00',
+          '2026-11-10T10:00',
+          '2026-11-10T11:00'
+        )
+      ).toThrow(ErrorFormatoDeFecha);
+    });
+
+    it('debería lanzar ErrorDeNegocio si inicio no es anterior a fin', () => {
+      expect(() =>
+        seSuperponenIntervalos(
+          '2026-11-10T11:00',
+          '2026-11-10T10:00',
+          '2026-11-10T10:00',
+          '2026-11-10T11:00'
+        )
+      ).toThrow(ErrorDeNegocio);
+    });
+  });
+
+  describe('crearIntervaloValido', () => {
+    it('debería crear un Interval válido para fechas ISO incluso con minutos que no sean en punto', () => {
+      const intervalo = crearIntervaloValido(
+        '2026-11-10T10:15',
+        '2026-11-10T11:45'
+      );
+
+      expect(intervalo.isValid).toBe(true);
+      expect(intervalo.length('minutes')).toBe(90);
+    });
+
+    it('debería aceptar instancias de DateTime de Luxon', () => {
+      const dtInicio = DateTime.fromISO('2026-11-10T10:00');
+      const dtFin = DateTime.fromISO('2026-11-10T11:30');
+
+      const intervalo = crearIntervaloValido(dtInicio, dtFin);
+      expect(intervalo.isValid).toBe(true);
+      expect(intervalo.length('hours')).toBe(1.5);
+    });
+
+    it('debería lanzar ErrorFormatoDeFecha si la fecha no existe o el formato es incorrecto', () => {
+      expect(() =>
+        crearIntervaloValido('2026-02-30T10:00', '2026-02-30T11:00')
+      ).toThrow(ErrorFormatoDeFecha);
+
+      expect(() =>
+        crearIntervaloValido('formato-invalido', '2026-11-10T11:00')
+      ).toThrow(ErrorFormatoDeFecha);
+    });
+
+    it('debería lanzar ErrorDeNegocio si inicio es igual a fin (duración cero) o posterior a fin', () => {
+      expect(() =>
+        crearIntervaloValido('2026-11-10T10:00', '2026-11-10T10:00')
+      ).toThrow(ErrorDeNegocio);
+
+      expect(() =>
+        crearIntervaloValido('2026-11-10T11:00', '2026-11-10T10:00')
+      ).toThrow(ErrorDeNegocio);
+    });
+  });
+
+  describe('crearFiltroSuperposicion', () => {
+    it('debería generar el filtro con inicio menor a fin y fin mayor a inicio', () => {
+      const filtro = crearFiltroSuperposicion(
+        '2026-11-10T10:00',
+        '2026-11-10T11:00'
+      );
+
+      expect(filtro).toEqual({
+        inicio: { $lt: '2026-11-10T11:00' },
+        fin: { $gt: '2026-11-10T10:00' },
+      });
+    });
+
+    it('debería fusionar las condiciones adicionales del filtroBase provisto', () => {
+      const filtro = crearFiltroSuperposicion(
+        '2026-11-10T10:00',
+        '2026-11-10T11:00',
+        { alumno: 'alumnoId123' }
+      );
+
+      expect(filtro).toEqual({
+        alumno: 'alumnoId123',
+        inicio: { $lt: '2026-11-10T11:00' },
+        fin: { $gt: '2026-11-10T10:00' },
+      });
     });
   });
 });

@@ -45,9 +45,9 @@ export function parsearFechaHoraClase(fechaHoraStr) {
 export function validarIntervaloDeClase(inicioStr, finStr) {
   const fechaInicio = parsearFechaHoraClase(inicioStr);
   const fechaFin = parsearFechaHoraClase(finStr);
-  const intervalo = Interval.fromDateTimes(fechaInicio, fechaFin);
+  const intervalo = crearIntervaloValido(fechaInicio, fechaFin);
 
-  if (!intervalo.isValid || intervalo.length('hours') !== DURACION_CLASE_HORAS) {
+  if (intervalo.length('hours') !== DURACION_CLASE_HORAS) {
     throw new ErrorDeNegocio(
       `La clase debe durar exactamente ${DURACION_CLASE_HORAS} hora`
     );
@@ -204,4 +204,49 @@ export function generarTurnosDeFecha(
   }
 
   return turnos;
+}
+
+
+// Valida que inicio y fin correspondan a fechas y horas válidas en el calendario
+// y que inicio sea cronológicamente anterior a fin, devolviendo el Interval de Luxon.
+export function crearIntervaloValido(inicio, fin) {
+  const fechaInicio =
+    typeof inicio === 'string' ? DateTime.fromISO(inicio) : inicio;
+  const fechaFin = typeof fin === 'string' ? DateTime.fromISO(fin) : fin;
+
+  if (!fechaInicio?.isValid || !fechaFin?.isValid) {
+    throw new ErrorFormatoDeFecha('La fecha y hora proporcionada no es válida');
+  }
+
+  const intervalo = Interval.fromDateTimes(fechaInicio, fechaFin);
+
+  if (!intervalo.isValid || intervalo.isEmpty()) {
+    throw new ErrorDeNegocio(
+      'La fecha y hora de inicio debe ser anterior a la de fin'
+    );
+  }
+
+  return intervalo;
+}
+
+
+// Evalúa si dos intervalos de tiempo se superponen utilizando Interval.overlaps de Luxon.
+// Retorna true si comparten tiempo en común (los intervalos contiguos devuelven false).
+// Lanza ErrorFormatoDeFecha o ErrorDeNegocio si alguno de los intervalos es inválido.
+export function seSuperponenIntervalos(inicioA, finA, inicioB, finB) {
+  const intervaloA = crearIntervaloValido(inicioA, finA);
+  const intervaloB = crearIntervaloValido(inicioB, finB);
+
+  return intervaloA.overlaps(intervaloB);
+}
+
+
+// Construye un filtro de consulta para MongoDB/Mongoose que detecta cualquier documento
+// cuyo intervalo [inicio, fin) se solape con el rango provisto.
+export function crearFiltroSuperposicion(inicio, fin, filtroBase = {}) {
+  return {
+    ...filtroBase,
+    inicio: { $lt: fin },
+    fin: { $gt: inicio },
+  };
 }
