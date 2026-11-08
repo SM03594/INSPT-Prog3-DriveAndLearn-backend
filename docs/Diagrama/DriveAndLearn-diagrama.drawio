@@ -166,6 +166,32 @@
         <mxCell id="rel_disp_tr" edge="1" parent="1" source="disp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;strokeColor=#000000;" target="tramo" value="1 : N">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="token_revocado" parent="1" style="swimlane;fontStyle=1;align=center;verticalAlign=top;childLayout=stackLayout;horizontal=1;startSize=28;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fillColor=none;strokeColor=#000000;fontColor=#000000;" value="tokens_revocados (TokenRevocado)" vertex="1">
+          <mxGeometry height="148" width="250" x="60" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="tr_id" parent="token_revocado" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#000000;" value="PK  _id: ObjectId" vertex="1">
+          <mxGeometry height="24" width="250" y="28" as="geometry" />
+        </mxCell>
+        <mxCell id="tr_tok" parent="token_revocado" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#000000;" value="UQ  token: String" vertex="1">
+          <mxGeometry height="24" width="250" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="tr_exp" parent="token_revocado" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#000000;" value="    expiraEn: Date (TTL Index)" vertex="1">
+          <mxGeometry height="24" width="250" y="76" as="geometry" />
+        </mxCell>
+        <mxCell id="tr_c" parent="token_revocado" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#000000;" value="    createdAt: Date" vertex="1">
+          <mxGeometry height="24" width="250" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tr_u" parent="token_revocado" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=8;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontColor=#000000;" value="    updatedAt: Date" vertex="1">
+          <mxGeometry height="24" width="250" y="124" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_u_tr" edge="1" parent="1" source="usuario" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="token_revocado" value="0 : N">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="30" y="158" />
+              <mxPoint x="30" y="724" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
