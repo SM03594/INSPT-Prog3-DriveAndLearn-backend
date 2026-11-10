@@ -390,10 +390,10 @@ flowchart TD
 
 | Método | Endpoint | Auth | Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/administradores` | No | Ninguno | `200` | Lista todos los administradores registrados. |
-| `GET` | `/api/administradores/:id` | No | Ninguno | `200`, `400`, `404` | Obtiene un administrador por su `_id` de MongoDB. |
-| `POST` | `/api/administradores` | No | `{ "NomApe": "string", "email": "string", "password": "string" }` | `201`, `400` | Crea un administrador (`password` $\ge 8$ caracteres). |
-| `PUT` | `/api/administradores/:id` | No | `{ "NomApe"?: "string", "email"?: "string", "password"?: "string" }` | `200`, `400`, `404` | Actualiza datos de un administrador existente. |
+| `GET` | `/api/administradores` | **Sí (`Bearer`, rol `'administrador'`)** | Ninguno | `200`, `401`, `403` | Lista todos los administradores registrados. |
+| `GET` | `/api/administradores/:id` | **Sí (`Bearer`, rol `'administrador'`)** | Ninguno | `200`, `400`, `401`, `403`, `404` | Obtiene un administrador por su `_id` de MongoDB. |
+| `POST` | `/api/administradores` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "NomApe": "string", "email": "string", "password": "string" }` | `201`, `400`, `401`, `403` | Crea un administrador (`password` $\ge 8$ caracteres). |
+| `PUT` | `/api/administradores/:id` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "NomApe"?: "string", "email"?: "string", "password"?: "string" }` | `200`, `400`, `401`, `403`, `404` | Actualiza datos de un administrador existente. |
 
 ---
 
@@ -403,10 +403,10 @@ flowchart TD
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/alumnos` | No | Ninguno | `200` | Lista todos los alumnos junto con su `saldoClases`. |
 | `GET` | `/api/alumnos/:id` | No | Ninguno | `200`, `400`, `404` | Obtiene un alumno por su `_id`. |
-| `POST` | `/api/alumnos` | No | `{ "NomApe": "string", "email": "string", "password": "string", "saldoClases"?: number }` | `201`, `400` | Crea un alumno (`saldoClases` opcional, entero $\ge 0$, por defecto `0`). |
+| `POST` | `/api/alumnos` | No | `{ "NomApe": "string", "email": "string", "password": "string", "saldoClases"?: number }` | `201`, `400` | Registro público de un alumno (`saldoClases` opcional, entero $\ge 0$, por defecto `0`). |
 | `PUT` | `/api/alumnos/:id` | No | `{ "NomApe"?: "string", "email"?: "string", "password"?: "string" }` | `200`, `400`, `404` | Actualiza datos personales del alumno (no permite enviar `saldoClases`). |
-| `PATCH` | `/api/alumnos/:id/saldo/sumar` | No | `{ "cantidad": number }` | `200`, `400`, `404` | Suma `cantidad` (entero $> 0$) al `saldoClases` del alumno. |
-| `PATCH` | `/api/alumnos/:id/saldo/restar` | No | `{ "cantidad": number }` | `200`, `400`, `404` | Resta `cantidad` (entero $> 0$) al `saldoClases`. Falla con `400` si el saldo resultante sería negativo (`ErrorSaldoClasesInsuficiente`). |
+| `PATCH` | `/api/alumnos/:id/saldo/sumar` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "cantidad": number }` | `200`, `400`, `401`, `403`, `404` | Suma `cantidad` (entero $> 0$) al `saldoClases` del alumno. |
+| `PATCH` | `/api/alumnos/:id/saldo/restar` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "cantidad": number }` | `200`, `400`, `401`, `403`, `404` | Resta `cantidad` (entero $> 0$) al `saldoClases`. Falla con `400` si el saldo resultante sería negativo (`ErrorSaldoClasesInsuficiente`). |
 
 ---
 
@@ -416,8 +416,8 @@ flowchart TD
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `GET` | `/api/autos` | No | Query opcional: `?cambios=MANUAL` o `?cambios=AUTOMATICO` | `200`, `400` | Lista todos los autos, permitiendo filtrar por tipo de transmisión. |
 | `GET` | `/api/autos/:id` | No | Ninguno | `200`, `400`, `404` | Obtiene un auto por su `_id`. |
-| `POST` | `/api/autos` | No | `{ "marca": "string", "modelo": "string", "patente": "string", "cambios": "MANUAL" \| "AUTOMATICO" }` | `201`, `400` | Registra un nuevo vehículo en la flota. |
-| `PUT` | `/api/autos/:id` | No | `{ "marca"?: "string", "modelo"?: "string", "patente"?: "string", "cambios"?: "string" }` | `200`, `400`, `404` | Actualiza los datos de un vehículo existente. |
+| `POST` | `/api/autos` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "marca": "string", "modelo": "string", "patente": "string", "cambios": "MANUAL" \| "AUTOMATICO" }` | `201`, `400`, `401`, `403` | Registra un nuevo vehículo en la flota. |
+| `PUT` | `/api/autos/:id` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "marca"?: "string", "modelo"?: "string", "patente"?: "string", "cambios"?: "string" }` | `200`, `400`, `401`, `403`, `404` | Actualiza los datos de un vehículo existente. |
 
 ---
 
@@ -429,10 +429,10 @@ flowchart TD
 | `GET` | `/api/profesores/:id` | No | Ninguno | `200`, `400`, `404` | Obtiene un profesor por su `_id`. |
 | `GET` | `/api/profesores/:id/disponibilidad` | No | Ninguno | `200`, `400`, `404` | Devuelve únicamente el objeto `disponibilidad` del profesor. |
 | `GET` | `/api/profesores/:id/turnos-libres` | No | Query: `?fecha=YYYY-MM-DD` (obligatorio) y `&cambios=MANUAL\|AUTOMATICO` (opcional) | `200`, `400`, `404` | Calcula los turnos libres de 1 hora del profesor en esa fecha (futura o actual) y adjunta los autos disponibles en cada turno (`{ turnos_libres: [{ inicio, fin, autos }] }`). |
-| `POST` | `/api/profesores` | No | `{ "NomApe": "string" }` | `201`, `400` | Crea un profesor con disponibilidad semanal vacía por defecto. |
-| `PUT` | `/api/profesores/:id` | No | `{ "NomApe"?: "string" }` | `200`, `400`, `404` | Actualiza el nombre del profesor (la disponibilidad no se modifica por esta vía). |
-| `PATCH` | `/api/profesores/:id/disponibilidad/agregar` | No | `{ "tramos": [{ "dia": "lunes", "tramoHorario": { "horaInicio": "08:00", "horaFin": "12:00" } }] }` | `200`, `400`, `404` | Agrega tramos horarios (en horas en punto `:00`, mínimo 1h) fusionando superposiciones o tramos contiguos. |
-| `PATCH` | `/api/profesores/:id/disponibilidad/quitar` | No | `{ "tramos": [{ "dia": "lunes", "tramoHorario": { "horaInicio": "10:00", "horaFin": "11:00" } }] }` | `200`, `400`, `404` | Resta los intervalos indicados de la disponibilidad actual del profesor. |
+| `POST` | `/api/profesores` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "NomApe": "string" }` | `201`, `400`, `401`, `403` | Crea un profesor con disponibilidad semanal vacía por defecto. |
+| `PUT` | `/api/profesores/:id` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "NomApe"?: "string" }` | `200`, `400`, `401`, `403`, `404` | Actualiza el nombre del profesor (la disponibilidad no se modifica por esta vía). |
+| `PATCH` | `/api/profesores/:id/disponibilidad/agregar` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "tramos": [{ "dia": "lunes", "tramoHorario": { "horaInicio": "08:00", "horaFin": "12:00" } }] }` | `200`, `400`, `401`, `403`, `404` | Agrega tramos horarios (en horas en punto `:00`, mínimo 1h) fusionando superposiciones o tramos contiguos. |
+| `PATCH` | `/api/profesores/:id/disponibilidad/quitar` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "tramos": [{ "dia": "lunes", "tramoHorario": { "horaInicio": "10:00", "horaFin": "11:00" } }] }` | `200`, `400`, `401`, `403`, `404` | Resta los intervalos indicados de la disponibilidad actual del profesor. |
 
 ---
 

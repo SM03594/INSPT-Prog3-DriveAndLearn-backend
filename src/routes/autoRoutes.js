@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { autenticar, verificarSiAdmin } from '../middlewares/authMiddleware.js';
 import { validarObjetoJson } from '../middlewares/validarObjetoJson.js';
 import * as autoController from '../controllers/autoController.js';
 
@@ -8,7 +9,7 @@ const router = Router();
 router.get('/', autoController.listar);
 router.get('/:id', autoController.obtener);
 
-router.post('/', validarObjetoJson, autoController.crear);
-router.put('/:id', validarObjetoJson, autoController.actualizar);
+router.post('/', autenticar, verificarSiAdmin, validarObjetoJson, autoController.crear);
+router.put('/:id', autenticar, verificarSiAdmin, validarObjetoJson, autoController.actualizar);
 
 export default router;

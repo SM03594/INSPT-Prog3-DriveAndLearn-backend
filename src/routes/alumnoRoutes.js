@@ -17,15 +17,15 @@ router.put('/:id', validarObjetoJson, alumnoController.actualizar);
 // Body esperado: { "cantidad": 5 }
 router.patch(
   '/:id/saldo/sumar',
-  //autenticar,
-  //verificarSiAdmin,
+  autenticar,
+  verificarSiAdmin,
   validarObjetoJson,
   alumnoController.sumarSaldoClases
 );
 router.patch(
   '/:id/saldo/restar',
-  //autenticar,
-  //verificarSiAdmin,
+  autenticar,
+  verificarSiAdmin,
   validarObjetoJson,
   alumnoController.restarSaldoClases
 );
