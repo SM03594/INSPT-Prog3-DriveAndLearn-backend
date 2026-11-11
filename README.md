@@ -197,7 +197,7 @@ El middleware `src/middlewares/errorHandler.js` captura cualquier error y devuel
 1. Si `express.json()` falla al parsear un cuerpo malformado, `verSiErrorLecturaCuerpo` lo convierte en `ErrorLecturaCuerpo` (`400`).
 2. `mongoose.Error.ValidationError` → `400` con los mensajes del esquema concatenados.
 3. `CastError` de Mongoose → `400` con `{ "mensaje": "Id inválido" }`.
-4. Error `code === 11000` (clave única duplicada en MongoDB, como `email` o `patente`) → `400`.
+4. Error `code === 11000` (clave única duplicada en MongoDB, como `email` o `patente`) → `400` formateado mediante `formatearMensajeClaveDuplicada` (ej. `"{campo} ya se encuentra registrado"`).
 5. Instancias de `ErrorPeticionInvalida`, `ErrorDeNegocio`, `ErrorAutenticacion` o `ErrorAutorizacion` → responden con su `err.statusCode` (`400`, `401`, `403`, `404`) y `err.message`.
 6. Cualquier otro error inesperado → registra por consola y responde `500` con `{ "mensaje": "Error interno del servidor" }`.
 

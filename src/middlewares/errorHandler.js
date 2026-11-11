@@ -4,6 +4,7 @@ import ErrorAutorizacion from '../errors/ErrorAutorizacion.js';
 import ErrorDeNegocio from '../errors/ErrorDeNegocio.js';
 import ErrorPeticionInvalida from '../errors/ErrorPeticionInvalida.js';
 import { verSiErrorLecturaCuerpo } from './helpers/verSiErrorLecturaCuerpo.js';
+import { formatearMensajeClaveDuplicada } from './helpers/formatearErrorClaveDuplicada.js';
 
 export function errorHandler(errOriginal, _req, res, _next) {
   // Si express.json() falló al parsear el body por JSON malformado,
@@ -28,7 +29,7 @@ export function errorHandler(errOriginal, _req, res, _next) {
   } else if (err && err.code === 11000) {
     // Código 11000 de MongoDB: violación de restricción unique (ej. email o patente ya existente).
     status = 400;
-    mensaje = err.message;
+    mensaje = formatearMensajeClaveDuplicada(err);
   } else if (
     // Errores propios de validación de entrada, autenticación, autorización y reglas de negocio:
     // ErrorPeticionInvalida agrupa también a sus subclases (ErrorCampoInvalido, ErrorDeTipo,
