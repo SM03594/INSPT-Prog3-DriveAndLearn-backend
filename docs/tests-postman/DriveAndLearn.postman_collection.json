@@ -1,0 +1,1076 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-1111-4222-8333-444455556666",
+    "name": "DriveAndLearn - Backend API (Tests Manuales)",
+    "description": "Colección de pruebas manuales (sin scripts) dividida por entidad, con un test por endpoint para verificar el funcionamiento integral de la API REST de Drive & Learn.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1-Administrador",
+      "description": "Pruebas manuales de autenticación y gestión de Administradores (/api/auth y /api/administradores).",
+      "item": [
+        {
+          "name": "1-loguear-admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Inicia sesión con el administrador inicial. Copiar el campo 'token' de la respuesta y pegarlo manualmente en la variable de entorno 'tokenAdmin'."
+          },
+          "response": []
+        },
+        {
+          "name": "2-registrar-admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"NomApe\": \"Carlos Admin\",\n  \"email\": \"carlos.admin@driveandlearn.com\",\n  \"password\": \"Password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "administradores"
+              ]
+            },
+            "description": "Registra un nuevo administrador en el sistema. Copiar el '_id' devuelto y pegarlo en la variable de entorno 'adminId'."
+          },
+          "response": []
+        },
+        {
+          "name": "3-obtener-admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/administradores/{{adminId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "administradores",
+                "{{adminId}}"
+              ]
+            },
+            "description": "Obtiene los datos del administrador identificado por {{adminId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "4-listar-admins",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/administradores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "administradores"
+              ]
+            },
+            "description": "Lista todos los administradores registrados."
+          },
+          "response": []
+        },
+        {
+          "name": "5-actualizar-admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"NomApe\": \"Carlos Administrador Editado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/administradores/{{adminId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "administradores",
+                "{{adminId}}"
+              ]
+            },
+            "description": "Actualiza los datos del administrador {{adminId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "6-logout-admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Cierra la sesión actual revocando el token en la lista negra (tokens_revocados). Si se ejecuta antes de terminar las demás carpetas, volver a correr '1-loguear-admin' y actualizar 'tokenAdmin'."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2-Profesor",
+      "description": "Pruebas manuales para los endpoints de Profesores, su disponibilidad semanal y consulta de turnos libres (/api/profesores).",
+      "item": [
+        {
+          "name": "1-registrar-profesor",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"NomApe\": \"Roberto Gómez\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores"
+              ]
+            },
+            "description": "Crea un profesor con disponibilidad semanal vacía por defecto. Copiar el '_id' devuelto y pegarlo en la variable de entorno 'profesorId'."
+          },
+          "response": []
+        },
+        {
+          "name": "2-obtener-profesor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores/{{profesorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores",
+                "{{profesorId}}"
+              ]
+            },
+            "description": "Obtiene los datos y disponibilidad del profesor {{profesorId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "3-listar-profesores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores"
+              ]
+            },
+            "description": "Lista todos los profesores registrados."
+          },
+          "response": []
+        },
+        {
+          "name": "4-actualizar-profesor",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"NomApe\": \"Roberto Gómez Instructor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores/{{profesorId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores",
+                "{{profesorId}}"
+              ]
+            },
+            "description": "Actualiza el nombre y apellido del profesor {{profesorId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "5-agregar-disponibilidad-profesor",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tramos\": [\n    {\n      \"dia\": \"lunes\",\n      \"tramoHorario\": {\n        \"horaInicio\": \"08:00\",\n        \"horaFin\": \"12:00\"\n      }\n    },\n    {\n      \"dia\": \"lunes\",\n      \"tramoHorario\": {\n        \"horaInicio\": \"12:00\",\n        \"horaFin\": \"14:00\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores/{{profesorId}}/disponibilidad/agregar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores",
+                "{{profesorId}}",
+                "disponibilidad",
+                "agregar"
+              ]
+            },
+            "description": "Agrega tramos horarios al día lunes del profesor, fusionando automáticamente 08:00-12:00 y 12:00-14:00 en 08:00-14:00."
+          },
+          "response": []
+        },
+        {
+          "name": "6-quitar-disponibilidad-profesor",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tramos\": [\n    {\n      \"dia\": \"lunes\",\n      \"tramoHorario\": {\n        \"horaInicio\": \"12:00\",\n        \"horaFin\": \"14:00\"\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores/{{profesorId}}/disponibilidad/quitar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores",
+                "{{profesorId}}",
+                "disponibilidad",
+                "quitar"
+              ]
+            },
+            "description": "Quita el tramo de 12:00 a 14:00 del día lunes, dejando disponible de 08:00 a 12:00."
+          },
+          "response": []
+        },
+        {
+          "name": "7-ver-disponibilidad-profesor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores/{{profesorId}}/disponibilidad",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores",
+                "{{profesorId}}",
+                "disponibilidad"
+              ]
+            },
+            "description": "Consulta únicamente el objeto de disponibilidad semanal del profesor {{profesorId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "8-ver-turnos-libres-profesor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profesores/{{profesorId}}/turnos-libres?fecha={{fechaClase}}&cambios=MANUAL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profesores",
+                "{{profesorId}}",
+                "turnos-libres"
+              ],
+              "query": [
+                {
+                  "key": "fecha",
+                  "value": "{{fechaClase}}"
+                },
+                {
+                  "key": "cambios",
+                  "value": "MANUAL"
+                }
+              ]
+            },
+            "description": "Calcula los turnos libres de 1 hora del profesor para la fecha {{fechaClase}} (lunes) filtrando autos con caja MANUAL."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3-Auto",
+      "description": "Pruebas manuales para la gestión de la flota vehicular (/api/autos).",
+      "item": [
+        {
+          "name": "1-registrar-auto",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marca\": \"Volkswagen\",\n  \"modelo\": \"Gol Trend\",\n  \"patente\": \"AB123CD\",\n  \"cambios\": \"MANUAL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/autos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "autos"
+              ]
+            },
+            "description": "Registra un nuevo auto en la flota. Copiar el '_id' devuelto y pegarlo en la variable de entorno 'autoId'."
+          },
+          "response": []
+        },
+        {
+          "name": "2-obtener-auto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/autos/{{autoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "autos",
+                "{{autoId}}"
+              ]
+            },
+            "description": "Obtiene los datos del auto identificado por {{autoId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "3-listar-autos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/autos?cambios=MANUAL",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "autos"
+              ],
+              "query": [
+                {
+                  "key": "cambios",
+                  "value": "MANUAL"
+                }
+              ]
+            },
+            "description": "Lista los autos de la flota (opcionalmente filtrando por ?cambios=MANUAL o AUTOMATICO)."
+          },
+          "response": []
+        },
+        {
+          "name": "4-actualizar-auto",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modelo\": \"Gol Trend 1.6\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/autos/{{autoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "autos",
+                "{{autoId}}"
+              ]
+            },
+            "description": "Actualiza los datos del auto {{autoId}}."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4-Alumno",
+      "description": "Pruebas manuales de registro, login, consulta, edición y gestión de saldo de Alumnos (/api/alumnos).",
+      "item": [
+        {
+          "name": "1-registrar-alumno",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"NomApe\": \"Lucía Pérez\",\n  \"email\": \"lucia.perez@alumno.com\",\n  \"password\": \"Password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/alumnos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alumnos"
+              ]
+            },
+            "description": "Registra un nuevo alumno con saldoClases inicial en 0. Copiar el '_id' devuelto y pegarlo en la variable de entorno 'alumnoId'."
+          },
+          "response": []
+        },
+        {
+          "name": "2-loguear-alumno",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lucia.perez@alumno.com\",\n  \"password\": \"Password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Inicia sesión con la cuenta del alumno recién creado. Copiar el 'token' devuelto y pegarlo en la variable de entorno 'tokenAlumno'."
+          },
+          "response": []
+        },
+        {
+          "name": "3-obtener-alumno",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alumnos/{{alumnoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alumnos",
+                "{{alumnoId}}"
+              ]
+            },
+            "description": "Obtiene los datos y el saldoClases actual del alumno {{alumnoId}} (accesible por el propio alumno o un administrador)."
+          },
+          "response": []
+        },
+        {
+          "name": "4-listar-alumnos",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/alumnos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alumnos"
+              ]
+            },
+            "description": "Lista todos los alumnos registrados con su saldo de clases (requiere token de Administrador)."
+          },
+          "response": []
+        },
+        {
+          "name": "5-actualizar-alumno",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"NomApe\": \"Lucía Pérez Alumna\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/alumnos/{{alumnoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alumnos",
+                "{{alumnoId}}"
+              ]
+            },
+            "description": "Actualiza los datos personales del alumno {{alumnoId}} (accesible por el propio alumno o un administrador, sin permitir alterar saldoClases por esta vía)."
+          },
+          "response": []
+        },
+        {
+          "name": "6-sumar-saldo-alumno",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/alumnos/{{alumnoId}}/saldo/sumar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alumnos",
+                "{{alumnoId}}",
+                "saldo",
+                "sumar"
+              ]
+            },
+            "description": "Suma 3 créditos de clases prácticas al alumno {{alumnoId}} (requiere token de Administrador)."
+          },
+          "response": []
+        },
+        {
+          "name": "7-restar-saldo-alumno",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAdmin}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/alumnos/{{alumnoId}}/saldo/restar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "alumnos",
+                "{{alumnoId}}",
+                "saldo",
+                "restar"
+              ]
+            },
+            "description": "Resta 1 crédito de clases al alumno {{alumnoId}} (quedando saldoClases en 2 para poder agendar en la carpeta 5-Clase)."
+          },
+          "response": []
+        },
+        {
+          "name": "8-logout-alumno",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Cierra la sesión del alumno revocando el token en la lista negra (tokens_revocados)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5-Clase",
+      "description": "Pruebas manuales de agendamiento, consulta, listado y cancelación de Clases prácticas (/api/clases).",
+      "item": [
+        {
+          "name": "1-agendar-clase",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"profesor\": \"{{profesorId}}\",\n  \"auto\": \"{{autoId}}\",\n  \"inicio\": \"{{fechaClase}}T10:00\",\n  \"fin\": \"{{fechaClase}}T11:00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "clases"
+              ]
+            },
+            "description": "Agenda una clase de 1 hora en punto para el alumno autenticado ({{tokenAlumno}}) en un lunes futuro dentro de la disponibilidad del profesor (08:00 a 12:00). Descuenta 1 crédito de saldoClases. Copiar el '_id' devuelto y pegarlo en la variable de entorno 'claseId'."
+          },
+          "response": []
+        },
+        {
+          "name": "2-obtener-clase",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/clases/{{claseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "clases",
+                "{{claseId}}"
+              ]
+            },
+            "description": "Obtiene el detalle de la clase {{claseId}}."
+          },
+          "response": []
+        },
+        {
+          "name": "3-listar-clases",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/clases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "clases"
+              ]
+            },
+            "description": "Lista las clases (para el alumno autenticado devuelve únicamente sus propias clases; si se usa tokenAdmin devuelve todas)."
+          },
+          "response": []
+        },
+        {
+          "name": "4-eliminar-clase",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{tokenAlumno}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/clases/{{claseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "clases",
+                "{{claseId}}"
+              ]
+            },
+            "description": "Cancela y elimina físicamente la clase {{claseId}}, reintegrando automáticamente 1 crédito al saldoClases del alumno."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
