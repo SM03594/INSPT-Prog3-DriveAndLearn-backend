@@ -8,7 +8,6 @@
     "test": "vitest",
     "test:run": "vitest --run",
     "dev": "node --watch src/server.js",
-    "admin:bootstrap": "node src/scripts/bootstrapAdmin.js",
     "admin:desde-env": "node src/scripts/bootstrapAdminDesdeEnv.js",
     "start": "node src/server.js"
   },
