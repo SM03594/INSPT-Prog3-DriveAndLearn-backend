@@ -9,7 +9,21 @@ const router = Router();
 router.get('/', autoController.listar);
 router.get('/:id', autoController.obtener);
 
-router.post('/', autenticar, verificarSiAdmin, validarObjetoJson, autoController.crear);
-router.put('/:id', autenticar, verificarSiAdmin, validarObjetoJson, autoController.actualizar);
+
+router.post(
+  '/', 
+  autenticar, 
+  verificarSiAdmin, 
+  validarObjetoJson, 
+  autoController.crear
+);
+
+router.put(
+  '/:id', 
+  autenticar, 
+  verificarSiAdmin, 
+  validarObjetoJson, 
+  autoController.actualizar
+);
 
 export default router;

@@ -5,11 +5,36 @@ import * as administradorController from '../controllers/administradorController
 
 const router = Router();
 
-router.get('/', autenticar, verificarSiAdmin, administradorController.listar);
-router.get('/:id', autenticar, verificarSiAdmin, administradorController.obtener);
+router.get(
+	'/', 
+	autenticar, 
+	verificarSiAdmin, 
+	administradorController.listar
+);
 
-router.post('/', autenticar, verificarSiAdmin, validarObjetoJson, administradorController.crear);
-router.put('/:id', autenticar, verificarSiAdmin, validarObjetoJson, administradorController.actualizar);
+router.get(
+	'/:id', 
+	autenticar, 
+	verificarSiAdmin, 
+	administradorController.obtener
+);
+
+
+router.post(
+	'/', 
+	autenticar, 
+	verificarSiAdmin, 
+	validarObjetoJson, 
+	administradorController.crear
+);
+
+router.put(
+	'/:id', 
+	autenticar, 
+	verificarSiAdmin, 
+	validarObjetoJson, 
+	administradorController.actualizar
+);
 
 export default router;
 

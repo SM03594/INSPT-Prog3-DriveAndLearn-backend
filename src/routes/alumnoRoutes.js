@@ -1,17 +1,40 @@
 import { Router } from 'express';
-import { autenticar, verificarSiAdmin } from '../middlewares/authMiddleware.js';
+import {
+  autenticar,
+  verificarSiAdmin,
+  verificarSiAdminOPropioUsuario,
+} from '../middlewares/authMiddleware.js';
 import { validarObjetoJson } from '../middlewares/validarObjetoJson.js';
 import * as alumnoController from '../controllers/alumnoController.js';
 
 const router = Router();
 
 // Endpoints de lectura
-router.get('/', alumnoController.listar);
-router.get('/:id', alumnoController.obtener);
+router.get(
+  '/', 
+  autenticar, 
+  verificarSiAdmin, 
+  alumnoController.listar
+);
+
+router.get(
+  '/:id', 
+  autenticar, 
+  verificarSiAdminOPropioUsuario, 
+  alumnoController.obtener
+);
+
 
 // Endpoints de escritura
 router.post('/', validarObjetoJson, alumnoController.crear);
-router.put('/:id', validarObjetoJson, alumnoController.actualizar);
+
+router.put(
+  '/:id',
+  autenticar,
+  verificarSiAdminOPropioUsuario,
+  validarObjetoJson,
+  alumnoController.actualizar
+);
 
 
 // Body esperado: { "cantidad": 5 }
@@ -22,6 +45,7 @@ router.patch(
   validarObjetoJson,
   alumnoController.sumarSaldoClases
 );
+
 router.patch(
   '/:id/saldo/restar',
   autenticar,
