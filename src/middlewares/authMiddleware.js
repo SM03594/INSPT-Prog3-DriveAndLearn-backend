@@ -65,3 +65,21 @@ export async function autenticar(req, _res, next) {
 export function verificarSiAdmin(req, res, next) {
   return autorizarRol(ROLES.ADMINISTRADOR)(req, res, next);
 }
+
+
+export function verificarSiAdminOPropioUsuario(req, _res, next) {
+  if (!req.usuario) {
+    throw new ErrorAutenticacion('No autenticado');
+  }
+
+  const esAdmin = req.usuario.rol === ROLES.ADMINISTRADOR;
+  const esPropioUsuario =
+    req.params.id !== undefined &&
+    req.usuario.id?.toString() === req.params.id.toString();
+
+  if (!esAdmin && !esPropioUsuario) {
+    throw new ErrorAutorizacion('No tiene permisos para acceder a este recurso');
+  }
+
+  next();
+}
