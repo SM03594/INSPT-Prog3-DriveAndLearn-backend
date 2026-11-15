@@ -16,48 +16,24 @@ API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión
 
 ## 📑 Tabla de Contenidos
 
-- [1. Objetivos del Proyecto](#1-objetivos-del-proyecto)
-- [2. Stack Tecnológico](#2-stack-tecnol%C3%B3gico)
-- [3. Arquitectura y Metodología ("La forma de hacer las cosas")](#3-arquitectura-y-metodolog%C3%ADa-la-forma-de-hacer-las-cosas)
-  - [3.1. Principio de Responsabilidad Única (SRP)](#31-principio-de-responsabilidad-%C3%BAnica-srp)
-  - [3.2. Ciclo de Vida: Separación entre App y Server](#32-ciclo-de-vida-separaci%C3%B3n-entre-app-y-server)
-  - [3.3. DTOs y Validación Estructural de Entrada](#33-dtos-y-validaci%C3%B3n-estructural-de-entrada)
-  - [3.4. Seguridad, Hashing, Autorización y Blacklist con TTL](#34-seguridad-hashing-autorizaci%C3%B3n-y-blacklist-con-ttl)
-  - [3.5. Motor de Calendarización e Intervalos con Luxon](#35-motor-de-calendarizaci%C3%B3n-e-intervalos-con-luxon)
-  - [3.6. Jerarquía de Errores y Manejo Centralizado](#36-jerarqu%C3%ADa-de-errores-y-manejo-centralizado)
-- [4. Modelo de Dominio y Diagrama de Entidades](#4-modelo-de-dominio-y-diagrama-de-entidades)
-- [5. Mapa de Enrutamiento HTTP](#5-mapa-de-enrutamiento-http)
-- [6. Catálogo de Endpoints de la API](#6-cat%C3%A1logo-de-endpoints-de-la-api)
-  - [6.1. Autenticación (`/api/auth`)](#61-autenticaci%C3%B3n-apiauth)
-  - [6.2. Administradores (`/api/administradores`)](#62-administradores-apiadministradores)
-  - [6.3. Alumnos (`/api/alumnos`)](#63-alumnos-apialumnos)
-  - [6.4. Autos (`/api/autos`)](#64-autos-apiautos)
-  - [6.5. Profesores (`/api/profesores`)](#65-profesores-apiprofesores)
-  - [6.6. Clases (`/api/clases`)](#66-clases-apiclases)
-- [7. Suite de Pruebas Automatizadas](#7-suite-de-pruebas-automatizadas)
-- [8. Guía de Instalación y Puesta en Marcha](#8-gu%C3%ADa-de-instalaci%C3%B3n-y-puesta-en-marcha)
+- [1. Stack Tecnológico](#1-stack-tecnol%C3%B3gico)
+- [2. Arquitectura del Proyecto](#2-arquitectura-del-proyecto)
+  - [2.1. Capas y Responsabilidades](#21-capas-y-responsabilidades)
+  - [2.2. Estructura de Carpetas](#22-estructura-de-carpetas)
+- [3. Modelo de Dominio y Diagrama de Entidades](#3-modelo-de-dominio-y-diagrama-de-entidades)
+- [4. Catálogo de Endpoints de la API](#4-cat%C3%A1logo-de-endpoints-de-la-api)
+  - [4.1. Autenticación (`/api/auth`)](#41-autenticaci%C3%B3n-apiauth)
+  - [4.2. Administradores (`/api/administradores`)](#42-administradores-apiadministradores)
+  - [4.3. Alumnos (`/api/alumnos`)](#43-alumnos-apialumnos)
+  - [4.4. Autos (`/api/autos`)](#44-autos-apiautos)
+  - [4.5. Profesores (`/api/profesores`)](#45-profesores-apiprofesores)
+  - [4.6. Clases (`/api/clases`)](#46-clases-apiclases)
+- [5. Suite de Pruebas Automatizadas](#5-suite-de-pruebas-automatizadas)
+- [6. Guía de Instalación y Puesta en Marcha](#6-gu%C3%ADa-de-instalaci%C3%B3n-y-puesta-en-marcha)
 
 ---
 
-## 1. Objetivos del Proyecto
-
-### 🎯 Objetivos Funcionales y de Dominio
-- **Gestión de Usuarios por Discriminador:** Administración de cuentas de `Administrador` (`rol: 'administrador'`) y `Alumno` (`rol: 'alumno'`) persistidas sobre una única colección `usuarios` en MongoDB.
-- **Control de Saldo de Clases (`saldoClases`):** Administración del crédito de clases prácticas disponibles para cada alumno. La edición estándar de perfil (`PUT /api/alumnos/:id`) bloquea la alteración de `saldoClases`, exigiendo el uso de operaciones específicas de suma y resta (`PATCH /api/alumnos/:id/saldo/sumar` y `/restar`) o el flujo de agendamiento/cancelación de clases.
-- **Gestión de Flota Vehicular (`Auto`):** Registro, actualización y listado de vehículos con validación de patentes argentinas (formato tradicional `ABC123` y Mercosur `AB123CD`) y filtrado por tipo de transmisión (`MANUAL` o `AUTOMATICO`).
-- **Agenda Semanal y Turnos Libres (`Profesor`):** Configuración de tramos horarios de disponibilidad por día de la semana (`lunes` a `domingo`), con unificación automática de bloques contiguos o superpuestos, resta de intervalos y consulta de turnos libres de 1 hora junto con la lista de autos disponibles para cada turno.
-- **Reserva y Cancelación de Clases (`Clase`):** Agendamiento de clases prácticas de 1 hora exacta en punto verificando fecha futura, saldo suficiente del alumno, disponibilidad del instructor y ausencia total de superposiciones horarias (para el alumno, el profesor y el auto), descontando 1 crédito al agendar y reintegrándolo automáticamente al cancelar (`DELETE /api/clases/:id`).
-- **Preservación de Entidades Maestras:** Los recursos `Administrador`, `Alumno`, `Auto` y `Profesor` no exponen operaciones de borrado (`DELETE`), garantizando la integridad referencial de las clases registradas.
-
-### 🏛️ Objetivos de Arquitectura de Software
-- Implementar una **Arquitectura en Capas** con **Principio de Responsabilidad Única (SRP)** donde las dependencias fluyen estrictamente desde la capa de transporte HTTP hacia la capa de dominio y persistencia.
-- Aislar el núcleo de negocio (`src/services/`) de cualquier dependencia de Express (`req`, `res`, cabeceras o códigos de estado HTTP directo).
-- Validar de forma estricta la estructura y tipos de cada petición entrante mediante DTOs antes de invocar la lógica de negocio.
-- Centralizar el tratamiento de errores en un único middleware (`errorHandler`) respaldado por una jerarquía de clases de error con códigos de estado HTTP propios.
-
----
-
-## 2. Stack Tecnológico
+## 1. Stack Tecnológico
 
 ### Dependencias de Producción (`dependencies`)
 
@@ -84,126 +60,83 @@ API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión
 
 ---
 
-## 3. Arquitectura y Metodología ("La forma de hacer las cosas")
+## 2. Arquitectura del Proyecto
 
-El proyecto organiza su código bajo `src/` siguiendo un flujo unidireccional en capas:
+El proyecto implementa una **arquitectura en capas con flujo de dependencias estrictamente unidireccional**. Cada petición HTTP atraviesa las capas de arriba hacia abajo, donde cada nivel se comunica únicamente con el inmediato inferior y desconoce los detalles de las capas superiores:
 
 ```text
        HTTP Request
             │
             ▼
     ┌───────────────┐
-    │    ROUTES     │  ── Define verbos HTTP, paths y encadena middlewares
-    └───────┬───────┘     (validarObjetoJson, autenticar, verificarSiAdmin)
-            ▼
-    ┌───────────────┐
-    │  CONTROLLER   │  ── Extrae datos de req (params, query, body, usuario, token),
-    └───────┬───────┘     ejecuta el validador DTO e invoca al Service
-            ▼
-    ┌───────────────┐
-    │      DTO      │  ── Valida estructura, campos obligatorios/opcionales y tipos
-    └───────┬───────┘     (rechaza cuerpos vacíos y claves no permitidas)
-            ▼
-    ┌───────────────┐
-    │    SERVICE    │  ── Lógica de negocio pura y validaciones de dominio
-    └───────┬───────┘     (sin acceso a req ni res; lanza clases de src/errors/)
-            ▼
-    ┌───────────────┐
-    │  MODEL (ODM)  │  ── Esquemas de Mongoose, discriminadores y consultas a BD
+    │    ROUTES     │  ── Recibe la petición HTTP y encadena los middlewares de la ruta
     └───────┬───────┘
+            │
             ▼
-        MongoDB
+    ┌───────────────┐
+    │  MIDDLEWARES  │  ── Resuelve aspectos transversales (JSON válido, JWT y permisos)
+    └───────┬───────┘
+            │
+            ▼
+    ┌───────────────┐
+    │  CONTROLLER   │  ── Extrae datos de req, invoca al DTO, llama al Service y responde HTTP
+    └───────┬───────┘
+            │
+            ▼
+    ┌───────────────┐
+    │      DTO      │  ── Valida la estructura sintáctica y los tipos de datos de entrada
+    └───────┬───────┘
+            │
+            ▼
+    ┌───────────────┐
+    │    SERVICE    │  ── Ejecuta la lógica de negocio y validaciones de dominio
+    └───────┬───────┘
+            │
+            ▼
+    ┌───────────────┐
+    │  MODEL (ODM)  │  ── Define esquemas de Mongoose y ejecuta operaciones en la BD
+    └───────┬───────┘
+            │
+            ▼
+         MongoDB
 ```
 
-### 3.1. Principio de Responsabilidad Única (SRP)
+### 2.1. Capas y Responsabilidades
 
-- **Configuración (`src/config/`):**
-  - `env.js`: Centraliza la lectura y validación de variables de entorno (`PORT`, `MONGODB_URI`, `NODE_ENV`, `ZONA_HORARIA`, `obtenerJwtSecret()`, `obtenerAdminInicial()`).
-  - `db.js`: Gestiona la conexión (`connectDB()`, configurando `mongoose.set('strictQuery', true)`) y desconexión (`disconnectDB()`) de Mongoose con MongoDB.
-- **Constantes (`src/constants/`):**
-  - `roles.js`: Define `ROLES` (`ADMINISTRADOR: 'administrador'`, `ALUMNO: 'alumno'`) y `ROLES_ENUM`.
-  - `cambios.js`: Define `CAMBIOS` (`AUTOMATICO: 'AUTOMATICO'`, `MANUAL: 'MANUAL'`) y `CAMBIOS_ENUM`.
-  - `diasSemana.js`: Define el mapeo ISO de días `MAPA_WEEKDAY_DIA` (`1: 'lunes'` ... `7: 'domingo'`) y `DIAS_SEMANA`.
-  - `constantesCalendarizacion.js`: Define las expresiones regulares de horas y fechas (`REGEX_HORA_EN_PUNTO`, `REGEX_FECHA_HORA_EN_PUNTO`, `REGEX_FECHA_DIA_YYYY_MM_DD`), la fecha base `DIA_BASE_REFERENCIA` (`2026-01-05T00:00`), `DURACION_CLASE_HORAS = 1`, `MIN_DURACION_TRAMO_HORAS = 1` y `HORA_CIERRE_DIA = '24:00'`.
-- **Routes (`src/routes/`):** Solo declaran rutas y asocian middlewares y controladores (`authRoutes.js`, `administradorRoutes.js`, `alumnoRoutes.js`, `autoRoutes.js`, `profesorRoutes.js`, `claseRoutes.js`).
-- **Controllers (`src/controllers/`):** Adaptan la petición HTTP llamando al DTO y al Service, y devuelven el código HTTP correspondiente (`200`, `201` o `404` cuando una consulta por ID retorna `null`).
-- **DTOs (`src/dtos/` y `src/dtos/helpers/`):** Validan el formato de entrada antes de ejecutar reglas de negocio.
-- **Services (`src/services/` y `src/services/helpers/`):** Contienen el 100% de las reglas de dominio (`authService.js`, `usuarioService.js`, `administradorService.js`, `alumnoService.js`, `autoService.js`, `profesorService.js`, `claseService.js`) junto con los helpers de contraseñas (`manejoDePassword.js`), validación de identificadores (`validarMongooseObjId.js`), disponibilidad (`disponibilidadHelper.js`) y turnos/fechas (`turnosYFechasHelper.js`).
-- **Models (`src/models/`):** Definen la estructura de persistencia en MongoDB.
+- **Routes (`src/routes/`):** Es la puerta de entrada de cada recurso HTTP. Define los verbos y paths de la API, asocia los middlewares requeridos para cada endpoint y delega la ejecución en el controlador correspondiente.
+- **Middlewares (`src/middlewares/`):** Interceptan la solicitud antes y después del controlador. Se encargan de verificar que el cuerpo sea un JSON plano (`validarObjetoJson`), autenticar el token Bearer y comprobar que no esté revocado (`autenticar`), validar permisos de rol o titularidad (`verificarSiAdmin`, `verificarSiAdminOPropioUsuario`) y capturar de forma centralizada cualquier error lanzado por las capas inferiores para transformarlo en una respuesta HTTP uniforme (`errorHandler`).
+- **Controllers (`src/controllers/`):** Actúan como adaptadores delgados entre Express y el dominio. Extraen la información de `req` (`params`, `query`, `body`, `usuario`, `token`), ejecutan el validador del **DTO**, invocan al **Service** y devuelven la respuesta HTTP con el código de estado adecuado (`200`, `201` o `404`).
+- **DTOs (`src/dtos/`):** Validan la estructura de los datos de entrada antes de que lleguen a la lógica de negocio. Comprueban la presencia de campos obligatorios, rechazan cuerpos vacíos o claves no permitidas y verifican los tipos de datos primitivos.
+- **Services (`src/services/`):** Contienen el 100% de las reglas de negocio y validaciones de dominio, manteniéndose completamente aislados de Express (sin acceso a `req` ni `res`). Cada servicio es dueño exclusivo de su modelo y, cuando requiere interactuar con otras entidades, se comunica con los demás servicios. Ante cualquier incumplimiento de negocio o validación, lanza errores tipados (`src/errors/`) que son capturados por `errorHandler`.
+- **Models (`src/models/`):** Representan la capa de persistencia mediante Mongoose. Definen la estructura de los documentos, restricciones a nivel de base de datos, discriminadores, subesquemas e índices en MongoDB.
 
-### 3.2. Ciclo de Vida: Separación entre App y Server
-
-- **`src/app.js`:** Instancia Express, registra `cors()` y `express.json()`, monta los 6 routers bajo `/api`, declara el middleware `404` (`{ mensaje: 'Ruta no encontrada' }`) y conecta `errorHandler`. No abre puertos ni conecta a la base de datos.
-- **`src/server.js`:** Valida de forma temprana la configuración de `JWT_SECRET` invocando `obtenerJwtSecret()`, conecta a MongoDB mediante `connectDB()` y, una vez establecida la conexión, pone la aplicación a escuchar en `PORT`.
-
-### 3.3. DTOs y Validación Estructural de Entrada
-
-1. **Filtro de Objeto Plano (`src/middlewares/validarObjetoJson.js`):** Verifica que `req.body` sea un objeto JSON válido, no nulo y no sea un array, lanzando `ErrorPeticionInvalida` (`400`) en caso contrario.
-2. **Validador Genérico (`src/dtos/helpers/validarEstructuraYTipos.js`):**
-   - Utilizado en todas las operaciones `POST`, `PUT`, `PATCH` y en consultas con parámetros como `GET /api/profesores/:id/turnos-libres` (`validarTurnosLibresQueryDTO`).
-   - Rechaza cuerpos o queries vacíos con `ErrorCampoInvalido` (`400`).
-   - Rechaza cualquier clave adicional que no figure en la lista de campos permitidos (`Campos no permitidos: ...`).
-   - Verifica la presencia de todos los campos obligatorios (`Campos obligatorios faltantes: ...`).
-   - Comprueba el `typeof` de cada propiedad enviada (rechazando `NaN` cuando se espera `'number'`) con `ErrorDeTipo` (`400`).
-3. **Validación de `ObjectId` (`src/services/helpers/validarMongooseObjId.js`):**
-   - Comprueba `mongoose.Types.ObjectId.isValid(id)` antes de realizar búsquedas o actualizaciones por ID, lanzando `ErrorMongooseObjIdInvalido` (`400`) si el formato es inválido.
-
-### 3.4. Seguridad, Hashing, Autorización y Blacklist con TTL
-
-1. **Contraseñas (`src/services/helpers/manejoDePassword.js`):**
-   - Se exige tipo `string` y una longitud mínima de 8 caracteres (`MIN_LONGITUD_PASSWORD = 8`); de lo contrario se lanza `ErrorPasswordInvalida` (`400`).
-   - Se hashea con `bcrypt.hash(password, 10)` (`SALT_ROUNDS = 10`) tanto en el alta como al actualizar la contraseña de un alumno o administrador.
-   - El esquema `Usuario` elimina `password` y `__v` en su transformación `toJSON` (y el resto de los modelos principales eliminan `__v`).
-2. **Autenticación y Cierre de Sesión (`src/services/authService.js` y `src/middlewares/authMiddleware.js`):**
-   - `login`: Normaliza el email (`trim().toLowerCase()`), busca en `Usuario`, compara el hash con `bcrypt.compare` y firma un JWT por `24h` con `{ id, email, rol, NomApe }`. Devuelve `{ token, usuario }`.
-   - `logout`: Verifica el JWT recibido, obtiene su fecha de vencimiento (`payload.exp * 1000`) y persiste el token en la colección `tokens_revocados`. Si el token ya estaba revocado (código `11000`) o ya había expirado naturalmente (`TokenExpiredError`), responde igualmente `200 OK` (`{ mensaje: 'Sesión cerrada exitosamente' }`).
-   - `esTokenRevocado`: Función auxiliar exportada en `authService.js` que verifica mediante `TokenRevocado.exists` si un token se encuentra en la lista negra.
-   - **Índice TTL:** `TokenRevocado` define `tokenRevocadoSchema.index({ expiraEn: 1 }, { expireAfterSeconds: 0 })`, por lo que MongoDB purga automáticamente los tokens vencidos.
-   - `autenticar`: Extrae el Bearer token de `req.headers.authorization`, verifica que no exista en `TokenRevocado`, valida la firma JWT y adjunta el payload en `req.usuario` (y `req.user`) y el token crudo en `req.token`.
-   - `verificarSiAdmin` (basado en la función interna `autorizarRol`): Verifica que `req.usuario.rol` sea `'administrador'`, lanzando `ErrorAutorizacion` (`403`) si no cumple (definido en `authMiddleware.js`; en `alumnoRoutes.js` se encuentra importado y comentado en los endpoints de saldo).
-
-### 3.5. Motor de Calendarización e Intervalos con Luxon
-
-Implementado en `src/services/helpers/disponibilidadHelper.js` y `src/services/helpers/turnosYFechasHelper.js`, fijando como zona por defecto `ZONA_HORARIA` (`America/Argentina/Buenos_Aires`):
-
-- **Horas en punto:** Tanto los tramos de disponibilidad de los profesores (`"HH:00"`, admitiendo `"24:00"` como cierre de día) como los horarios de clases (`"YYYY-MM-DDTHH:00"`) deben expresarse en horas exactas en punto y tener una duración mínima de 1 hora (`DURACION_CLASE_HORAS = 1`).
-- **Fusión y Resta de Disponibilidad:**
-  - `agregarTramosADia`: Utiliza `Interval.merge()` de Luxon para fusionar automáticamente tramos superpuestos o adyacentes (ej. `08:00-12:00` + `10:00-14:00` → `08:00-14:00`).
-  - `quitarTramosDeDia`: Utiliza `Interval.difference()` para recortar o partir tramos existentes (ej. quitar `10:00-12:00` de `08:00-14:00` produce `08:00-10:00` y `12:00-14:00`).
-- **Continuidad en Medianoche:** `proyectarDisponibilidadEnVentana` proyecta una ventana de 3 días (anterior, actual y siguiente) y aplica `Interval.merge()` para soportar turnos en medianoche cuando un día cierra a las `24:00` y el siguiente inicia a las `00:00`.
-- **Generación de Turnos Libres:** Divide los intervalos disponibles en bloques de 1 hora (`splitBy({ hours: 1 })`), descarta horarios pasados, filtra las clases ya asignadas al profesor (`seSuperponenIntervalos` con `Interval.overlaps`) y adjunta para cada turno la lista de vehículos libres (`obtenerAutosLibresEnTurno`).
-
-### 3.6. Jerarquía de Errores y Manejo Centralizado
-
-Todas las clases de error personalizadas se encuentran en `src/errors/`:
+### 2.2. Estructura de Carpetas
 
 ```text
-Error
-├── ErrorPeticionInvalida (400)
-│   ├── ErrorCampoInvalido (400)
-│   ├── ErrorDeTipo (400)
-│   ├── ErrorFormatoDeFecha (400)
-│   ├── ErrorLecturaCuerpo (400)
-│   └── ErrorMongooseObjIdInvalido (400)
-├── ErrorDeNegocio (400 por defecto)
-│   ├── ErrorPasswordInvalida (400)
-│   ├── ErrorSaldoClasesInsuficiente (400)
-│   └── ErrorRegistroInexistente (404)
-├── ErrorAutenticacion (401)
-└── ErrorAutorizacion (403)
+INSPT-Prog3-DriveAndLearn-backend/
+├── docs/                      # Documentación técnica, guías y colección de pruebas Postman
+├── src/
+│   ├── config/                # Variables de entorno (env.js) y conexión a MongoDB (db.js)
+│   ├── constants/             # Constantes inmutables del dominio (roles, cambios, días y horarios)
+│   ├── controllers/           # Adaptadores HTTP de entrada y salida
+│   ├── dtos/                  # Validadores de estructura y tipos de entrada (+ helpers/)
+│   ├── errors/                # Jerarquía de clases de error personalizadas con su código HTTP
+│   ├── middlewares/           # Autenticación, autorización, validación JSON y errorHandler (+ helpers/)
+│   ├── models/                # Esquemas y modelos de Mongoose
+│   ├── routes/                # Definición de endpoints montados bajo el prefijo /api
+│   ├── scripts/               # Scripts utilitarios CLI (creación de administrador inicial)
+│   ├── services/              # Lógica de negocio y reglas de dominio (+ helpers/)
+│   ├── app.js                 # Configuración de la instancia de Express (sin abrir puerto)
+│   └── server.js              # Punto de entrada: valida entorno, conecta a MongoDB e inicia el servidor
+└── tests/                     # Suite de pruebas automatizadas con Vitest y mongodb-memory-server
+    ├── dtos/                  # Pruebas unitarias de los validadores DTO
+    ├── helpers/               # Configuración de base de datos en memoria y utilidades de test
+    └── services/              # Pruebas de integración de servicios y helpers de dominio
 ```
-
-El middleware `src/middlewares/errorHandler.js` captura cualquier error y devuelve siempre un JSON con la forma `{ "mensaje": "..." }`:
-1. Si `express.json()` falla al parsear un cuerpo malformado, `verSiErrorLecturaCuerpo` lo convierte en `ErrorLecturaCuerpo` (`400`).
-2. `mongoose.Error.ValidationError` → `400` con los mensajes del esquema concatenados.
-3. `CastError` de Mongoose → `400` con `{ "mensaje": "Id inválido" }`.
-4. Error `code === 11000` (clave única duplicada en MongoDB, como `email` o `patente`) → `400` formateado mediante `formatearMensajeClaveDuplicada` (ej. `"{campo} ya se encuentra registrado"`).
-5. Instancias de `ErrorPeticionInvalida`, `ErrorDeNegocio`, `ErrorAutenticacion` o `ErrorAutorizacion` → responden con su `err.statusCode` (`400`, `401`, `403`, `404`) y `err.message`.
-6. Cualquier otro error inesperado → registra por consola y responde `500` con `{ "mensaje": "Error interno del servidor" }`.
 
 ---
 
-## 4. Modelo de Dominio y Diagrama de Entidades
+## 3. Modelo de Dominio y Diagrama de Entidades
 
 ```mermaid
 classDiagram
@@ -322,62 +255,9 @@ classDiagram
 
 ---
 
-## 5. Mapa de Enrutamiento HTTP
+## 4. Catálogo de Endpoints de la API
 
-Todos los routers se montan en `src/app.js` bajo el prefijo `/api`:
-
-```mermaid
-flowchart TD
-    ROOT["API Root (/api)"]
-
-    ROOT --> AUTH["/auth"]
-    AUTH --> AUTH_LOGIN["POST /login"]
-    AUTH --> AUTH_LOGOUT["POST /logout (🔒 Bearer)"]
-
-    ROOT --> ADMIN["/administradores"]
-    ADMIN --> ADMIN_LIST["GET /"]
-    ADMIN --> ADMIN_GET["GET /:id"]
-    ADMIN --> ADMIN_POST["POST /"]
-    ADMIN --> ADMIN_PUT["PUT /:id"]
-
-    ROOT --> ALUMNOS["/alumnos"]
-    ALUMNOS --> ALUMNO_LIST["GET /"]
-    ALUMNOS --> ALUMNO_GET["GET /:id"]
-    ALUMNOS --> ALUMNO_POST["POST /"]
-    ALUMNOS --> ALUMNO_PUT["PUT /:id"]
-    ALUMNOS --> ALUMNO_SUM["PATCH /:id/saldo/sumar"]
-    ALUMNOS --> ALUMNO_RES["PATCH /:id/saldo/restar"]
-
-    ROOT --> AUTOS["/autos"]
-    AUTOS --> AUTO_LIST["GET / (?cambios=...)"]
-    AUTOS --> AUTO_GET["GET /:id"]
-    AUTOS --> AUTO_POST["POST /"]
-    AUTOS --> AUTO_PUT["PUT /:id"]
-
-    ROOT --> PROFESORES["/profesores"]
-    PROFESORES --> PROF_LIST["GET /"]
-    PROFESORES --> PROF_GET["GET /:id"]
-    PROFESORES --> PROF_DISP["GET /:id/disponibilidad"]
-    PROFESORES --> PROF_TURNOS["GET /:id/turnos-libres (?fecha=...&cambios=...)"]
-    PROFESORES --> PROF_POST["POST /"]
-    PROFESORES --> PROF_PUT["PUT /:id"]
-    PROFESORES --> PROF_ADD_DISP["PATCH /:id/disponibilidad/agregar"]
-    PROFESORES --> PROF_REM_DISP["PATCH /:id/disponibilidad/quitar"]
-
-    ROOT --> CLASES["/clases (🔒 Bearer)"]
-    CLASES --> CLASE_LIST["GET /"]
-    CLASES --> CLASE_GET["GET /:id"]
-    CLASES --> CLASE_POST["POST / (Agendar)"]
-    CLASES --> CLASE_DEL["DELETE /:id (Cancelar)"]
-
-    ROOT --> NOT_FOUND["* (Catch-all 404: 'Ruta no encontrada')"]
-```
-
----
-
-## 6. Catálogo de Endpoints de la API
-
-### 6.1. Autenticación (`/api/auth`)
+### 4.1. Autenticación (`/api/auth`)
 
 | Método | Endpoint | Auth | Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -386,7 +266,7 @@ flowchart TD
 
 ---
 
-### 6.2. Administradores (`/api/administradores`)
+### 4.2. Administradores (`/api/administradores`)
 
 | Método | Endpoint | Auth | Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -397,20 +277,20 @@ flowchart TD
 
 ---
 
-### 6.3. Alumnos (`/api/alumnos`)
+### 4.3. Alumnos (`/api/alumnos`)
 
 | Método | Endpoint | Auth | Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/alumnos` | No | Ninguno | `200` | Lista todos los alumnos junto con su `saldoClases`. |
-| `GET` | `/api/alumnos/:id` | No | Ninguno | `200`, `400`, `404` | Obtiene un alumno por su `_id`. |
+| `GET` | `/api/alumnos` | **Sí (`Bearer`, rol `'administrador'`)** | Ninguno | `200`, `401`, `403` | Lista todos los alumnos junto con su `saldoClases`. |
+| `GET` | `/api/alumnos/:id` | **Sí (`Bearer`, `'administrador'` o propio `'alumno'`)** | Ninguno | `200`, `400`, `401`, `403`, `404` | Obtiene un alumno por su `_id` (solo accesible por un administrador o por el propio alumno). |
 | `POST` | `/api/alumnos` | No | `{ "NomApe": "string", "email": "string", "password": "string", "saldoClases"?: number }` | `201`, `400` | Registro público de un alumno (`saldoClases` opcional, entero $\ge 0$, por defecto `0`). |
-| `PUT` | `/api/alumnos/:id` | No | `{ "NomApe"?: "string", "email"?: "string", "password"?: "string" }` | `200`, `400`, `404` | Actualiza datos personales del alumno (no permite enviar `saldoClases`). |
+| `PUT` | `/api/alumnos/:id` | **Sí (`Bearer`, `'administrador'` o propio `'alumno'`)** | `{ "NomApe"?: "string", "email"?: "string", "password"?: "string" }` | `200`, `400`, `401`, `403`, `404` | Actualiza datos personales del alumno (solo por un administrador o el propio alumno; no permite enviar `saldoClases`). |
 | `PATCH` | `/api/alumnos/:id/saldo/sumar` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "cantidad": number }` | `200`, `400`, `401`, `403`, `404` | Suma `cantidad` (entero $> 0$) al `saldoClases` del alumno. |
 | `PATCH` | `/api/alumnos/:id/saldo/restar` | **Sí (`Bearer`, rol `'administrador'`)** | `{ "cantidad": number }` | `200`, `400`, `401`, `403`, `404` | Resta `cantidad` (entero $> 0$) al `saldoClases`. Falla con `400` si el saldo resultante sería negativo (`ErrorSaldoClasesInsuficiente`). |
 
 ---
 
-### 6.4. Autos (`/api/autos`)
+### 4.4. Autos (`/api/autos`)
 
 | Método | Endpoint | Auth | Query / Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -421,7 +301,7 @@ flowchart TD
 
 ---
 
-### 6.5. Profesores (`/api/profesores`)
+### 4.5. Profesores (`/api/profesores`)
 
 | Método | Endpoint | Auth | Query / Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -436,7 +316,7 @@ flowchart TD
 
 ---
 
-### 6.6. Clases (`/api/clases`)
+### 4.6. Clases (`/api/clases`)
 
 Todos los endpoints de `/api/clases` exigen autenticación mediante cabecera `Authorization: Bearer <token>`.
 
@@ -449,7 +329,7 @@ Todos los endpoints de `/api/clases` exigen autenticación mediante cabecera `Au
 
 ---
 
-## 7. Suite de Pruebas Automatizadas
+## 5. Suite de Pruebas Automatizadas
 
 El proyecto cuenta con pruebas automatizadas sobre DTOs, helpers de calendarización/disponibilidad y servicios utilizando **Vitest** y **mongodb-memory-server** (`tests/helpers/setupTestDB.js`):
 
@@ -468,7 +348,7 @@ npm run test:run
 
 ---
 
-## 8. Guía de Instalación y Puesta en Marcha
+## 6. Guía de Instalación y Puesta en Marcha
 
 ### Requisitos Previos
 - **Node.js** `v20` o superior.
