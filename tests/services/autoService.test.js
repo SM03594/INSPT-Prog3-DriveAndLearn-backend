@@ -246,8 +246,8 @@ describe('autoService', () => {
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00',
-        '2026-11-10T11:00'
+        '2030-11-12T10:00',
+        '2030-11-12T11:00'
       );
 
       expect(autosLibres).toHaveLength(2);
@@ -276,13 +276,13 @@ describe('autoService', () => {
         alumno: dummyAlumnoId,
         profesor: dummyProfesorId,
         auto: autoOcupado._id,
-        inicio: '2026-11-10T10:00',
-        fin: '2026-11-10T11:00',
+        inicio: '2030-11-12T10:00',
+        fin: '2030-11-12T11:00',
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00',
-        '2026-11-10T11:00'
+        '2030-11-12T10:00',
+        '2030-11-12T11:00'
       );
 
       expect(autosLibres).toHaveLength(1);
@@ -301,13 +301,13 @@ describe('autoService', () => {
         alumno: new mongoose.Types.ObjectId(),
         profesor: new mongoose.Types.ObjectId(),
         auto: auto._id,
-        inicio: '2026-11-10T10:00',
-        fin: '2026-11-10T12:00',
+        inicio: '2030-11-12T10:00',
+        fin: '2030-11-12T12:00',
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T11:00',
-        '2026-11-10T12:00'
+        '2030-11-12T11:00',
+        '2030-11-12T12:00'
       );
 
       expect(autosLibres).toHaveLength(0);
@@ -325,13 +325,13 @@ describe('autoService', () => {
         alumno: new mongoose.Types.ObjectId(),
         profesor: new mongoose.Types.ObjectId(),
         auto: auto._id,
-        inicio: '2026-11-10T10:30',
-        fin: '2026-11-10T11:30',
+        inicio: '2030-11-12T10:30',
+        fin: '2030-11-12T11:30',
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00',
-        '2026-11-10T11:00'
+        '2030-11-12T10:00',
+        '2030-11-12T11:00'
       );
 
       expect(autosLibres).toHaveLength(0);
@@ -349,13 +349,13 @@ describe('autoService', () => {
         alumno: new mongoose.Types.ObjectId(),
         profesor: new mongoose.Types.ObjectId(),
         auto: auto._id,
-        inicio: '2026-11-10T09:00',
-        fin: '2026-11-10T10:00',
+        inicio: '2030-11-12T09:00',
+        fin: '2030-11-12T10:00',
       });
 
       const autosLibres = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00',
-        '2026-11-10T11:00'
+        '2030-11-12T10:00',
+        '2030-11-12T11:00'
       );
 
       expect(autosLibres).toHaveLength(1);
@@ -377,8 +377,8 @@ describe('autoService', () => {
       });
 
       const autosManuales = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00',
-        '2026-11-10T11:00',
+        '2030-11-12T10:00',
+        '2030-11-12T11:00',
         'manual'
       );
 
@@ -386,8 +386,8 @@ describe('autoService', () => {
       expect(autosManuales[0].cambios).toBe(CAMBIOS.MANUAL);
 
       const autosAutomaticos = await autoService.obtenerAutosLibresEnTurno(
-        '2026-11-10T10:00',
-        '2026-11-10T11:00',
+        '2030-11-12T10:00',
+        '2030-11-12T11:00',
         'AUTOMATICO'
       );
 
@@ -398,8 +398,8 @@ describe('autoService', () => {
     it('debería rechazar si cambios no es MANUAL ni AUTOMATICO', async () => {
       await expect(
         autoService.obtenerAutosLibresEnTurno(
-          '2026-11-10T10:00',
-          '2026-11-10T11:00',
+          '2030-11-12T10:00',
+          '2030-11-12T11:00',
           'ELECTRICO'
         )
       ).rejects.toThrow(ErrorDeNegocio);
@@ -416,17 +416,17 @@ describe('autoService', () => {
       });
 
       const turnos = [
-        { inicio: '2026-11-10T10:00', fin: '2026-11-10T11:00' },
-        { inicio: '2026-11-10T11:00', fin: '2026-11-10T12:00' },
+        { inicio: '2030-11-12T10:00', fin: '2030-11-12T11:00' },
+        { inicio: '2030-11-12T11:00', fin: '2030-11-12T12:00' },
       ];
 
       const resultado = await autoService.adjuntarAutosATurnos(turnos);
 
       expect(resultado).toHaveLength(2);
-      expect(resultado[0].inicio).toBe('2026-11-10T10:00');
+      expect(resultado[0].inicio).toBe('2030-11-12T10:00');
       expect(resultado[0].autos).toHaveLength(1);
       expect(resultado[0].autos[0]._id.toString()).toBe(auto._id.toString());
-      expect(resultado[1].inicio).toBe('2026-11-10T11:00');
+      expect(resultado[1].inicio).toBe('2030-11-12T11:00');
       expect(resultado[1].autos).toHaveLength(1);
     });
 
@@ -445,7 +445,7 @@ describe('autoService', () => {
       });
 
       const turnos = [
-        { inicio: '2026-11-10T10:00', fin: '2026-11-10T11:00' },
+        { inicio: '2030-11-12T10:00', fin: '2030-11-12T11:00' },
       ];
 
       const resultado = await autoService.adjuntarAutosATurnos(

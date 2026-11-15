@@ -11,8 +11,8 @@ function crearCuerpoClaseValido() {
   return {
     profesor: '507f1f77bcf86cd799439011',
     auto: '507f1f77bcf86cd799439012',
-    inicio: '2026-11-09T10:00',
-    fin: '2026-11-09T11:00',
+    inicio: '2030-11-11T10:00',
+    fin: '2030-11-11T11:00',
   };
 }
 
@@ -38,8 +38,8 @@ describe('claseDTO', () => {
 
       it('debería aceptar los campos en cualquier orden', () => {
         const cuerpoDesordenado = {
-          fin: '2026-11-09T11:00',
-          inicio: '2026-11-09T10:00',
+          fin: '2030-11-11T11:00',
+          inicio: '2030-11-11T10:00',
           auto: '507f1f77bcf86cd799439012',
           profesor: '507f1f77bcf86cd799439011',
         };
@@ -215,7 +215,7 @@ describe('claseDTO', () => {
           profesor: 123,
           auto: false,
           inicio: null,
-          fin: ['2026-11-09T11:00'],
+          fin: ['2030-11-11T11:00'],
         };
 
         const error = capturarError(() => validarAgendarClaseDTO(cuerpoClase));

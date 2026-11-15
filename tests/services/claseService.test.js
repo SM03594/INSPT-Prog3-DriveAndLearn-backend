@@ -74,14 +74,14 @@ describe('claseService', () => {
           rol: ROLES.ALUMNO,
         };
 
-        // 2026-11-09 es lunes; cae dentro de la disponibilidad del profesor (08:00 a 14:00)
+        // 2030-11-11 es lunes; cae dentro de la disponibilidad del profesor (08:00 a 14:00)
         const claseCreada = await claseService.agendar(
           {
             alumno: alumno._id.toString(),
             profesor: profesor._id.toString(),
             auto: auto._id.toString(),
-            inicio: '2026-11-09T10:00',
-            fin: '2026-11-09T11:00',
+            inicio: '2030-11-11T10:00',
+            fin: '2030-11-11T11:00',
           },
           usuarioActual
         );
@@ -90,8 +90,8 @@ describe('claseService', () => {
         expect(claseCreada.alumno.toString()).toBe(alumno._id.toString());
         expect(claseCreada.profesor.toString()).toBe(profesor._id.toString());
         expect(claseCreada.auto.toString()).toBe(auto._id.toString());
-        expect(claseCreada.inicio).toBe('2026-11-09T10:00');
-        expect(claseCreada.fin).toBe('2026-11-09T11:00');
+        expect(claseCreada.inicio).toBe('2030-11-11T10:00');
+        expect(claseCreada.fin).toBe('2030-11-11T11:00');
 
         // Verifica persistencia en la colección clases
         const claseEnDb = await Clase.findById(claseCreada._id);
@@ -114,21 +114,21 @@ describe('claseService', () => {
           rol: ROLES.ALUMNO,
         };
 
-        // 2026-11-10 es martes; 23:00 a medianoche (2026-11-11T00:00)
+        // 2030-11-12 es martes; 23:00 a medianoche (2030-11-13T00:00)
         const claseCreada = await claseService.agendar(
           {
             alumno: alumno._id.toString(),
             profesor: profesor._id.toString(),
             auto: auto._id.toString(),
-            inicio: '2026-11-10T23:00',
-            fin: '2026-11-11T00:00',
+            inicio: '2030-11-12T23:00',
+            fin: '2030-11-13T00:00',
           },
           usuarioActual
         );
 
         expect(claseCreada._id).toBeDefined();
-        expect(claseCreada.inicio).toBe('2026-11-10T23:00');
-        expect(claseCreada.fin).toBe('2026-11-11T00:00');
+        expect(claseCreada.inicio).toBe('2030-11-12T23:00');
+        expect(claseCreada.fin).toBe('2030-11-13T00:00');
       });
     });
 
@@ -146,8 +146,8 @@ describe('claseService', () => {
               alumno: 'id-invalido',
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -159,8 +159,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: 'id-invalido',
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -172,8 +172,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: 'id-invalido',
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -193,8 +193,8 @@ describe('claseService', () => {
               alumno: idInexistente,
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -214,8 +214,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: idProfesorInexistente,
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -235,8 +235,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: idAutoInexistente,
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -259,8 +259,8 @@ describe('claseService', () => {
               alumno: alumnoSinSaldo._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -287,8 +287,8 @@ describe('claseService', () => {
               alumno: alumno2._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -311,8 +311,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActualAdmin
           )
@@ -355,8 +355,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:30',
-              fin: '2026-11-09T11:30',
+              inicio: '2030-11-11T10:30',
+              fin: '2030-11-11T11:30',
             },
             usuarioActual
           )
@@ -377,8 +377,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T12:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T12:00',
             },
             usuarioActual
           )
@@ -394,15 +394,15 @@ describe('claseService', () => {
 
         const usuarioActual = { id: alumno._id.toString(), rol: ROLES.ALUMNO };
 
-        // 2026-11-11 es miércoles (el profesor no tiene disponibilidad)
+        // 2030-11-13 es miércoles (el profesor no tiene disponibilidad)
         await expect(
           claseService.agendar(
             {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-11T10:00',
-              fin: '2026-11-11T11:00',
+              inicio: '2030-11-13T10:00',
+              fin: '2030-11-13T11:00',
             },
             usuarioActual
           )
@@ -416,15 +416,15 @@ describe('claseService', () => {
 
         const usuarioActual = { id: alumno._id.toString(), rol: ROLES.ALUMNO };
 
-        // 2026-11-09 es lunes, pero a las 16:00 (fuera de 08:00-14:00)
+        // 2030-11-11 es lunes, pero a las 16:00 (fuera de 08:00-14:00)
         await expect(
           claseService.agendar(
             {
               alumno: alumno._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T16:00',
-              fin: '2026-11-09T17:00',
+              inicio: '2030-11-11T16:00',
+              fin: '2030-11-11T17:00',
             },
             usuarioActual
           )
@@ -448,8 +448,8 @@ describe('claseService', () => {
             alumno: alumno._id.toString(),
             profesor: profesor1._id.toString(),
             auto: auto1._id.toString(),
-            inicio: '2026-11-09T10:00',
-            fin: '2026-11-09T11:00',
+            inicio: '2030-11-11T10:00',
+            fin: '2030-11-11T11:00',
           },
           usuarioActual
         );
@@ -461,8 +461,8 @@ describe('claseService', () => {
               alumno: alumno._id.toString(),
               profesor: profesor2._id.toString(),
               auto: auto2._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             usuarioActual
           )
@@ -482,8 +482,8 @@ describe('claseService', () => {
             alumno: alumno1._id.toString(),
             profesor: profesor._id.toString(),
             auto: auto1._id.toString(),
-            inicio: '2026-11-09T10:00',
-            fin: '2026-11-09T11:00',
+            inicio: '2030-11-11T10:00',
+            fin: '2030-11-11T11:00',
           },
           { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
         );
@@ -495,8 +495,8 @@ describe('claseService', () => {
               alumno: alumno2._id.toString(),
               profesor: profesor._id.toString(),
               auto: auto2._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
           )
@@ -516,8 +516,8 @@ describe('claseService', () => {
             alumno: alumno1._id.toString(),
             profesor: profesor1._id.toString(),
             auto: auto._id.toString(),
-            inicio: '2026-11-09T10:00',
-            fin: '2026-11-09T11:00',
+            inicio: '2030-11-11T10:00',
+            fin: '2030-11-11T11:00',
           },
           { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
         );
@@ -529,8 +529,8 @@ describe('claseService', () => {
               alumno: alumno2._id.toString(),
               profesor: profesor2._id.toString(),
               auto: auto._id.toString(),
-              inicio: '2026-11-09T10:00',
-              fin: '2026-11-09T11:00',
+              inicio: '2030-11-11T10:00',
+              fin: '2030-11-11T11:00',
             },
             { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
           )
@@ -552,8 +552,8 @@ describe('claseService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         usuarioActual
       );
@@ -593,8 +593,8 @@ describe('claseService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         { id: alumno._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -626,8 +626,8 @@ describe('claseService', () => {
           alumno: alumno1._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -684,8 +684,8 @@ describe('claseService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         usuarioActual
       );
@@ -708,8 +708,8 @@ describe('claseService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         { id: alumno._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -738,8 +738,8 @@ describe('claseService', () => {
           alumno: alumno1._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -777,8 +777,8 @@ describe('claseService', () => {
           alumno: alumno1._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto1._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -788,8 +788,8 @@ describe('claseService', () => {
           alumno: alumno2._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto2._id.toString(),
-          inicio: '2026-11-09T12:00',
-          fin: '2026-11-09T13:00',
+          inicio: '2030-11-11T12:00',
+          fin: '2030-11-11T13:00',
         },
         { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -815,8 +815,8 @@ describe('claseService', () => {
           alumno: alumno1._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto1._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -826,8 +826,8 @@ describe('claseService', () => {
           alumno: alumno2._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto2._id.toString(),
-          inicio: '2026-11-09T12:00',
-          fin: '2026-11-09T13:00',
+          inicio: '2030-11-11T12:00',
+          fin: '2030-11-11T13:00',
         },
         { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
       );
@@ -853,17 +853,17 @@ describe('claseService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         usuarioActual
       );
 
-      const clasesDia9 = await claseService.listarPorFecha('2026-11-09');
-      const clasesDia10 = await claseService.listarPorFecha('2026-11-10');
+      const clasesDia9 = await claseService.listarPorFecha('2030-11-11');
+      const clasesDia10 = await claseService.listarPorFecha('2030-11-12');
 
       expect(clasesDia9).toHaveLength(1);
-      expect(clasesDia9[0].inicio).toBe('2026-11-09T10:00');
+      expect(clasesDia9[0].inicio).toBe('2030-11-11T10:00');
       expect(clasesDia10).toHaveLength(0);
     });
   });
@@ -880,37 +880,37 @@ describe('claseService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
-          inicio: '2026-11-09T10:00',
-          fin: '2026-11-09T11:00',
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
         },
         usuarioActual
       );
 
       // Superposición idéntica
       const clasesSolapadas = await claseService.listarEnIntervalo(
-        '2026-11-09T10:00',
-        '2026-11-09T11:00'
+        '2030-11-11T10:00',
+        '2030-11-11T11:00'
       );
       expect(clasesSolapadas).toHaveLength(1);
 
       // Contigua posterior (11:00 a 12:00) -> NO debe incluirse
       const clasesContiguas = await claseService.listarEnIntervalo(
-        '2026-11-09T11:00',
-        '2026-11-09T12:00'
+        '2030-11-11T11:00',
+        '2030-11-11T12:00'
       );
       expect(clasesContiguas).toHaveLength(0);
 
       // Con filtro adicional por auto
       const clasesConAuto = await claseService.listarEnIntervalo(
-        '2026-11-09T10:00',
-        '2026-11-09T11:00',
+        '2030-11-11T10:00',
+        '2030-11-11T11:00',
         { auto: auto._id }
       );
       expect(clasesConAuto).toHaveLength(1);
 
       const clasesConOtroAuto = await claseService.listarEnIntervalo(
-        '2026-11-09T10:00',
-        '2026-11-09T11:00',
+        '2030-11-11T10:00',
+        '2030-11-11T11:00',
         { auto: new mongoose.Types.ObjectId() }
       );
       expect(clasesConOtroAuto).toHaveLength(0);

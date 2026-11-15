@@ -484,32 +484,32 @@ describe('profesorService', () => {
     });
 
     it('debería devolver turnos libres con todos los autos disponibles para un día futuro con disponibilidad', async () => {
-      // 2026-11-10 es martes en el futuro
+      // 2030-11-12 es martes en el futuro
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       expect(resultado.turnos_libres).toHaveLength(3);
       expect(resultado.turnos_libres[0]).toMatchObject({
-        inicio: '2026-11-10T10:00',
-        fin: '2026-11-10T11:00',
+        inicio: '2030-11-12T10:00',
+        fin: '2030-11-12T11:00',
       });
       expect(resultado.turnos_libres[0].autos).toHaveLength(2);
       expect(resultado.turnos_libres[1]).toMatchObject({
-        inicio: '2026-11-10T11:00',
-        fin: '2026-11-10T12:00',
+        inicio: '2030-11-12T11:00',
+        fin: '2030-11-12T12:00',
       });
       expect(resultado.turnos_libres[2]).toMatchObject({
-        inicio: '2026-11-10T12:00',
-        fin: '2026-11-10T13:00',
+        inicio: '2030-11-12T12:00',
+        fin: '2030-11-12T13:00',
       });
     });
 
     it('debería filtrar los autos disponibles si se indica cambios MANUAL o AUTOMATICO', async () => {
       const resManual = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
         cambios: 'manual',
       });
 
@@ -519,7 +519,7 @@ describe('profesorService', () => {
 
       const resAuto = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
         cambios: 'AUTOMATICO',
       });
 
@@ -535,21 +535,21 @@ describe('profesorService', () => {
           alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: autoManual._id.toString(),
-          inicio: '2026-11-10T11:00',
-          fin: '2026-11-10T12:00',
+          inicio: '2030-11-12T11:00',
+          fin: '2030-11-12T12:00',
         },
         { rol: ROLES.ALUMNO, id: alumno._id.toString() }
       );
 
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       // Se deben excluir las 11:00 -> quedan 10:00 y 12:00
       expect(resultado.turnos_libres).toHaveLength(2);
-      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T10:00');
-      expect(resultado.turnos_libres[1].inicio).toBe('2026-11-10T12:00');
+      expect(resultado.turnos_libres[0].inicio).toBe('2030-11-12T10:00');
+      expect(resultado.turnos_libres[1].inicio).toBe('2030-11-12T12:00');
     });
 
     it('debería excluir múltiples turnos si el profesor tiene una clase de duración extendida', async () => {
@@ -558,18 +558,18 @@ describe('profesorService', () => {
         alumno: alumno._id,
         profesor: profesor._id,
         auto: autoManual._id,
-        inicio: '2026-11-10T10:00',
-        fin: '2026-11-10T12:00',
+        inicio: '2030-11-12T10:00',
+        fin: '2030-11-12T12:00',
       });
 
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       // Se deben excluir 10:00 y 11:00 -> solo queda 12:00 a 13:00
       expect(resultado.turnos_libres).toHaveLength(1);
-      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T12:00');
+      expect(resultado.turnos_libres[0].inicio).toBe('2030-11-12T12:00');
     });
 
     it('debería excluir turnos solapados si la clase del profesor inicia fuera de hora en punto', async () => {
@@ -578,18 +578,18 @@ describe('profesorService', () => {
         alumno: alumno._id,
         profesor: profesor._id,
         auto: autoManual._id,
-        inicio: '2026-11-10T10:30',
-        fin: '2026-11-10T11:30',
+        inicio: '2030-11-12T10:30',
+        fin: '2030-11-12T11:30',
       });
 
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       // Se deben excluir 10:00 y 11:00 -> solo queda 12:00 a 13:00
       expect(resultado.turnos_libres).toHaveLength(1);
-      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T12:00');
+      expect(resultado.turnos_libres[0].inicio).toBe('2030-11-12T12:00');
     });
 
     it('debería mantener un turno como libre si la clase previa del profesor es contigua y no solapa', async () => {
@@ -598,18 +598,18 @@ describe('profesorService', () => {
         alumno: alumno._id,
         profesor: profesor._id,
         auto: autoManual._id,
-        inicio: '2026-11-10T09:00',
-        fin: '2026-11-10T10:00',
+        inicio: '2030-11-12T09:00',
+        fin: '2030-11-12T10:00',
       });
 
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       // Deben mantenerse los 3 turnos: 10:00, 11:00 y 12:00
       expect(resultado.turnos_libres).toHaveLength(3);
-      expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T10:00');
+      expect(resultado.turnos_libres[0].inicio).toBe('2030-11-12T10:00');
     });
 
     it('debería excluir un auto de un turno si está asignado a otra clase a esa misma hora con otro profesor', async () => {
@@ -627,24 +627,24 @@ describe('profesorService', () => {
           alumno: alumno._id.toString(),
           profesor: otroProfesor._id.toString(),
           auto: autoManual._id.toString(),
-          inicio: '2026-11-10T10:00',
-          fin: '2026-11-10T11:00',
+          inicio: '2030-11-12T10:00',
+          fin: '2030-11-12T11:00',
         },
         { rol: ROLES.ALUMNO, id: alumno._id.toString() }
       );
 
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       // El turno de las 10:00 solo tiene autoAutomatico disponible
-      const turno10 = resultado.turnos_libres.find((t) => t.inicio === '2026-11-10T10:00');
+      const turno10 = resultado.turnos_libres.find((t) => t.inicio === '2030-11-12T10:00');
       expect(turno10.autos).toHaveLength(1);
       expect(turno10.autos[0]._id.toString()).toBe(autoAutomatico._id.toString());
 
       // El turno de las 12:00 tiene ambos autos
-      const turno12 = resultado.turnos_libres.find((t) => t.inicio === '2026-11-10T12:00');
+      const turno12 = resultado.turnos_libres.find((t) => t.inicio === '2030-11-12T12:00');
       expect(turno12.autos).toHaveLength(2);
     });
 
@@ -670,8 +670,8 @@ describe('profesorService', () => {
           alumno: alumno._id.toString(),
           profesor: otroProfesor._id.toString(),
           auto: autoManual._id.toString(),
-          inicio: '2026-11-10T10:00',
-          fin: '2026-11-10T11:00',
+          inicio: '2030-11-12T10:00',
+          fin: '2030-11-12T11:00',
         },
         { rol: ROLES.ALUMNO, id: alumno._id.toString() }
       );
@@ -690,47 +690,47 @@ describe('profesorService', () => {
           alumno: alumnoDos._id.toString(),
           profesor: cuartoProfesor._id.toString(),
           auto: autoAutomatico._id.toString(),
-          inicio: '2026-11-10T10:00',
-          fin: '2026-11-10T11:00',
+          inicio: '2030-11-12T10:00',
+          fin: '2030-11-12T11:00',
         },
         { rol: ROLES.ALUMNO, id: alumnoDos._id.toString() }
       );
 
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-10',
+        fecha: '2030-11-12',
       });
 
       // A las 10:00 el profesor está libre, pero autos está vacío []
-      const turno10 = resultado.turnos_libres.find((t) => t.inicio === '2026-11-10T10:00');
+      const turno10 = resultado.turnos_libres.find((t) => t.inicio === '2030-11-12T10:00');
       expect(turno10).toBeDefined();
       expect(turno10.autos).toEqual([]);
     });
 
     it('debería devolver turnos_libres: [] si el profesor no tiene disponibilidad configurada en ese día', async () => {
-      // 2026-11-11 es miércoles (no tiene disponibilidad)
+      // 2030-11-13 es miércoles (no tiene disponibilidad)
       const resultado = await profesorService.obtenerTurnosLibres({
         profesorId: profesor._id.toString(),
-        fecha: '2026-11-11',
+        fecha: '2030-11-13',
       });
 
       expect(resultado).toEqual({ turnos_libres: [] });
     });
 
     it('debería descartar turnos pasados si la fecha consultada es hoy', async () => {
-      // Supongamos que hoy es 2026-11-10 (martes) a las 11:30 hora de Buenos Aires (14:30 UTC)
+      // Supongamos que hoy es 2030-11-12 (martes) a las 11:30 hora de Buenos Aires (14:30 UTC)
       vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-11-10T14:30:00Z'));
+      vi.setSystemTime(new Date('2030-11-12T14:30:00Z'));
 
       try {
         const resultado = await profesorService.obtenerTurnosLibres({
           profesorId: profesor._id.toString(),
-          fecha: '2026-11-10',
+          fecha: '2030-11-12',
         });
 
         // 10:00 y 11:00 ya pasaron (o empezaron antes de las 11:30) -> solo queda 12:00 a 13:00
         expect(resultado.turnos_libres).toHaveLength(1);
-        expect(resultado.turnos_libres[0].inicio).toBe('2026-11-10T12:00');
+        expect(resultado.turnos_libres[0].inicio).toBe('2030-11-12T12:00');
       } finally {
         vi.useRealTimers();
       }
@@ -740,7 +740,7 @@ describe('profesorService', () => {
       await expect(
         profesorService.obtenerTurnosLibres({
           profesorId: 'invalido',
-          fecha: '2026-11-10',
+          fecha: '2030-11-12',
         })
       ).rejects.toThrow(ErrorMongooseObjIdInvalido);
     });
@@ -751,7 +751,7 @@ describe('profesorService', () => {
       await expect(
         profesorService.obtenerTurnosLibres({
           profesorId: idInexistente,
-          fecha: '2026-11-10',
+          fecha: '2030-11-12',
         })
       ).rejects.toThrow(ErrorRegistroInexistente);
     });
@@ -794,7 +794,7 @@ describe('profesorService', () => {
       await expect(
         profesorService.obtenerTurnosLibres({
           profesorId: profesor._id.toString(),
-          fecha: '2026-11-10',
+          fecha: '2030-11-12',
           cambios: 'ELECTRICO',
         })
       ).rejects.toThrow(ErrorDeNegocio);

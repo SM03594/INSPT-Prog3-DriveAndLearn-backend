@@ -591,19 +591,19 @@ describe('profesorDTO', () => {
   describe('validarTurnosLibresQueryDTO', () => {
     describe('casos válidos', () => {
       it('debería aceptar query solo con fecha requerida', () => {
-        const query = { fecha: '2026-11-10' };
+        const query = { fecha: '2030-11-12' };
 
         expect(() => validarTurnosLibresQueryDTO(query)).not.toThrow();
       });
 
       it('debería aceptar query con fecha y cambios opcional', () => {
-        const query = { fecha: '2026-11-10', cambios: 'MANUAL' };
+        const query = { fecha: '2030-11-12', cambios: 'MANUAL' };
 
         expect(() => validarTurnosLibresQueryDTO(query)).not.toThrow();
       });
 
       it('debería devolver una copia con los campos válidos sin mutar el original', () => {
-        const query = { fecha: '2026-11-10', cambios: 'MANUAL' };
+        const query = { fecha: '2030-11-12', cambios: 'MANUAL' };
         const copia = { ...query };
 
         const resultado = validarTurnosLibresQueryDTO(query);
@@ -652,7 +652,7 @@ describe('profesorDTO', () => {
       it('debería rechazar si se envían parámetros de consulta no permitidos', () => {
         const error = capturarError(() =>
           validarTurnosLibresQueryDTO({
-            fecha: '2026-11-10',
+            fecha: '2030-11-12',
             invalido: 'algo',
           })
         );
@@ -675,7 +675,7 @@ describe('profesorDTO', () => {
       it('debería rechazar si fecha es un array por parameter pollution', () => {
         const error = capturarError(() =>
           validarTurnosLibresQueryDTO({
-            fecha: ['2026-11-10', '2026-11-11'],
+            fecha: ['2030-11-12', '2030-11-13'],
           })
         );
 
@@ -685,7 +685,7 @@ describe('profesorDTO', () => {
 
       it('debería rechazar si cambios no es un string', () => {
         const error = capturarError(() =>
-          validarTurnosLibresQueryDTO({ fecha: '2026-11-10', cambios: 123 })
+          validarTurnosLibresQueryDTO({ fecha: '2030-11-12', cambios: 123 })
         );
 
         expect(error).toBeInstanceOf(ErrorDeTipo);
