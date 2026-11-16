@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
+    "build": "npm install",
     "test": "vitest",
     "test:run": "vitest --run",
     "dev": "node --watch src/server.js",
