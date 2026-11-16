@@ -219,42 +219,77 @@ export async function obtenerPorId(idClase, usuarioActual) {
 }
 
 
-export async function listar(filtros = {}, usuarioActual) {
-  const filtroFinal = construirFiltroListado(filtros, usuarioActual);
-
-  return await Clase.find(filtroFinal);
-}
-
-
-function construirFiltroListado(filtros, usuarioActual) {
-  const filtroFinal = {};
-
+// Valida el formato semántico de los identificadores Mongoose y de la fecha recibidos
+// como parámetros de consulta opcionales antes de evaluar permisos o construir el filtro.
+function validarFormatosFiltros(filtros) {
   if (filtros.profesor !== undefined) {
     validarMongooseObjId(filtros.profesor);
-    filtroFinal.profesor = filtros.profesor;
   }
 
   if (filtros.auto !== undefined) {
     validarMongooseObjId(filtros.auto);
-    filtroFinal.auto = filtros.auto;
   }
 
   if (filtros.alumno !== undefined) {
     validarMongooseObjId(filtros.alumno);
-    filtroFinal.alumno = filtros.alumno;
   }
 
   if (filtros.fecha !== undefined) {
     validarFechaCalendario(filtros.fecha);
-    filtroFinal.inicio = { $regex: `^${filtros.fecha}T` };
   }
+}
 
-  // Si el actor es alumno, solo puede visualizar sus propias clases
+
+// Si el actor es un alumno, restringe la consulta únicamente a su propio identificador.
+// Impide explícitamente que consulte historiales o clases pertenecientes a otros alumnos.
+function verificarPermisoConsultaAlumno(filtros, usuarioActual) {
+  if (
+    usuarioActual?.rol === ROLES.ALUMNO &&
+    filtros.alumno !== undefined &&
+    filtros.alumno.toString() !== usuarioActual?.id?.toString()
+  ) {
+    throw new ErrorAutorizacion(
+      'No tienes permiso para acceder a clases de otros alumnos'
+    );
+  }
+}
+
+
+// Mapea los filtros ya validados y autorizados a la estructura de consulta de MongoDB.
+// Si el actor es alumno, fija su ID en el filtro; si es administrador, permite filtrar por terceros.
+function construirFiltroConsulta(filtros, usuarioActual) {
+  const filtro = {};
+
+  // Un alumno siempre consulta exclusivamente su propio historial
   if (usuarioActual?.rol === ROLES.ALUMNO) {
-    filtroFinal.alumno = usuarioActual.id;
+    filtro.alumno = usuarioActual.id;
+  } else if (filtros.alumno !== undefined) {
+    filtro.alumno = filtros.alumno;
   }
 
-  return filtroFinal;
+  if (filtros.profesor !== undefined) {
+    filtro.profesor = filtros.profesor;
+  }
+
+  if (filtros.auto !== undefined) {
+    filtro.auto = filtros.auto;
+  }
+
+  if (filtros.fecha !== undefined) {
+    filtro.inicio = { $regex: `^${filtros.fecha}T` };
+  }
+
+  return filtro;
+}
+
+
+export async function listar(filtros = {}, usuarioActual) {
+  validarFormatosFiltros(filtros);
+  verificarPermisoConsultaAlumno(filtros, usuarioActual);
+
+  const filtroFinal = construirFiltroConsulta(filtros, usuarioActual);
+
+  return await Clase.find(filtroFinal);
 }
 
 

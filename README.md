@@ -325,9 +325,9 @@ classDiagram
 
 Todos los endpoints de `/api/clases` exigen autenticación mediante cabecera `Authorization: Bearer <token>`.
 
-| Método | Endpoint | Auth | Cuerpo (JSON) | Códigos HTTP | Descripción |
+| Método | Endpoint | Auth | Query / Cuerpo (JSON) | Códigos HTTP | Descripción |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/clases` | **Sí (`Bearer`)** | Ninguno (soporta query filtros) | `200`, `401` | Si el usuario autenticado tiene rol `'alumno'`, filtra automáticamente para devolver solo sus propias clases. Si es `'administrador'`, devuelve todas. |
+| `GET` | `/api/clases` | **Sí (`Bearer`)** | Query opcional: `?profesor=ObjectId`, `&auto=ObjectId`, `&alumno=ObjectId`, `&fecha=YYYY-MM-DD` | `200`, `400`, `401`, `403` | Lista clases agendadas validando que los parámetros sean permitidos, de tipo string y con formato válido de ObjectId o fecha (`YYYY-MM-DD`). Si el actor es `'alumno'`, solo puede ver sus propias clases (si intenta filtrar por el ID de otro alumno, responde `403 Forbidden`). Si es `'administrador'`, devuelve todas o aplica los filtros provistos. |
 | `GET` | `/api/clases/:id` | **Sí (`Bearer`)** | Ninguno | `200`, `400`, `401`, `403`, `404` | Obtiene el detalle de una clase. Si el actor es `'alumno'` y la clase pertenece a otro alumno, responde `403 Forbidden`. |
 | `POST` | `/api/clases` | **Sí (`Bearer`, rol `'alumno'`)** | `{ "profesor": "ObjectId", "auto": "ObjectId", "inicio": "YYYY-MM-DDTHH:00", "fin": "YYYY-MM-DDTHH:00" }` | `201`, `400`, `401`, `403`, `404` | Agenda una clase de 1 hora exacta en fecha futura para el alumno autenticado (`req.usuario.id`). Verifica disponibilidad del profesor, ausencia de superposiciones (alumno, profesor y auto) y descuenta `1` de `saldoClases`. |
 | `DELETE` | `/api/clases/:id` | **Sí (`Bearer`)** | Ninguno | `200`, `400`, `401`, `403`, `404` | Cancela y elimina físicamente la clase. Si el actor es `'alumno'`, valida que sea el titular (`403` si no lo es). Reintegra automáticamente `1` crédito al `saldoClases` del alumno. |

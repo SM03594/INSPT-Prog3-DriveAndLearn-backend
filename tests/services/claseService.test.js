@@ -840,29 +840,91 @@ describe('claseService', () => {
       expect(todasLasClases).toHaveLength(2);
     });
 
-    it('un alumno no debería poder ver clases de otro alumno aunque envíe el filtro alumno en la consulta', async () => {
+    it('debería lanzar ErrorAutorizacion si un alumno intenta filtrar por el id de otro alumno', async () => {
       const alumno1 = await crearAlumnoFixture({ saldo: 3 });
       const alumno2 = await crearAlumnoFixture({ saldo: 3 });
+
+      await expect(
+        claseService.listar(
+          { alumno: alumno2._id.toString() },
+          { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
+        )
+      ).rejects.toThrow(ErrorAutorizacion);
+
+      await expect(
+        claseService.listar(
+          { alumno: alumno2._id.toString() },
+          { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
+        )
+      ).rejects.toThrow(
+        'No tienes permiso para acceder a clases de otros alumnos'
+      );
+    });
+
+    it('debería permitir que un alumno filtre explícitamente por su propio id sin lanzar error', async () => {
+      const alumno = await crearAlumnoFixture({ saldo: 3 });
       const profesor = await crearProfesorFixture();
       const auto = await crearAutoFixture();
+      const usuarioActual = { id: alumno._id.toString(), rol: ROLES.ALUMNO };
 
       await claseService.agendar(
         {
-          alumno: alumno2._id.toString(),
+          alumno: alumno._id.toString(),
           profesor: profesor._id.toString(),
           auto: auto._id.toString(),
           inicio: '2030-11-11T10:00',
           fin: '2030-11-11T11:00',
         },
-        { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
+        usuarioActual
       );
 
       const clases = await claseService.listar(
-        { alumno: alumno2._id.toString() },
+        { alumno: alumno._id.toString() },
+        usuarioActual
+      );
+
+      expect(clases).toHaveLength(1);
+      expect(clases[0].alumno.toString()).toBe(alumno._id.toString());
+    });
+
+    it('un alumno que filtra por fecha solo debería ver sus propias clases de ese día, ignorando las de otros alumnos', async () => {
+      const alumno1 = await crearAlumnoFixture({ saldo: 3 });
+      const alumno2 = await crearAlumnoFixture({ saldo: 3 });
+      const profesor = await crearProfesorFixture();
+      const auto1 = await crearAutoFixture();
+      const auto2 = await crearAutoFixture();
+
+      // Clase de alumno 1
+      await claseService.agendar(
+        {
+          alumno: alumno1._id.toString(),
+          profesor: profesor._id.toString(),
+          auto: auto1._id.toString(),
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
+        },
         { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
       );
 
-      expect(clases).toHaveLength(0);
+      // Clase de alumno 2 en el mismo día
+      await claseService.agendar(
+        {
+          alumno: alumno2._id.toString(),
+          profesor: profesor._id.toString(),
+          auto: auto2._id.toString(),
+          inicio: '2030-11-11T12:00',
+          fin: '2030-11-11T13:00',
+        },
+        { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
+      );
+
+      const clasesAlumno1 = await claseService.listar(
+        { fecha: '2030-11-11' },
+        { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
+      );
+
+      expect(clasesAlumno1).toHaveLength(1);
+      expect(clasesAlumno1[0].alumno.toString()).toBe(alumno1._id.toString());
     });
 
     it('debería filtrar correctamente por profesor, auto, alumno y fecha', async () => {
