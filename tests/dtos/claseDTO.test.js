@@ -4,7 +4,7 @@ import ErrorPeticionInvalida from '../../src/errors/ErrorPeticionInvalida.js';
 import { capturarError } from '../helpers/capturarError.js';
 import {
   validarAgendarClaseDTO,
-  validarCrearClaseDTO,
+  validarListarClasesQueryDTO,
 } from '../../src/dtos/claseDTO.js';
 
 function crearCuerpoClaseValido() {
@@ -225,6 +225,123 @@ describe('claseDTO', () => {
           'Tipos de datos incorrectos en: profesor (se esperaba string), auto (se esperaba string), inicio (se esperaba string), fin (se esperaba string)'
         );
       });
+    });
+  });
+
+  describe('validarListarClasesQueryDTO', () => {
+    describe('casos válidos', () => {
+      it('debería aceptar una query vacía {} y devolver un nuevo objeto vacío', () => {
+        const query = {};
+        const resultado = validarListarClasesQueryDTO(query);
+
+        expect(resultado).toEqual({});
+        expect(resultado).not.toBe(query);
+      });
+
+      it.each([
+        ['profesor', '507f1f77bcf86cd799439011'],
+        ['auto', '507f1f77bcf86cd799439012'],
+        ['alumno', '507f1f77bcf86cd799439013'],
+        ['fecha', '2030-11-11'],
+      ])(
+        'debería aceptar el filtro opcional %s de forma individual',
+        (campo, valor) => {
+          const query = { [campo]: valor };
+
+          expect(validarListarClasesQueryDTO(query)).toEqual(query);
+        }
+      );
+
+      it('debería aceptar todos los filtros opcionales combinados y devolver una copia sin mutar el original', () => {
+        const query = {
+          profesor: '507f1f77bcf86cd799439011',
+          auto: '507f1f77bcf86cd799439012',
+          alumno: '507f1f77bcf86cd799439013',
+          fecha: '2030-11-11',
+        };
+        const copia = { ...query };
+
+        const resultado = validarListarClasesQueryDTO(query);
+
+        expect(resultado).toEqual(query);
+        expect(resultado).not.toBe(query);
+        expect(query).toEqual(copia);
+      });
+    });
+
+    describe('query inválida (no objeto)', () => {
+      it('debería rechazar si query es null, undefined, string o array con ErrorDeTipo', () => {
+        expect(() => validarListarClasesQueryDTO(null)).toThrow(ErrorDeTipo);
+        expect(() => validarListarClasesQueryDTO(undefined)).toThrow(
+          ErrorDeTipo
+        );
+        expect(() => validarListarClasesQueryDTO('string')).toThrow(
+          ErrorDeTipo
+        );
+        expect(() => validarListarClasesQueryDTO(['array'])).toThrow(
+          ErrorDeTipo
+        );
+      });
+    });
+
+    describe('campos no permitidos', () => {
+      it.each(['_id', 'inicio', 'fin', '$ne', 'rol', 'invalido'])(
+        'debería rechazar el parámetro de consulta no permitido %s',
+        (campoNoPermitido) => {
+          const error = capturarError(() =>
+            validarListarClasesQueryDTO({ [campoNoPermitido]: 'valor' })
+          );
+
+          expect(error).toBeInstanceOf(ErrorCampoInvalido);
+          expect(error.statusCode).toBe(400);
+          expect(error.message).toBe(
+            `Campos no permitidos: ${campoNoPermitido}`
+          );
+        }
+      );
+
+      it('debería listar múltiples parámetros no permitidos en un único mensaje', () => {
+        const error = capturarError(() =>
+          validarListarClasesQueryDTO({
+            profesor: '507f1f77bcf86cd799439011',
+            inicio: '2030-11-11T10:00',
+            hack: '123',
+          })
+        );
+
+        expect(error).toBeInstanceOf(ErrorCampoInvalido);
+        expect(error.message).toBe('Campos no permitidos: inicio, hack');
+      });
+    });
+
+    describe('tipos de datos incorrectos', () => {
+      const valoresNoString = [
+        ['un número', 123],
+        ['un booleano', true],
+        ['null', null],
+        ['un objeto (inyección NoSQL)', { $ne: null }],
+        ['un array (parameter pollution)', ['valor1', 'valor2']],
+      ];
+
+      describe.each(['profesor', 'auto', 'alumno', 'fecha'])(
+        'filtro %s',
+        (campo) => {
+          it.each(valoresNoString)(
+            'debería rechazar %s con ErrorDeTipo',
+            (_descripcion, valorInvalido) => {
+              const error = capturarError(() =>
+                validarListarClasesQueryDTO({ [campo]: valorInvalido })
+              );
+
+              expect(error).toBeInstanceOf(ErrorDeTipo);
+              expect(error.statusCode).toBe(400);
+              expect(error.message).toBe(
+                `Tipos de datos incorrectos en: ${campo} (se esperaba string)`
+              );
+            }
+          );
+        }
+      );
     });
   });
 });
