@@ -8,12 +8,11 @@ const TIPOS_CAMPOS_ALUMNO = Object.freeze({
   cantidad: 'number',
 });
 
+// ===================================================================
+// ===================================================================
+
 const CAMPOS_REQUERIDOS_CREAR = ['NomApe', 'email', 'password'];
 const CAMPOS_OPCIONALES_CREAR = ['saldoClases'];
-
-const CAMPOS_OPCIONALES_ACTUALIZAR = ['NomApe', 'email', 'password'];
-
-const CAMPOS_REQUERIDOS_MODIFICAR_SALDO = ['cantidad'];
 
 export function validarCrearAlumnoDTO(body) {
   return validarEstructuraYTipos(
@@ -24,14 +23,25 @@ export function validarCrearAlumnoDTO(body) {
   );
 }
 
+// ===================================================================
+// ===================================================================
+
+const CAMPOS_REQUERIDOS_ACTUALIZAR = [];
+const CAMPOS_OPCIONALES_ACTUALIZAR = ['NomApe', 'email', 'password'];
+
 export function validarActualizarAlumnoDTO(body) {
   return validarEstructuraYTipos(
     body,
     TIPOS_CAMPOS_ALUMNO,
-    [],
+    CAMPOS_REQUERIDOS_ACTUALIZAR,
     CAMPOS_OPCIONALES_ACTUALIZAR
   );
 }
+
+// ===================================================================
+// ===================================================================
+
+const CAMPOS_REQUERIDOS_MODIFICAR_SALDO = ['cantidad'];
 
 export function validarSumarSaldoClasesDTO(body) {
   return validarEstructuraYTipos(

@@ -7,12 +7,30 @@ const TIPOS_CAMPOS_AUTO = Object.freeze({
   cambios: 'string',
 });
 
-const CAMPOS_AUTO = Object.keys(TIPOS_CAMPOS_AUTO);
+// ===================================================================
+// ===================================================================
+
+const CAMPOS_REQUERIDOS_CREAR = Object.keys(TIPOS_CAMPOS_AUTO);
 
 export function validarCrearAutoDTO(body) {
-  return validarEstructuraYTipos(body, TIPOS_CAMPOS_AUTO, CAMPOS_AUTO);
+  return validarEstructuraYTipos(
+    body,
+    TIPOS_CAMPOS_AUTO,
+    CAMPOS_REQUERIDOS_CREAR
+  );
 }
 
+// ===================================================================
+// ===================================================================
+
+const CAMPOS_REQUERIDOS_ACTUALIZAR = [];
+const CAMPOS_OPCIONALES_ACTUALIZAR = Object.keys(TIPOS_CAMPOS_AUTO);
+
 export function validarActualizarAutoDTO(body) {
-  return validarEstructuraYTipos(body, TIPOS_CAMPOS_AUTO, [], CAMPOS_AUTO);
+  return validarEstructuraYTipos(
+    body,
+    TIPOS_CAMPOS_AUTO,
+    CAMPOS_REQUERIDOS_ACTUALIZAR,
+    CAMPOS_OPCIONALES_ACTUALIZAR
+  );
 }
