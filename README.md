@@ -28,8 +28,7 @@ API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión
   - [4.4. Autos (`/api/autos`)](#44-autos-apiautos)
   - [4.5. Profesores (`/api/profesores`)](#45-profesores-apiprofesores)
   - [4.6. Clases (`/api/clases`)](#46-clases-apiclases)
-- [5. Suite de Pruebas Automatizadas](#5-suite-de-pruebas-automatizadas)
-- [6. Guía de Instalación y Puesta en Marcha](#6-gu%C3%ADa-de-instalaci%C3%B3n-y-puesta-en-marcha)
+- [5. Guía de Instalación y Despliegue](#5-gu%C3%ADa-de-instalaci%C3%B3n-y-despliegue)
 
 ---
 
@@ -329,32 +328,13 @@ Todos los endpoints de `/api/clases` exigen autenticación mediante cabecera `Au
 
 ---
 
-## 5. Suite de Pruebas Automatizadas
-
-El proyecto cuenta con pruebas automatizadas sobre DTOs, helpers de calendarización/disponibilidad y servicios utilizando **Vitest** y **mongodb-memory-server** (`tests/helpers/setupTestDB.js`):
-
-```bash
-# Ejecutar Vitest en modo observador interactivo (watch)
-npm test
-
-# Ejecutar toda la batería de pruebas una única vez
-npm run test:run
-```
-
-### Cobertura de Módulos de Prueba (`tests/`):
-- **DTOs (`tests/dtos/`):** `administradorDTO.test.js`, `alumnoDTO.test.js`, `authDTO.test.js`, `autoDTO.test.js`, `claseDTO.test.js`, `profesorDTO.test.js`.
-- **Helpers de Dominio (`tests/services/helpers/`):** `disponibilidadHelper.test.js`, `turnosYFechasHelper.test.js`.
-- **Servicios con Base de Datos en Memoria (`tests/services/`):** `administradorService.test.js`, `alumnoService.test.js`, `autoService.test.js`, `claseService.test.js`, `profesorService.test.js`, `usuarioService.test.js`.
-
----
-
-## 6. Guía de Instalación y Puesta en Marcha
+## 5. Guía de Instalación y Despliegue
 
 ### Requisitos Previos
 - **Node.js** `v20` o superior.
 - **MongoDB** en ejecución local o remota (para levantar el servidor con `npm run dev` o `npm start`; los tests usan su propio servidor en memoria).
 
-### Pasos de Configuración
+### Pasos de Configuración e Inicialización
 
 1. **Ingresar al directorio del backend:**
    ```bash
@@ -388,7 +368,13 @@ npm run test:run
    ZONA_HORARIA=America/Argentina/Buenos_Aires
    ```
 
-4. **Ejecutar el servidor:**
+4. **Crear el administrador inicial:**
+   Ejecutar el script de inicialización para registrar en MongoDB el usuario administrador con las credenciales configuradas en el archivo `.env`:
+   ```bash
+   npm run admin:desde-env
+   ```
+
+5. **Ejecutar el servidor:**
    ```bash
    # Modo desarrollo con recarga automática (--watch)
    npm run dev
@@ -397,3 +383,16 @@ npm run test:run
    npm start
    ```
    El servidor quedará escuchando en `http://localhost:3000`.
+
+### Suite de Pruebas Automatizadas
+
+El proyecto cuenta con pruebas automatizadas sobre DTOs, helpers de calendarización/disponibilidad y servicios utilizando **Vitest** y **mongodb-memory-server** (`tests/helpers/setupTestDB.js`):
+
+```bash
+npm run test
+```
+
+#### Cobertura de Módulos de Prueba (`tests/`):
+- **DTOs (`tests/dtos/`):** `administradorDTO.test.js`, `alumnoDTO.test.js`, `authDTO.test.js`, `autoDTO.test.js`, `claseDTO.test.js`, `profesorDTO.test.js`.
+- **Helpers de Dominio (`tests/services/helpers/`):** `disponibilidadHelper.test.js`, `turnosYFechasHelper.test.js`.
+- **Servicios con Base de Datos en Memoria (`tests/services/`):** `administradorService.test.js`, `alumnoService.test.js`, `autoService.test.js`, `claseService.test.js`, `profesorService.test.js`, `usuarioService.test.js`.
