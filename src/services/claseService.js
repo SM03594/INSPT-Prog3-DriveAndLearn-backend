@@ -9,6 +9,7 @@ import {
   validarIntervaloDeClase,
   estaDentroDeDisponibilidad,
   verificarFechaFutura,
+  validarFechaCalendario,
   crearFiltroSuperposicion,
 } from './helpers/turnosYFechasHelper.js';
 import * as alumnoService from './alumnoService.js';
@@ -219,14 +220,41 @@ export async function obtenerPorId(idClase, usuarioActual) {
 
 
 export async function listar(filtros = {}, usuarioActual) {
-  const filtroFinal = { ...filtros };
+  const filtroFinal = construirFiltroListado(filtros, usuarioActual);
+
+  return await Clase.find(filtroFinal);
+}
+
+
+function construirFiltroListado(filtros, usuarioActual) {
+  const filtroFinal = {};
+
+  if (filtros.profesor !== undefined) {
+    validarMongooseObjId(filtros.profesor);
+    filtroFinal.profesor = filtros.profesor;
+  }
+
+  if (filtros.auto !== undefined) {
+    validarMongooseObjId(filtros.auto);
+    filtroFinal.auto = filtros.auto;
+  }
+
+  if (filtros.alumno !== undefined) {
+    validarMongooseObjId(filtros.alumno);
+    filtroFinal.alumno = filtros.alumno;
+  }
+
+  if (filtros.fecha !== undefined) {
+    validarFechaCalendario(filtros.fecha);
+    filtroFinal.inicio = { $regex: `^${filtros.fecha}T` };
+  }
 
   // Si el actor es alumno, solo puede visualizar sus propias clases
   if (usuarioActual?.rol === ROLES.ALUMNO) {
     filtroFinal.alumno = usuarioActual.id;
   }
 
-  return await Clase.find(filtroFinal);
+  return filtroFinal;
 }
 
 

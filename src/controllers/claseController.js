@@ -1,9 +1,13 @@
 import * as claseService from '../services/claseService.js';
-import { validarAgendarClaseDTO } from '../dtos/claseDTO.js';
+import {
+  validarAgendarClaseDTO,
+  validarListarClasesQueryDTO,
+} from '../dtos/claseDTO.js';
 
 
 export async function listar(req, res) {
-  const listaClases = await claseService.listar(req.query, req.usuario);
+  const queryValidada = validarListarClasesQueryDTO(req.query);
+  const listaClases = await claseService.listar(queryValidada, req.usuario);
 
   res.status(200).json(listaClases);
 }

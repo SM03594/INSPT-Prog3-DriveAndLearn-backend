@@ -839,6 +839,122 @@ describe('claseService', () => {
 
       expect(todasLasClases).toHaveLength(2);
     });
+
+    it('un alumno no debería poder ver clases de otro alumno aunque envíe el filtro alumno en la consulta', async () => {
+      const alumno1 = await crearAlumnoFixture({ saldo: 3 });
+      const alumno2 = await crearAlumnoFixture({ saldo: 3 });
+      const profesor = await crearProfesorFixture();
+      const auto = await crearAutoFixture();
+
+      await claseService.agendar(
+        {
+          alumno: alumno2._id.toString(),
+          profesor: profesor._id.toString(),
+          auto: auto._id.toString(),
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
+        },
+        { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
+      );
+
+      const clases = await claseService.listar(
+        { alumno: alumno2._id.toString() },
+        { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
+      );
+
+      expect(clases).toHaveLength(0);
+    });
+
+    it('debería filtrar correctamente por profesor, auto, alumno y fecha', async () => {
+      const alumno1 = await crearAlumnoFixture({ saldo: 3 });
+      const alumno2 = await crearAlumnoFixture({ saldo: 3 });
+      const profesor1 = await crearProfesorFixture({ nomApe: 'Prof Uno' });
+      const profesor2 = await crearProfesorFixture({ nomApe: 'Prof Dos' });
+      const auto1 = await crearAutoFixture();
+      const auto2 = await crearAutoFixture();
+      const admin = {
+        id: new mongoose.Types.ObjectId().toString(),
+        rol: ROLES.ADMINISTRADOR,
+      };
+
+      await claseService.agendar(
+        {
+          alumno: alumno1._id.toString(),
+          profesor: profesor1._id.toString(),
+          auto: auto1._id.toString(),
+          inicio: '2030-11-11T10:00',
+          fin: '2030-11-11T11:00',
+        },
+        { id: alumno1._id.toString(), rol: ROLES.ALUMNO }
+      );
+
+      await claseService.agendar(
+        {
+          alumno: alumno2._id.toString(),
+          profesor: profesor2._id.toString(),
+          auto: auto2._id.toString(),
+          inicio: '2030-11-18T10:00',
+          fin: '2030-11-18T11:00',
+        },
+        { id: alumno2._id.toString(), rol: ROLES.ALUMNO }
+      );
+
+      const porProfesor = await claseService.listar(
+        { profesor: profesor1._id.toString() },
+        admin
+      );
+      expect(porProfesor).toHaveLength(1);
+      expect(porProfesor[0].profesor.toString()).toBe(profesor1._id.toString());
+
+      const porAuto = await claseService.listar(
+        { auto: auto2._id.toString() },
+        admin
+      );
+      expect(porAuto).toHaveLength(1);
+      expect(porAuto[0].auto.toString()).toBe(auto2._id.toString());
+
+      const porAlumno = await claseService.listar(
+        { alumno: alumno1._id.toString() },
+        admin
+      );
+      expect(porAlumno).toHaveLength(1);
+      expect(porAlumno[0].alumno.toString()).toBe(alumno1._id.toString());
+
+      const porFecha = await claseService.listar(
+        { fecha: '2030-11-18' },
+        admin
+      );
+      expect(porFecha).toHaveLength(1);
+      expect(porFecha[0].inicio).toBe('2030-11-18T10:00');
+    });
+
+    it.each(['profesor', 'auto', 'alumno'])(
+      'debería lanzar ErrorMongooseObjIdInvalido si el filtro %s no es un ObjectId válido',
+      async (campo) => {
+        const admin = {
+          id: new mongoose.Types.ObjectId().toString(),
+          rol: ROLES.ADMINISTRADOR,
+        };
+
+        await expect(
+          claseService.listar({ [campo]: 'id-invalido' }, admin)
+        ).rejects.toThrow(ErrorMongooseObjIdInvalido);
+      }
+    );
+
+    it.each(['fecha-invalida', '11-11-2030', '2030-02-30', '2030-13-01'])(
+      'debería lanzar ErrorFormatoDeFecha si el filtro fecha (%s) es inválido',
+      async (fechaInvalida) => {
+        const admin = {
+          id: new mongoose.Types.ObjectId().toString(),
+          rol: ROLES.ADMINISTRADOR,
+        };
+
+        await expect(
+          claseService.listar({ fecha: fechaInvalida }, admin)
+        ).rejects.toThrow(ErrorFormatoDeFecha);
+      }
+    );
   });
 
   describe('listarPorFecha', () => {
