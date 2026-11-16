@@ -21,6 +21,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Endpoint raíz de bienvenida / health check para Render o explorador
+app.get('/', (_req, res) => {
+  res.status(200).send('Hola mundo :D');
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/administradores', administradorRoutes);
 app.use('/api/alumnos', alumnoRoutes);
