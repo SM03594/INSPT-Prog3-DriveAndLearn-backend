@@ -1,13 +1,13 @@
 # Flujo de Asignación y Eliminación de Clases
 
-Esta guía describe exhaustivamente el ciclo de vida de las **clases prácticas de manejo** en **DriveAndLearn**, detallando el proceso de reserva (*agendamiento*), la política de cancelación y restitución de saldo, el control de acceso basado en roles (RBAC), el desacoplamiento entre servicios y el funcionamiento del motor de **calendarización** en hora local con **Luxon**.
+Esta guía describe exhaustivamente el ciclo de vida de las **clases prácticas de manejo** en **DriveAndLearn**, detallando el proceso de reserva (*agendamiento*), la política de cancelación y restitución de saldo, el control de acceso basado en roles (RBAC), el desacoplamiento entre servicios y el funcionamiento del motor de **calendarización** en hora local con **Luxon** mediante [turnosYFechasHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/turnosYFechasHelper.js).
 
 ---
 
 ## 1. Visión General y Reglas de Negocio
 
 Una clase práctica representa una sesión de instrucción de manejo de **exactamente 1 hora en punto** que coordina tres recursos fundamentales del sistema:
-- Un **Alumno** (quien toma la clase y consume un crédito de su saldo).
+- Un **Alumno** (quien toma la clase y consume un crédito de su saldo prepago).
 - Un **Profesor** (quien imparte la clase según su disponibilidad semanal).
 - Un **Auto** de la flota (vehículo asignado para la práctica).
 
@@ -31,28 +31,28 @@ flowchart TD
 ### 1.1. Principios Clave de Diseño
 
 1. **Almacenamiento en Hora Local (Sin Desplazamiento UTC):**
-   - Los campos `inicio` y `fin` se almacenan en MongoDB como `String` en formato ISO local: **`"YYYY-MM-DDTHH:00"`** (ej. `"2026-11-09T10:00"` a `"2026-11-09T11:00"`).
+   - Los campos `inicio` y `fin` se almacenan en MongoDB como `String` en formato ISO local: **`"YYYY-MM-DDTHH:00"`** (ej. `"2026-11-20T10:00"` a `"2026-11-20T11:00"`).
    - Evita desfasajes arbitrarios provocados por conversiones a UTC o cambios de huso horario/horario de verano.
-   - Permite búsquedas directas y comparaciones lexicográficas exactas en la base de datos.
+   - Preserva el orden cronológico directo en comparaciones lexicográficas y optimiza consultas directas por día con prefijo regex (`^YYYY-MM-DDT`).
 2. **Duración Fija y Fechas Futuras:**
    - Toda clase dura obligatoriamente **60 minutos exactos** (`DURACION_CLASE_HORAS = 1`).
-   - La fecha y hora de inicio debe ser estrictamente posterior al momento actual (`verificarFechaFutura`). Está prohibido agendar clases en el pasado.
+   - La fecha y hora de inicio debe ser estrictamente posterior al momento actual (`verificarFechaFutura`). Está prohibido agendar clases en el pasado o presente inmediato.
 3. **Aislamiento e Inyección de Identidad (Seguridad):**
    - El cliente **no envía** el campo `alumno` en el cuerpo JSON de la petición.
    - El DTO `validarAgendarClaseDTO` rechaza explícitamente el campo `alumno` para impedir suplantación de identidad.
    - El controlador inyecta el ID verificado a partir del token JWT (`req.usuario.id`).
 4. **Desacoplamiento Absoluto entre Servicios (SRP):**
-   - `claseService.js` **no interactúa directamente** con las colecciones ni modelos Mongoose `Alumno`, `Profesor` ni `Auto`.
-   - Toda consulta de existencia física, disponibilidad semanal o modificación de saldo se delega a `alumnoService`, `profesorService` y `autoService`.
+   - [claseService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/claseService.js) **no interactúa directamente** con los modelos Mongoose `Alumno`, `Profesor` ni `Auto`.
+   - Toda verificación de existencia física, disponibilidad semanal o modificación de saldo se delega a [alumnoService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/alumnoService.js), [profesorService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/profesorService.js) y [autoService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/autoService.js).
 5. **Transaccionalidad Lógica de Créditos:**
-   - Agendar una clase resta de inmediato `1` crédito del `saldoClases` del alumno.
-   - Cancelar una clase reintegra de inmediato `1` crédito al alumno.
+   - Agendar una clase resta de inmediato `1` crédito del `saldoClases` del alumno mediante `alumnoService.restarSaldoClases`.
+   - Cancelar una clase reintegra de inmediato `1` crédito al alumno mediante `alumnoService.sumarSaldoClases`.
 
 ---
 
 ## 2. Modelo de Datos Mongoose (`Clase.js`)
 
-El modelo `Clase` (`src/models/Clase.js`) define la persistencia de las reservas en la colección `clases`:
+El modelo `Clase` ([src/models/Clase.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/models/Clase.js)) define la persistencia de las reservas en la colección `clases`:
 
 ```javascript
 const claseSchema = new mongoose.Schema(
@@ -74,21 +74,38 @@ const claseSchema = new mongoose.Schema(
     },
     inicio: {
       type: String,
-      required: [true, 'La fecha y hora de inicio es obligatoria'],
-      match: [/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):00$/, 'Formato de inicio inválido'],
+      required: [true, 'La fecha y hora de inicio son obligatorias'],
+      trim: true,
+      match: [
+        /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d$/,
+        'El inicio debe tener un formato válido YYYY-MM-DDTHH:MM',
+      ],
     },
     fin: {
       type: String,
-      required: [true, 'La fecha y hora de fin es obligatoria'],
-      match: [/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):00$/, 'Formato de fin inválido'],
+      required: [true, 'La fecha y hora de fin son obligatorias'],
+      trim: true,
+      match: [
+        /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])T([01]\d|2[0-3]):[0-5]\d$/,
+        'El fin debe tener un formato válido YYYY-MM-DDTHH:MM',
+      ],
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    collection: 'clases',
+    toJSON: {
+      transform: (doc, ret) => {
+        delete ret.__v;
+        return ret;
+      },
+    },
+  }
 );
 ```
 
 > [!NOTE]
-> Al serializar a JSON, el modelo renombra `_id` a `id` y elimina automáticamente `__v`.
+> Al serializar a JSON, la configuración `toJSON` de Mongoose elimina automáticamente la propiedad interna `__v` manteniendo inalterado el identificador canónico `_id`.
 
 ---
 
@@ -104,11 +121,11 @@ flowchart TD
     Ctrl["claseController.js"]
     Svc["claseService.js"]
 
-    MClase["Modelo Propio: Clase<br/>(MongoDB clases)"]
-    SAlum["alumnoService.js<br/>(obtenerPorId, restar/sumarSaldo)"]
+    MClase["Modelo Propio: Clase<br/>(MongoDB colección clases)"]
+    SAlum["alumnoService.js<br/>(obtenerPorId, restar/sumarSaldoClases)"]
     SProf["profesorService.js<br/>(obtenerPorId)"]
     SAuto["autoService.js<br/>(obtenerPorId)"]
-    HCal["calendarizacion.js<br/>(validarIntervalo, estaDentroDeDisponibilidad)"]
+    HTurnos["turnosYFechasHelper.js<br/>(validarIntervalo, estaDentroDeDisponibilidad, verificarSuperposiciones)"]
 
     Route --> Auth --> Ctrl
     Ctrl --> DTO
@@ -117,7 +134,7 @@ flowchart TD
     Svc --> SAlum
     Svc --> SProf
     Svc --> SAuto
-    Svc --> HCal
+    Svc --> HTurnos
 ```
 
 ---
@@ -136,15 +153,15 @@ El agendamiento orquesta un conjunto riguroso de reglas de negocio antes de pers
   {
     "profesor": "6727be05a3e14f828a2b5e01",
     "auto": "6727be05a3e14f828a2b5e02",
-    "inicio": "2026-11-09T10:00",
-    "fin": "2026-11-09T11:00"
+    "inicio": "2026-11-20T10:00",
+    "fin": "2026-11-20T11:00"
   }
   ```
 
 > [!IMPORTANT]
 > **El campo `alumno` está prohibido en el JSON de entrada:**
 > Si un cliente envía `"alumno": "..."` en el cuerpo de la solicitud, `validarAgendarClaseDTO` arroja de inmediato `ErrorCampoInvalido('Campos no permitidos: alumno')` (**`400 Bad Request`**).
-> La identidad del alumno se inyecta de forma segura en `claseController.js`:
+> La identidad del alumno se inyecta de forma segura en [claseController.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/controllers/claseController.js#L26-L34):
 > ```javascript
 > const datosClase = { ...req.body, alumno: req.usuario?.id };
 > ```
@@ -161,7 +178,7 @@ sequenceDiagram
     participant Ctrl as claseController
     participant DTO as claseDTO
     participant Svc as claseService
-    participant HCal as calendarizacion.js
+    participant HTurnos as turnosYFechasHelper
     participant SAlum as alumnoService
     participant SProf as profesorService
     participant SAuto as autoService
@@ -170,41 +187,41 @@ sequenceDiagram
     Alumno->>Route: POST /api/clases (Bearer token)
     Route->>Ctrl: agendar(req, res)
     Ctrl->>DTO: validarAgendarClaseDTO(req.body)
-    DTO-->>Ctrl: OK
+    DTO-->>Ctrl: OK (valida profesor, auto, inicio, fin)
     Note over Ctrl: Inyecta alumno: req.usuario.id
     Ctrl->>Svc: agendar(datosClase, req.usuario)
 
     Note over Svc: 1. Valida ObjectIds de alumno, profesor y auto
-    Note over Svc: 2. verificarPermisoAgendamiento (Regla 1: solo el propio alumno)
+    Note over Svc: 2. verificarPermisoAgendamiento (solo alumno para sí mismo)
     
-    Svc->>HCal: verificarFechaFutura(inicio)
-    HCal-->>Svc: OK (es fecha futura)
-    Svc->>HCal: validarIntervaloDeClase(inicio, fin)
-    HCal-->>Svc: OK (duración = 1 hora en punto)
+    Svc->>HTurnos: verificarFechaFutura(inicio)
+    HTurnos-->>Svc: OK (es fecha futura)
+    Svc->>HTurnos: validarIntervaloDeClase(inicio, fin)
+    HTurnos-->>Svc: OK (duración = 1 hora en punto)
 
-    Note over Svc: 3. Regla 0: Verificar existencia física de entidades
+    Note over Svc: 3. Verificar existencia física de entidades
     Svc->>SAlum: obtenerPorId(alumnoId)
-    SAlum-->>Svc: alumno (o 404)
+    SAlum-->>Svc: alumno (o lanza 404)
     Svc->>SProf: obtenerPorId(profesorId)
-    SProf-->>Svc: profesor (o 404)
+    SProf-->>Svc: profesor (o lanza 404)
     Svc->>SAuto: obtenerPorId(autoId)
-    SAuto-->>Svc: auto (o 404)
+    SAuto-->>Svc: auto (o lanza 404)
 
     Note over Svc: 4. Verificar saldo suficiente (saldoClases >= 1)
     
-    Note over Svc: 5. Regla 3: Disponibilidad semanal del profesor
-    Svc->>HCal: estaDentroDeDisponibilidad(profesor.disponibilidad, inicio, fin)
-    HCal-->>Svc: true (dentro de tramo semanal)
+    Note over Svc: 5. Disponibilidad semanal del profesor
+    Svc->>HTurnos: estaDentroDeDisponibilidad(profesor.disponibilidad, inicio, fin)
+    HTurnos-->>Svc: true (dentro de tramo semanal proyectado)
 
-    Note over Svc: 6. Reglas 2, 4 y 5: Verificar ausencia de superposiciones (overlap)
-    par Consultas paralelas de colisión en horario
-        Svc->>MClase: exists({ alumno, inicio })
-        Svc->>MClase: exists({ profesor, inicio })
-        Svc->>MClase: exists({ auto, inicio })
+    Note over Svc: 6. Verificar ausencia de superposiciones (overlap)
+    par Consultas paralelas con crearFiltroSuperposicion
+        Svc->>MClase: exists({ alumno, inicio < fin, fin > inicio })
+        Svc->>MClase: exists({ profesor, inicio < fin, fin > inicio })
+        Svc->>MClase: exists({ auto, inicio < fin, fin > inicio })
     end
     MClase-->>Svc: Ninguno colisiona
 
-    Note over Svc: 7. Descuento de saldo y persistencia
+    Note over Svc: 7. Débito de saldo y persistencia
     Svc->>SAlum: restarSaldoClases(alumnoId, { cantidad: 1 })
     SAlum-->>Svc: alumno con saldo descontado
     Svc->>MClase: create({ alumno, profesor, auto, inicio, fin })
@@ -216,25 +233,25 @@ sequenceDiagram
 
 ---
 
-### 4.3. Las 6 Reglas de Negocio en la Asignación
+### 4.3. Las 7 Reglas de Negocio en la Asignación
 
 Para consolidar una reserva, el servicio ejecuta la siguiente secuencia inquebrantable:
 
 | Orden | Regla de Negocio | Función Responsable | Excepción en Caso de Fallo |
 | :---: | :--- | :--- | :--- |
-| **0** | **Validación Sintáctica de IDs:** `alumno`, `profesor` y `auto` deben ser ObjectId válidos. | `validarMongooseObjId` | `ErrorMongooseObjIdInvalido` (`400`) |
-| **1** | **Autorización del Solicitante:** Solo un alumno puede agendar para sí mismo (`usuarioActual.id === alumnoId`). Un administrador u otro alumno no pueden agendar en esta etapa. | `verificarPermisoAgendamiento` | `ErrorAutorizacion` (`403`) |
-| **2** | **Fecha Futura e Integridad Horaria:** La fecha/hora debe ser posterior a `DateTime.now()` y durar exactamente 1 hora en punto (`:00`). | `verificarFechaFutura`<br/>`validarIntervaloDeClase` | `ErrorDeNegocio` (`400`)<br/>`ErrorFormatoDeFecha` (`400`) |
-| **3** | **Existencia Física de Entidades (SRP):** Alumno, profesor y auto deben existir previamente en la base de datos. | `verificarEntidadesExistentes` | `ErrorRegistroInexistente` (`404`) |
-| **4** | **Saldo Disponible:** El alumno debe poseer `saldoClases >= 1`. | `verificarSaldoSuficiente` | `ErrorSaldoClasesInsuficiente` (`400`) |
-| **5** | **Disponibilidad Semanal del Profesor:** El horario solicitado debe estar totalmente contenido en la disponibilidad semanal del profesor asignado. | `verificarDisponibilidadProfesor`<br/>(`estaDentroDeDisponibilidad`) | `ErrorDeNegocio` (`400`) |
-| **6** | **Ausencia de Superposiciones (Overlap):** Ni el alumno, ni el profesor, ni el vehículo pueden tener otra clase agendada a esa misma fecha y hora. | `verificarSuperposiciones` | `ErrorDeNegocio` (`400`) |
+| **1** | **Validación Sintáctica de IDs:** `alumno`, `profesor` y `auto` deben cumplir con el formato ObjectId de Mongoose. | `validarMongooseObjId` | `ErrorMongooseObjIdInvalido` (`400`) |
+| **2** | **Autorización del Solicitante:** Solo un usuario con rol `alumno` puede agendar para sí mismo (`usuarioActual.id === alumnoId`). Un administrador u otro alumno no tienen permitido agendar clases en esta etapa. | `verificarPermisoAgendamiento` | `ErrorAutorizacion` (`403`) |
+| **3** | **Fecha Futura e Integridad Horaria:** La fecha/hora de inicio debe ser estrictamente posterior a `DateTime.now()` y durar exactamente 1 hora en punto (`:00`). | `verificarFechaFutura`<br/>`validarIntervaloDeClase` | `ErrorDeNegocio` (`400`)<br/>`ErrorFormatoDeFecha` (`400`) |
+| **4** | **Existencia Física de Entidades (SRP):** Alumno, profesor y auto deben existir previamente en MongoDB (verificados a través de sus respectivos servicios). | `verificarEntidadesExistentes` | `ErrorRegistroInexistente` (`404`) |
+| **5** | **Saldo Disponible:** El alumno debe poseer al menos `1` clase en `saldoClases`. | `verificarSaldoSuficiente` | `ErrorSaldoClasesInsuficiente` (`400`) |
+| **6** | **Disponibilidad Semanal del Profesor:** El horario solicitado debe estar totalmente contenido en la disponibilidad semanal del docente, evaluado con `bloque.engulfs(intervaloClase)` sobre una ventana de 3 días. | `verificarDisponibilidadProfesor`<br/>(`estaDentroDeDisponibilidad`) | `ErrorDeNegocio` (`400`) |
+| **7** | **Ausencia de Superposiciones (Overlap):** Ni el alumno, ni el profesor, ni el vehículo pueden tener otra clase activa en ese intervalo de tiempo. | `verificarSuperposiciones`<br/>(`crearFiltroSuperposicion`) | `ErrorDeNegocio` (`400`) |
 
 ---
 
 ## 5. Flujo de Cancelación y Eliminación (`eliminar`)
 
-La cancelación permite liberar los recursos asignados (profesor y auto) y restituir automáticamente el saldo consumido al alumno.
+La cancelación permite liberar los recursos asignados (profesor y auto) y restituir automáticamente el crédito de saldo al alumno.
 
 ### 5.1. Contrato HTTP
 
@@ -269,7 +286,7 @@ sequenceDiagram
     end
 
     Note over Svc: 2. verificarActorValido(clase.alumno, usuarioActual)
-    alt Si el actor es Alumno pero la clase es de otro alumno
+    alt Si el actor es Alumno pero la clase pertenece a otro alumno
         Note over Svc: Lanza ErrorAutorizacion (403)
     end
 
@@ -285,9 +302,9 @@ sequenceDiagram
     Ctrl-->>Actor: 200 OK (JSON de la clase eliminada)
 ```
 
-### 5.3. Reutilización con `verificarActorValido`
+### 5.3. Reutilización de Validación con `verificarActorValido`
 
-Para evitar código repetido y garantizar el cumplimiento estricto de los permisos de acceso en `eliminar` y `obtenerPorId`, se encapsula la validación en el helper interno:
+Para garantizar el cumplimiento estricto de los permisos de acceso tanto en `eliminar` como en `obtenerPorId`, se encapsula la validación en una función auxiliar privada:
 
 ```javascript
 function verificarActorValido(
@@ -312,7 +329,7 @@ function verificarActorValido(
 
 - **Ruta:** `GET /api/clases`
 - **Comportamiento según Rol:**
-  - **Si el actor es `ALUMNO`:** El servicio intercepta la consulta y fuerza el filtro `{ alumno: usuarioActual.id }`. Un alumno **nunca puede ver clases de otros compañeros**.
+  - **Si el actor es `ALUMNO`:** El servicio fuerza internamente el filtro `{ alumno: usuarioActual.id }`. Un alumno **nunca puede ver clases de otros compañeros**.
   - **Si el actor es `ADMINISTRADOR`:** Puede visualizar la totalidad de las clases agendadas y aplicar filtros opcionales recibidos por query parameters (`req.query`).
 
 ### 6.2. Detalle de Clase (`obtenerPorId`)
@@ -320,7 +337,7 @@ function verificarActorValido(
 - **Ruta:** `GET /api/clases/:id`
 - **Comportamiento:**
   - Valida el `id` con `validarMongooseObjId`.
-  - Si la clase no existe, devuelve `null` y el controlador responde `404 Not Found` (`{ mensaje: 'Clase no encontrada' }`).
+  - Si la clase no existe, devuelve `null` y el controlador responde `404 Not Found` (`{ "mensaje": "Clase no encontrada" }`).
   - Si la clase existe:
     - Aplica `verificarActorValido`: si quien consulta es un alumno y la clase pertenece a otro alumno, arroja `ErrorAutorizacion` (**`403 Forbidden`**).
     - Si es el propio alumno o un administrador, responde `200 OK` con el documento completo.
@@ -329,7 +346,7 @@ function verificarActorValido(
 
 ## 7. Calendarización: Evaluación de Disponibilidad y Superposición
 
-El agendamiento depende críticamente de dos comprobaciones temporales calculadas por el motor de calendarización:
+El agendamiento depende críticamente de dos comprobaciones temporales provistas por [turnosYFechasHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/turnosYFechasHelper.js):
 
 ### 7.1. Comprobación de Disponibilidad Semanal (`estaDentroDeDisponibilidad`)
 
@@ -342,25 +359,38 @@ flowchart LR
 ```
 
 1. La clase solicita un intervalo puntual (ej. lunes de `10:00` a `11:00`).
-2. Se extrae el día de la semana correspondiente a esa fecha mediante `DateTime.weekday`.
-3. Se proyecta la disponibilidad semanal del profesor sobre una **ventana de 3 días** (`[diaAnterior, diaActual, diaSiguiente]`) utilizando `Interval.merge()`.
-4. Se verifica si el intervalo de la clase queda totalmente contenido (`bloque.engulfs(intervaloClase)`) dentro de algún tramo unificado del profesor. Si no está cubierto, la clase es rechazada con `ErrorDeNegocio`.
+2. Se extrae el día de la semana correspondiente a esa fecha mediante `DateTime.weekday` y `MAPA_WEEKDAY_DIA`.
+3. Se proyecta la disponibilidad semanal del profesor sobre una **ventana de 3 días** (`[diaAnterior, diaActual, diaSiguiente]`) utilizando `Interval.merge()` vía `proyectarDisponibilidadEnVentana`.
+4. Se verifica si el intervalo de la clase queda totalmente contenido (`bloque.engulfs(intervaloClase)`) dentro de algún tramo unificado del profesor. Si no está cubierto, la solicitud es rechazada con `ErrorDeNegocio`.
 
-### 7.2. Comprobación de Conflictos de Horario (Overlap)
+### 7.2. Comprobación de Conflictos de Horario con `crearFiltroSuperposicion`
 
-Dado que cada clase dura exactamente 1 hora en punto, un conflicto de agenda se reduce matemáticamente a buscar cualquier clase preexistente que comparta el mismo valor exacto de `inicio`:
+Para verificar que ninguna entidad tenga solapamientos temporales con otras clases ya agendadas, se construye la consulta de MongoDB mediante `crearFiltroSuperposicion`:
+
+```javascript
+// turnosYFechasHelper.js
+export function crearFiltroSuperposicion(inicio, fin, filtroBase = {}) {
+  return {
+    ...filtroBase,
+    inicio: { $lt: fin },
+    fin: { $gt: inicio },
+  };
+}
+```
+
+En [claseService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/claseService.js#L95-L99), se ejecutan las tres comprobaciones en paralelo con `Promise.all`:
 
 ```javascript
 const [claseAlumno, claseProfesor, claseAuto] = await Promise.all([
-  Clase.exists({ alumno: alumnoId, inicio }),
-  Clase.exists({ profesor: profesorId, inicio }),
-  Clase.exists({ auto: autoId, inicio }),
+  Clase.exists(crearFiltroSuperposicion(inicio, fin, { alumno: alumnoId })),
+  Clase.exists(crearFiltroSuperposicion(inicio, fin, { profesor: profesorId })),
+  Clase.exists(crearFiltroSuperposicion(inicio, fin, { auto: autoId })),
 ]);
 ```
 
-- Si `claseAlumno` existe → *"El alumno ya posee una clase agendada en ese horario"*
-- Si `claseProfesor` existe → *"El profesor ya posee una clase asignada en ese horario"*
-- Si `claseAuto` existe → *"El auto seleccionado ya se encuentra asignado a otra clase en ese horario"*
+- Si `claseAlumno` existe $\rightarrow$ *"El alumno ya posee una clase agendada en ese horario"*
+- Si `claseProfesor` existe $\rightarrow$ *"El profesor ya posee una clase asignada en ese horario"*
+- Si `claseAuto` existe $\rightarrow$ *"El auto seleccionado ya se encuentra asignado a otra clase en ese horario"*
 
 ---
 
@@ -385,4 +415,5 @@ const [claseAlumno, claseProfesor, claseAuto] = await Promise.all([
 | Superposición de horario en el profesor | `ErrorDeNegocio` | `400` | `"El profesor ya posee una clase asignada en ese horario"` |
 | Superposición de horario en el vehículo | `ErrorDeNegocio` | `400` | `"El auto seleccionado ya se encuentra asignado a otra clase en ese horario"` |
 | Alumno intentando cancelar clase ajena | `ErrorAutorizacion` | `403` | `"No tiene permisos para eliminar esta clase"` |
-| Clase a eliminar o consultar no encontrada | `ErrorRegistroInexistente` / `null` | `404` | `"La clase solicitada no existe"` / `"Clase no encontrada"` |
+| Clase a eliminar no encontrada | `ErrorRegistroInexistente` | `404` | `"La clase solicitada no existe"` |
+| Clase a consultar por ID no encontrada | Retorno `null` | `404` | `"Clase no encontrada"` |

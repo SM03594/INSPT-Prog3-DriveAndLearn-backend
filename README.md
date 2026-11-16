@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/badge/Vitest-4.1.11-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
 </p>
 
-API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión integral de la escuela de manejo **DriveAndLearn**. Permite administrar cuentas de usuario con roles diferenciados (`administrador` y `alumno`), autenticación *stateless* con JWT y cierre de sesión mediante lista negra con expiración automática (*TTL Index*), flota vehicular, instructores con agendas semanales dinámicas, saldo prepago de clases prácticas y agendamiento de turnos libre de solapamientos.
+API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión integral de la escuela de manejo **DriveAndLearn**. Permite administrar cuentas de usuario con roles diferenciados (`administrador` y `alumno`), autenticación con JWT y cierre de sesión mediante lista negra con expiración automática (*TTL Index*), flota vehicular, instructores con agendas semanales dinámicas, saldo prepago de clases prácticas y agendamiento de turnos libre de solapamientos.
 
 ---
 
@@ -38,11 +38,11 @@ API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión
 
 | Paquete | Versión | Rol en el Proyecto |
 | :--- | :--- | :--- |
-| **[Node.js](https://nodejs.org/)** | `v20+` | Entorno de ejecución con soporte nativo de ES Modules (`"type": "module"` en `package.json`) y modo `--watch`. |
+| **[Node.js](https://nodejs.org/)** | `v20+` | Entorno de ejecución con soporte nativo de ES Modules (`"type": "module"` en `package.json`). |
 | **[express](https://expressjs.com/)** | `^5.2.1` | Framework HTTP para la construcción de la API REST, con captura nativa de promesas rechazadas en controladores `async` sin requerir `try/catch`. |
 | **[mongoose](https://mongoosejs.com/)** | `^9.9.4` | ODM para MongoDB. Define esquemas, validaciones de modelo, referencias (`ObjectId`), subdocumentos embebidos, discriminadores e índice TTL. |
-| **[bcrypt](https://github.com/kelektiv/node.bcrypt.js)** | `^6.0.0` | Hashing unidireccional de contraseñas (`SALT_ROUNDS = 10`) y verificación criptográfica durante el login. |
-| **[jsonwebtoken](https://github.com/auth0/node-jsonwebtoken)** | `^9.0.3` | Emisión y verificación de tokens Bearer JWT con vigencia de `24h`. |
+| **[bcrypt](https://github.com/kelektiv/node.bcrypt.js)** | `^6.0.0` | Hashing unidireccional de contraseñas y verificación criptográfica durante el login. |
+| **[jsonwebtoken](https://github.com/auth0/node-jsonwebtoken)** | `^9.0.3` | Emisión y verificación de tokens Bearer JWT. |
 | **[luxon](https://moment.github.io/luxon/)** | `^3.5.0` | Manejo de fechas locales en zona horaria IANA (`ZONA_HORARIA`) y operaciones sobre intervalos (`DateTime`, `Interval.merge`, `difference`, `overlaps`, `engulfs`, `splitBy`). |
 | **[cors](https://github.com/expressjs/cors)** | `^2.8.6` | Middleware para habilitar *Cross-Origin Resource Sharing*. |
 | **[dotenv](https://github.com/motdotla/dotenv)** | `^17.4.2` | Carga de variables de entorno desde `.env` hacia `src/config/env.js`. |
@@ -52,7 +52,6 @@ API REST desarrollada con Node.js, Express 5 y MongoDB/Mongoose para la gestión
 | Paquete | Versión | Rol en el Proyecto |
 | :--- | :--- | :--- |
 | **[vitest](https://vitest.dev/)** | `^4.1.11` | Ejecutor de pruebas unitarias y de integración compatible con ES Modules. |
-| **[@vitest/ui](https://vitest.dev/guide/ui.html)** | `^4.1.11` | Interfaz gráfica para inspección de suites de pruebas. |
 | **[@vitest/coverage-v8](https://vitest.dev/guide/coverage.html)** | `^4.1.11` | Generación de reportes de cobertura de código mediante el motor V8. |
 | **[mongodb-memory-server](https://github.com/nodkz/mongodb-memory-server)** | `^11.2.0` | Servidor MongoDB efímero en memoria para ejecutar las pruebas de servicios y modelos en aislamiento total. |
 | **[supertest](https://github.com/ladjs/supertest)** | `^7.2.2` | Cliente HTTP para pruebas de integración sobre la aplicación Express exportada en `src/app.js`. |
@@ -88,7 +87,7 @@ El proyecto implementa una **arquitectura en capas con flujo de dependencias est
             │
             ▼
     ┌───────────────┐
-    │    SERVICE    │  ── Ejecuta la lógica de negocio y validaciones de dominio
+    │    SERVICE    │  ── Ejecuta la lógica de negocio
     └───────┬───────┘
             │
             ▼
@@ -104,9 +103,9 @@ El proyecto implementa una **arquitectura en capas con flujo de dependencias est
 
 - **Routes (`src/routes/`):** Es la puerta de entrada de cada recurso HTTP. Define los verbos y paths de la API, asocia los middlewares requeridos para cada endpoint y delega la ejecución en el controlador correspondiente.
 - **Middlewares (`src/middlewares/`):** Interceptan la solicitud antes y después del controlador. Se encargan de verificar que el cuerpo sea un JSON plano (`validarObjetoJson`), autenticar el token Bearer y comprobar que no esté revocado (`autenticar`), validar permisos de rol o titularidad (`verificarSiAdmin`, `verificarSiAdminOPropioUsuario`) y capturar de forma centralizada cualquier error lanzado por las capas inferiores para transformarlo en una respuesta HTTP uniforme (`errorHandler`).
-- **Controllers (`src/controllers/`):** Actúan como adaptadores delgados entre Express y el dominio. Extraen la información de `req` (`params`, `query`, `body`, `usuario`, `token`), ejecutan el validador del **DTO**, invocan al **Service** y devuelven la respuesta HTTP con el código de estado adecuado (`200`, `201` o `404`).
+- **Controllers (`src/controllers/`):** Extraen la información de `req` (`params`, `query`, `body`, `usuario`, `token`), ejecutan el validador del **DTO**, invocan al **Service** y devuelven la respuesta HTTP con el código de estado adecuado (`200`, `201` o `404`).
 - **DTOs (`src/dtos/`):** Validan la estructura de los datos de entrada antes de que lleguen a la lógica de negocio. Comprueban la presencia de campos obligatorios, rechazan cuerpos vacíos o claves no permitidas y verifican los tipos de datos primitivos.
-- **Services (`src/services/`):** Contienen el 100% de las reglas de negocio y validaciones de dominio, manteniéndose completamente aislados de Express (sin acceso a `req` ni `res`). Cada servicio es dueño exclusivo de su modelo y, cuando requiere interactuar con otras entidades, se comunica con los demás servicios. Ante cualquier incumplimiento de negocio o validación, lanza errores tipados (`src/errors/`) que son capturados por `errorHandler`.
+- **Services (`src/services/`):** Contienen las reglas de negocio, manteniéndose completamente aislados de Express (sin acceso a `req` ni `res`). Cada servicio es dueño exclusivo de su modelo y, cuando requiere interactuar con otras entidades, se comunica con los demás servicios. Ante cualquier incumplimiento de negocio o validación, lanza errores tipados (`src/errors/`) que son capturados por `errorHandler`.
 - **Models (`src/models/`):** Representan la capa de persistencia mediante Mongoose. Definen la estructura de los documentos, restricciones a nivel de base de datos, discriminadores, subesquemas e índices en MongoDB.
 
 ### 2.2. Estructura de Carpetas
@@ -118,19 +117,19 @@ INSPT-Prog3-DriveAndLearn-backend/
 │   ├── config/                # Variables de entorno (env.js) y conexión a MongoDB (db.js)
 │   ├── constants/             # Constantes inmutables del dominio (roles, cambios, días y horarios)
 │   ├── controllers/           # Adaptadores HTTP de entrada y salida
-│   ├── dtos/                  # Validadores de estructura y tipos de entrada (+ helpers/)
+│   ├── dtos/                  # Validadores de estructura y tipos de entrada
 │   ├── errors/                # Jerarquía de clases de error personalizadas con su código HTTP
-│   ├── middlewares/           # Autenticación, autorización, validación JSON y errorHandler (+ helpers/)
+│   ├── middlewares/           # Autenticación, autorización, validación JSON y errorHandler
 │   ├── models/                # Esquemas y modelos de Mongoose
-│   ├── routes/                # Definición de endpoints montados bajo el prefijo /api
-│   ├── scripts/               # Scripts utilitarios CLI (creación de administrador inicial)
-│   ├── services/              # Lógica de negocio y reglas de dominio (+ helpers/)
-│   ├── app.js                 # Configuración de la instancia de Express (sin abrir puerto)
+│   ├── routes/                # Definición de endpoints
+│   ├── scripts/               # Scripts utilitarios
+│   ├── services/              # Lógica de negocio y reglas de dominio
+│   ├── app.js                 # Configuración de la instancia de Express
 │   └── server.js              # Punto de entrada: valida entorno, conecta a MongoDB e inicia el servidor
 └── tests/                     # Suite de pruebas automatizadas con Vitest y mongodb-memory-server
     ├── dtos/                  # Pruebas unitarias de los validadores DTO
     ├── helpers/               # Configuración de base de datos en memoria y utilidades de test
-    └── services/              # Pruebas de integración de servicios y helpers de dominio
+    └── services/              # Pruebas de integración de servicios y helpers
 ```
 
 ---
@@ -233,21 +232,28 @@ classDiagram
    - `email`: `String`, obligatorio, `unique`, `lowercase`, `trim`, validado por regex `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`.
    - `password`: `String`, obligatorio (almacenado con hash `bcrypt`).
    - `rol`: `String`, obligatorio, `discriminatorKey`, enum `['administrador', 'alumno']`.
+
 2. **`Administrador` (`Administrador.js`):** Discriminador de `Usuario` con valor `'administrador'`.
-3. **`Alumno` (`Alumno.js`):** Discriminador de `Usuario` con valor `'alumno'`. Añade `saldoClases` (`Number`, entero $\ge 0$, por defecto `0`).
+
+3. **`Alumno` (`Alumno.js`):** Discriminador de `Usuario` con valor `'alumno'`.
+    - `saldoClases`: (`Number`, entero $\ge 0$, por defecto `0`).
+
 4. **`Profesor` (`Profesor.js` — colección `profesores`):**
    - `NomApe`: `String`, obligatorio, entre 4 y 50 caracteres.
    - `disponibilidad`: Subdocumento embebido `disponibilidadSemanalSchema` (`disponibilidadSemanal.js`) con claves `lunes` a `domingo`, cada una compuesta por un array de `tramoSchema` (`tramoHorario.js`: `horaInicio` `00:00`-`23:59` y `horaFin` `00:00`-`24:00`).
+
 5. **`Auto` (`Auto.js` — colección `autos`):**
    - `marca`: `String`, obligatorio.
    - `modelo`: `String`, obligatorio.
    - `patente`: `String`, obligatorio, `unique`, `uppercase`, regex `/^([A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/`.
    - `cambios`: `String`, obligatorio, `uppercase`, enum `['AUTOMATICO', 'MANUAL']`.
+
 6. **`Clase` (`Clase.js` — colección `clases`):**
    - `alumno`: `ObjectId` (ref `'Alumno'`), obligatorio.
    - `profesor`: `ObjectId` (ref `'Profesor'`), obligatorio.
    - `auto`: `ObjectId` (ref `'Auto'`), obligatorio.
    - `inicio` y `fin`: `String`, obligatorios, formato `YYYY-MM-DDTHH:MM` (el servicio restringe el agendamiento a horas en punto `YYYY-MM-DDTHH:00`).
+
 7. **`TokenRevocado` (`TokenRevocado.js` — colección `tokens_revocados`):**
    - `token`: `String`, obligatorio, `unique`.
    - `expiraEn`: `Date`, obligatorio, con índice TTL `{ expireAfterSeconds: 0 }`.
@@ -394,5 +400,8 @@ npm run test
 
 #### Cobertura de Módulos de Prueba (`tests/`):
 - **DTOs (`tests/dtos/`):** `administradorDTO.test.js`, `alumnoDTO.test.js`, `authDTO.test.js`, `autoDTO.test.js`, `claseDTO.test.js`, `profesorDTO.test.js`.
-- **Helpers de Dominio (`tests/services/helpers/`):** `disponibilidadHelper.test.js`, `turnosYFechasHelper.test.js`.
+
+- **Helpers de la Capa Service (`tests/services/helpers/`):** `disponibilidadHelper.test.js`, `turnosYFechasHelper.test.js`.
+
 - **Servicios con Base de Datos en Memoria (`tests/services/`):** `administradorService.test.js`, `alumnoService.test.js`, `autoService.test.js`, `claseService.test.js`, `profesorService.test.js`, `usuarioService.test.js`.
+

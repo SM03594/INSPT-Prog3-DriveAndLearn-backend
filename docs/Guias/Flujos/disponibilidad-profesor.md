@@ -1,25 +1,26 @@
-# Flujo de Asignación y Eliminación de Disponibilidad de Profesores
+# Flujo de Gestión de Disponibilidad y Turnos Libres de Profesores
 
-Esta guía describe en profundidad el flujo completo de gestión de la **disponibilidad semanal de los profesores** en **DriveAndLearn**, detallando el diseño de dominio, el contrato de la API REST, la arquitectura en capas y el funcionamiento matemático del motor de **calendarización** basado en **Luxon** (`src/services/helpers/calendarizacion.js`).
+Esta guía describe en profundidad el flujo completo de gestión de la **disponibilidad semanal de los profesores** y la consulta de **turnos libres** en **DriveAndLearn**, detallando el diseño de dominio, el contrato de la API REST, la arquitectura en capas y el funcionamiento del motor de **calendarización** basado en **Luxon** implementado en [disponibilidadHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/disponibilidadHelper.js), [turnosYFechasHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/turnosYFechasHelper.js) y [constantesCalendarizacion.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/constants/constantesCalendarizacion.js).
 
 ---
 
 ## 1. Visión General y Modelo de Dominio
 
-En una escuela de manejo, los profesores no definen su trabajo por fechas concretas de calendario gregoriano (ej. "el 12 de noviembre de 2026"), sino a través de una **plantilla recurrente semanal** que abarca de **lunes a domingo**.
+En una escuela de manejo, los profesores no definen su trabajo por fechas concretas de calendario gregoriano (ej. "el 20 de noviembre de 2026"), sino a través de una **plantilla recurrente semanal** que abarca de **lunes a domingo**.
 
 ### 1.1. Principios de Diseño
 1. **Disponibilidad Cíclica y Desacoplada:**
    - La disponibilidad representa el horario habitual de trabajo del profesor.
    - Cada día de la semana (`lunes`, `martes`, `miercoles`, `jueves`, `viernes`, `sabado`, `domingo`) almacena una lista ordenada de tramos horarios (`horaInicio` y `horaFin`).
-   - Sirve como plantilla contra la cual se validan las reservas puntuales de clases prácticas (`clases`).
+   - Sirve como plantilla contra la cual se validan las reservas puntuales de clases prácticas (`clases`) y se computan los turnos libres.
 2. **Inmutabilidad en Altas y Modificaciones Generales:**
    - La disponibilidad **no puede asignarse ni modificarse** en los métodos generales `crear` ni `actualizar` del profesor (ambos rechazan la petición con `ErrorDeNegocio` si el cuerpo incluye la propiedad `disponibilidad`).
    - Al dar de alta un profesor, su disponibilidad se inicializa siempre vacía (`[]` para cada día).
-   - La disponibilidad se administra exclusivamente mediante tres endpoints semánticos dedicados:
-     - `GET /api/profesores/:id/disponibilidad` (`verDisponibilidad`)
-     - `PATCH /api/profesores/:id/disponibilidad/agregar` (`agregarDisponibilidad`)
-     - `PATCH /api/profesores/:id/disponibilidad/quitar` (`quitarDisponibilidad`)
+   - La disponibilidad y turnos libres se administran exclusivamente mediante cuatro endpoints dedicados:
+     - `GET /api/profesores/:id/disponibilidad` (`verDisponibilidad` — público)
+     - `GET /api/profesores/:id/turnos-libres` (`verTurnosLibres` — público)
+     - `PATCH /api/profesores/:id/disponibilidad/agregar` (`agregarDisponibilidad` — administrador)
+     - `PATCH /api/profesores/:id/disponibilidad/quitar` (`quitarDisponibilidad` — administrador)
 3. **Formato Canónico y Horas en Punto (`:00`):**
    - Todos los tramos se configuran estrictamente en horas en punto (formato `"HH:00"`).
    - La duración mínima de cualquier tramo es de **1 hora completa** (`MIN_DURACION_TRAMO_HORAS = 1`).
@@ -29,7 +30,7 @@ En una escuela de manejo, los profesores no definen su trabajo por fechas concre
 
 ## 2. Esquema de Datos y Persistencia Mongoose
 
-La disponibilidad está embebida en el documento del profesor a través de dos esquemas anidados:
+La disponibilidad está embebida en el documento del profesor a través de dos esquemas anidados sin `_id`:
 
 ```mermaid
 classDiagram
@@ -61,30 +62,39 @@ classDiagram
 
 ### 2.1. Estructura de Subdocumentos
 
-- **`tramoHorarioSchema` (`src/models/tramoHorario.js`):**
+- **`tramoHorarioSchema` ([src/models/tramoHorario.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/models/tramoHorario.js)):**
   ```javascript
   {
-    horaInicio: { type: String, required: true },
-    horaFin:    { type: String, required: true }
+    horaInicio: {
+      type: String,
+      required: true,
+      match: [/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora inicio HH:MM válida'],
+    },
+    horaFin: {
+      type: String,
+      required: true,
+      match: [/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/, 'Hora fin HH:MM válida'],
+    },
   }
   ```
-- **`disponibilidadSemanalSchema` (`src/models/disponibilidadSemanal.js`):**
-  Posee siete propiedades (de `lunes` a `domingo`), cada una definida como `[tramoHorarioSchema]` con valor predeterminado `[]`.
+- **`disponibilidadSemanalSchema` ([src/models/disponibilidadSemanal.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/models/disponibilidadSemanal.js)):**
+  Posee siete propiedades (de `lunes` a `domingo`), cada una definida como `[tramoHorarioSchema]` con valor predeterminado `[]` y `{ _id: false }`.
 
 ---
 
-## 3. El Motor de Calendarización (`calendarizacion.js`)
+## 3. El Motor de Calendarización (`disponibilidadHelper.js`)
 
-La lógica matemática de cálculo, fusión y recorte de horarios reside exclusivamente en `src/services/helpers/calendarizacion.js`, apoyándose en las clases `DateTime` e `Interval` de **Luxon**.
+La lógica matemática de cálculo, fusión y recorte de horarios reside en [disponibilidadHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/disponibilidadHelper.js), apoyándose en las clases `DateTime` e `Interval` de **Luxon**.
 
 ### 3.1. Proyección sobre el Día Base de Referencia (`DIA_BASE_REFERENCIA`)
 
-Los tramos semanales son relativos y no poseen una fecha gregoriana. Sin embargo, para operar matemáticamente con la librería Luxon (detectar superposiciones, calcular diferencias o unir franjas), se requiere proyectar los horarios sobre una fecha calendario real.
+Los tramos semanales son relativos y no poseen una fecha gregoriana. Sin embargo, para operar con Luxon (detectar superposiciones, calcular diferencias o unir franjas), se requiere proyectar los horarios sobre una fecha calendario real.
 
 Para esto se define una fecha arbitraria que comienza un lunes:
 
 ```javascript
-const DIA_BASE_REFERENCIA = DateTime.fromISO('2026-01-05T00:00'); // Lunes real
+// constantesCalendarizacion.js
+export const DIA_BASE_REFERENCIA = DateTime.fromISO('2026-01-05T00:00'); // Lunes real
 ```
 
 #### Conversión Bidireccional: Tramo ⇄ `Interval`
@@ -127,7 +137,7 @@ El objetivo de la asignación es incorporar nuevos tramos de trabajo a uno o má
 ### 4.1. Contrato HTTP
 
 - **Método y Ruta:** `PATCH /api/profesores/:id/disponibilidad/agregar`
-- **Autenticación / Roles:** Administrador
+- **Autenticación / Roles:** Requiere `autenticar` y `verificarSiAdmin`
 - **Cuerpo JSON Esperado:**
   ```json
   {
@@ -167,28 +177,28 @@ sequenceDiagram
     participant Ctrl as profesorController
     participant DTO as profesorDTO
     participant Svc as profesorService
-    participant Cal as calendarizacion.js
+    participant HDisp as disponibilidadHelper
     participant Model as Profesor (Mongoose)
 
-    Admin->>Route: PATCH /api/profesores/:id/disponibilidad/agregar
+    Admin->>Route: PATCH /api/profesores/:id/disponibilidad/agregar (Token Admin)
     Route->>Ctrl: agregarDisponibilidad(req, res)
     Ctrl->>DTO: validarAgregarDisponibilidadDTO(req.body)
     DTO-->>Ctrl: OK (valida estructura y tipos)
     Ctrl->>Svc: agregarDisponibilidad(id, req.body.tramos)
     
-    Svc->>Cal: validarEntradaTramosDisponibilidad(listaTramos)
-    Note over Cal: Valida días válidos, formato :00<br/>y duración mínima >= 1 hora
-    Cal-->>Svc: Validación exitosa
+    Svc->>HDisp: validarEntradaTramosDisponibilidad(listaTramos)
+    Note over HDisp: Valida días permitidos, formato :00<br/>y duración mínima >= 1 hora
+    HDisp-->>Svc: Validación exitosa
 
     Svc->>Model: findById(id)
-    Model-->>Svc: documento profesor
+    Model-->>Svc: documento profesor (o lanza 404)
 
     Note over Svc: tramosPorDia = agruparTramosPorDia(listaTramos)
 
     loop Por cada día presente en tramosPorDia
-        Svc->>Cal: agregarTramosADia(tramosActuales, nuevosTramos)
-        Note over Cal: 1. Mapea existentes y nuevos a Interval<br/>2. Ejecuta Interval.merge()<br/>3. Convierte a tramos canónicos
-        Cal-->>Svc: tramosUnificados
+        Svc->>HDisp: agregarTramosADia(tramosActuales, nuevosTramos)
+        Note over HDisp: 1. Mapea existentes y nuevos a Interval<br/>2. Ejecuta Interval.merge()<br/>3. Convierte a tramos canónicos
+        HDisp-->>Svc: tramosUnificados
         Note over Svc: profesor.disponibilidad[dia] = tramosUnificados
     end
 
@@ -224,10 +234,10 @@ export function agregarTramosADia(tramosExistentes, nuevosTramos) {
    - *Ejemplo:* Si ya existía `08:00–12:00` y se agrega `10:00–14:00`, el resultado es `08:00–14:00`.
 2. **Tramos Contiguos (Adyacentes):**
    - Cuando el fin de un tramo coincide exactamente con el inicio del siguiente, se elimina la frontera artificial.
-   - *Ejemplo:* `08:00–12:00` + `12:00–16:00` → `08:00–16:00`.
+   - *Ejemplo:* `08:00–12:00` + `12:00–16:00` $\rightarrow$ `08:00–16:00`.
 3. **Tramos Disjuntos (Separados):**
    - Si no hay intersección ni contacto, se preservan de forma independiente y quedan **automáticamente ordenados cronológicamente** por hora de inicio.
-   - *Ejemplo:* `18:00–22:00` + `08:00–12:00` → `[ { horaInicio: '08:00', horaFin: '12:00' }, { horaInicio: '18:00', horaFin: '22:00' } ]`.
+   - *Ejemplo:* `18:00–22:00` + `08:00–12:00` $\rightarrow$ `[ { horaInicio: '08:00', horaFin: '12:00' }, { horaInicio: '18:00', horaFin: '22:00' } ]`.
 
 ---
 
@@ -238,7 +248,7 @@ El endpoint de sustracción permite recortar, dividir o suprimir tramos horarios
 ### 5.1. Contrato HTTP
 
 - **Método y Ruta:** `PATCH /api/profesores/:id/disponibilidad/quitar`
-- **Autenticación / Roles:** Administrador
+- **Autenticación / Roles:** Requiere `autenticar` y `verificarSiAdmin`
 - **Cuerpo JSON Esperado:**
   ```json
   {
@@ -264,27 +274,27 @@ sequenceDiagram
     participant Ctrl as profesorController
     participant DTO as profesorDTO
     participant Svc as profesorService
-    participant Cal as calendarizacion.js
+    participant HDisp as disponibilidadHelper
     participant Model as Profesor (Mongoose)
 
-    Admin->>Route: PATCH /api/profesores/:id/disponibilidad/quitar
+    Admin->>Route: PATCH /api/profesores/:id/disponibilidad/quitar (Token Admin)
     Route->>Ctrl: quitarDisponibilidad(req, res)
     Ctrl->>DTO: validarQuitarDisponibilidadDTO(req.body)
     DTO-->>Ctrl: OK
     Ctrl->>Svc: quitarDisponibilidad(id, req.body.tramos)
     
-    Svc->>Cal: validarEntradaTramosDisponibilidad(listaTramos)
-    Cal-->>Svc: Validación exitosa
+    Svc->>HDisp: validarEntradaTramosDisponibilidad(listaTramos)
+    HDisp-->>Svc: Validación exitosa
 
     Svc->>Model: findById(id)
-    Model-->>Svc: documento profesor
+    Model-->>Svc: documento profesor (o lanza 404)
 
     Note over Svc: tramosPorDia = agruparTramosPorDia(listaTramos)
 
     loop Por cada día presente en tramosPorDia
-        Svc->>Cal: quitarTramosDeDia(tramosActuales, tramosAQuitar)
-        Note over Cal: 1. Mapea existentes y supresores a Interval<br/>2. Aplica existente.difference(...intervalosAQuitar)<br/>3. Interval.merge() defensivo<br/>4. Convierte a tramos canónicos
-        Cal-->>Svc: tramosResultantes
+        Svc->>HDisp: quitarTramosDeDia(tramosActuales, tramosAQuitar)
+        Note over HDisp: 1. Mapea existentes y supresores a Interval<br/>2. Aplica existente.difference(...intervalosAQuitar)<br/>3. Interval.merge() defensivo<br/>4. Convierte a tramos canónicos
+        HDisp-->>Svc: tramosResultantes
         Note over Svc: profesor.disponibilidad[dia] = tramosResultantes
     end
 
@@ -331,16 +341,16 @@ flowchart TD
 
 1. **Recorte en Extremo Inicial:**
    - Si el tramo a quitar cubre el inicio del tramo actual, el inicio se desplaza hacia adelante.
-   - *Ejemplo:* De `08:00–14:00` se quita `08:00–10:00` → Queda `10:00–14:00`.
+   - *Ejemplo:* De `08:00–14:00` se quita `08:00–10:00` $\rightarrow$ Queda `10:00–14:00`.
 2. **Recorte en Extremo Final:**
    - Si el tramo a quitar cubre el final del tramo actual, el fin se adelanta.
-   - *Ejemplo:* De `08:00–14:00` se quita `12:00–14:00` → Queda `08:00–12:00`.
+   - *Ejemplo:* De `08:00–14:00` se quita `12:00–14:00` $\rightarrow$ Queda `08:00–12:00`.
 3. **División Intermedia (*Split*):**
    - Si la franja a suprimir se ubica en el centro del tramo preexistente, el intervalo original **se divide automáticamente en dos tramos separados**.
-   - *Ejemplo:* De `08:00–16:00` se quita `11:00–13:00` → Quedan dos tramos: `08:00–11:00` y `13:00–16:00`.
+   - *Ejemplo:* De `08:00–16:00` se quita `11:00–13:00` $\rightarrow$ Quedan dos tramos: `08:00–11:00` y `13:00–16:00`.
 4. **Cobertura Total:**
    - Si el tramo a quitar cubre por completo al tramo existente (o lo desborda), el tramo desaparece íntegramente.
-   - *Ejemplo:* De `08:00–12:00` se quita `07:00–13:00` → Queda vacío `[]`.
+   - *Ejemplo:* De `08:00–12:00` se quita `07:00–13:00` $\rightarrow$ Queda vacío `[]`.
 5. **Inexistencia de Superposición:**
    - Si se solicita quitar un tramo que no coincide con ningún horario del profesor, la operación no falla: simplemente se preserva el horario intacto sin alterar los datos.
 
@@ -366,14 +376,94 @@ La siguiente tabla resume cómo reacciona el motor ante distintos escenarios en 
 
 ---
 
-## 7. Interacción con el Sistema de Clases Prácticas
+## 7. Flujo de Consulta de Turnos Libres (`verTurnosLibres`)
 
-La disponibilidad semanal del profesor es el elemento central de validación que consume el servicio de reservas [`claseService.js`](file:///home/owl64/Proyectos/docker-sandbox/agy-env/workspace/INSPT-Prog3-DriveAndLearn-backend/src/services/claseService.js#L140-L142) antes de confirmar cualquier turno.
+Permite a los alumnos y administradores conocer con exactitud qué horas de 1 hora tiene disponibles un profesor en una fecha puntual, adjuntando la lista de autos libres listos para ser reservados.
 
-### 7.1. Verificación de Inclusión: `estaDentroDeDisponibilidad`
+### 7.1. Contrato HTTP
+
+- **Método y Ruta:** `GET /api/profesores/:id/turnos-libres?fecha=YYYY-MM-DD&cambios=...`
+- **Autenticación:** Público (no exige token)
+- **Parámetros de Query:**
+  - `fecha` (`string`, obligatorio): Fecha calendario en formato `"YYYY-MM-DD"`.
+  - `cambios` (`string`, opcional): Filtro por tipo de caja de cambios (`"MANUAL"` o `"AUTOMATICO"`).
+
+### 7.2. Diagrama de Secuencia de Turnos Libres
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Cliente as Alumno / Cliente
+    participant Route as profesorRoutes
+    participant Ctrl as profesorController
+    participant DTO as profesorDTO
+    participant Svc as profesorService
+    participant HTurnos as turnosYFechasHelper
+    participant SClase as claseService
+    participant SAuto as autoService
+
+    Cliente->>Route: GET /api/profesores/:id/turnos-libres?fecha=2026-11-20
+    Route->>Ctrl: verTurnosLibres(req, res)
+    Ctrl->>DTO: validarTurnosLibresQueryDTO(req.query)
+    DTO-->>Ctrl: OK
+    Ctrl->>Svc: obtenerTurnosLibres({ profesorId, fecha, cambios })
+
+    Svc->>HTurnos: parsearFechaConsulta(fecha)
+    HTurnos-->>Svc: fechaDateTime (valida fecha no pasada)
+
+    Note over Svc: 1. Obtiene turnos posibles proyectados del día
+    Svc->>HTurnos: generarTurnosDeFecha(fechaDateTime, tramosDelDia)
+    Note over HTurnos: Divide tramos en slots de 1h con splitBy({ hours: 1 })<br/>Descarta horas ya pasadas si es hoy
+    HTurnos-->>Svc: turnosPosibles
+
+    Note over Svc: 2. Filtra clases ya ocupadas del profesor
+    Svc->>SClase: listarPorFecha(fecha)
+    SClase-->>Svc: clasesDelDia
+    Note over Svc: Descarta turnos solapados (seSuperponenIntervalos)
+
+    Note over Svc: 3. Cruce con autos disponibles
+    Svc->>SAuto: adjuntarAutosATurnos(turnosLibresProfesor, cambios)
+    loop Por cada turno libre
+        SAuto->>SAuto: obtenerAutosLibresEnTurno(inicio, fin, cambios)
+    end
+    SAuto-->>Svc: turnosConAutos
+
+    Svc-->>Ctrl: { turnos_libres: turnosConAutos }
+    Ctrl-->>Cliente: 200 OK (JSON con turnos_libres y autos)
+```
+
+### 7.3. Ejemplo de Respuesta JSON
+
+```json
+{
+  "turnos_libres": [
+    {
+      "inicio": "2026-11-20T10:00",
+      "fin": "2026-11-20T11:00",
+      "autos": [
+        {
+          "_id": "6727be05a3e14f828a2b5e02",
+          "marca": "Toyota",
+          "modelo": "Etios",
+          "patente": "AE123BC",
+          "cambios": "MANUAL"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## 8. Interacción con el Sistema de Clases Prácticas
+
+La disponibilidad semanal del profesor es el elemento central de validación que consume el servicio de reservas [claseService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/claseService.js) antes de confirmar cualquier turno.
+
+### 8.1. Verificación de Inclusión: `estaDentroDeDisponibilidad`
 
 Para que una clase pueda agendarse:
-1. La clase debe durar exactamente 1 hora en punto (ej. `"2026-11-09T10:00"` a `"2026-11-09T11:00"`).
+1. La clase debe durar exactamente 1 hora en punto (ej. `"2026-11-20T10:00"` a `"2026-11-20T11:00"`).
 2. El intervalo completo de la clase debe quedar **íntegramente contenido** dentro de algún bloque de disponibilidad del profesor mediante el método `engulfs` de Luxon:
 
 ```javascript
@@ -388,7 +478,7 @@ export function estaDentroDeDisponibilidad(disponibilidad, inicioStr, finStr) {
 }
 ```
 
-### 7.2. Continuidad a través de Medianoche y la Ventana de 3 Días
+### 8.2. Continuidad a través de Medianoche y la Ventana de 3 Días
 
 > [!NOTE]
 > **Resolución de Continuidad en Medianoche (`proyectarDisponibilidadEnVentana`):**
@@ -402,7 +492,7 @@ export function estaDentroDeDisponibilidad(disponibilidad, inicioStr, finStr) {
 
 ---
 
-## 8. Tratamiento de Errores y Validaciones de Entrada
+## 9. Tratamiento de Errores y Validaciones de Entrada
 
 Toda petición que intente registrar tramos no conformes o interactúe con entidades inexistentes es rechazada tempranamente:
 
@@ -416,11 +506,13 @@ Toda petición que intente registrar tramos no conformes o interactúe con entid
 | Horas no en punto (ej. `"08:30"`) | `ErrorFormatoDeFecha` | `400 Bad Request` | `"Las horas del tramo deben ser horas en punto válidas entre 00:00 y 24:00"` |
 | Duración menor a 1 hora (ej. `08:00–08:00` o `10:00–09:00`) | `ErrorDeNegocio` | `400 Bad Request` | `"Debe existir al menos 1 hora de distancia entre horaInicio y horaFin"` |
 | Envío de `disponibilidad` en `crear` o `actualizar` | `ErrorDeNegocio` | `400 Bad Request` | `"La disponibilidad solo puede modificarse mediante agregarDisponibilidad y quitarDisponibilidad"` |
+| Consulta de turnos libres en fecha pasada | `ErrorDeNegocio` | `400 Bad Request` | `"No se pueden consultar turnos en fechas u horarios pasados"` |
+| Formato de fecha de consulta inválido | `ErrorFormatoDeFecha` | `400 Bad Request` | `"La fecha de consulta debe tener el formato YYYY-MM-DD"` |
 
 ---
 
-## 9. Resumen de Buenas Prácticas de Implementación
+## 10. Resumen de Buenas Prácticas de Implementación
 
 1. **Inmutabilidad y Canonicidad:** Los tramos nunca se persisten desordenados o solapados. Cualquier mutación pasa forzosamente por `Interval.merge()`, dejando siempre la lista reducida a su mínima expresión canónica.
-2. **Aislamiento en Servicios (SRP):** El controlador solo recibe y responde; el DTO solo valida tipos y estructuras; el helper `calendarizacion.js` solo calcula intervalos; y el servicio `profesorService.js` orquesta la persistencia y reglas de negocio.
+2. **Aislamiento en Servicios (SRP):** El controlador solo recibe y responde; el DTO solo valida tipos y estructuras; los helpers [disponibilidadHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/disponibilidadHelper.js) y [turnosYFechasHelper.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/helpers/turnosYFechasHelper.js) realizan la matemática de intervalos; y el servicio [profesorService.js](file:///home/wolf753/Proyectos/sandbox-docker/agy-env/INSPT-Prog3-DriveAndLearn-backend/src/services/profesorService.js) orquesta la persistencia y reglas de negocio.
 3. **Manejo Seguro del Cierre de Día:** Al emplear `"24:00"` en lugar de `"00:00"` para el final de jornada, se evitan intervalos invertidos (`08:00` a `00:00` sería un intervalo negativo de -8 horas), facilitando la matemática temporal sin ambigüedades.
