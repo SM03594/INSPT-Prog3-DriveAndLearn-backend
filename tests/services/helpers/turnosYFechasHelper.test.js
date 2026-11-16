@@ -8,6 +8,7 @@ import {
   estaDentroDeDisponibilidad,
   obtenerTurnosDeUnaHora,
   verificarFechaFutura,
+  validarFechaCalendario,
   parsearFechaConsulta,
   obtenerDiaDeLaSemana,
   generarTurnosDeFecha,
@@ -183,6 +184,38 @@ describe('turnosYFechasHelper', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+  });
+
+  describe('validarFechaCalendario', () => {
+    it('debería aceptar una fecha válida en formato YYYY-MM-DD (tanto pasada como futura)', () => {
+      const fechaPasada = validarFechaCalendario('2020-01-15');
+      const fechaFutura = validarFechaCalendario('2035-12-31');
+
+      expect(fechaPasada.isValid).toBe(true);
+      expect(fechaPasada.toISODate()).toBe('2020-01-15');
+      expect(fechaFutura.isValid).toBe(true);
+      expect(fechaFutura.toISODate()).toBe('2035-12-31');
+    });
+
+    it('debería lanzar ErrorFormatoDeFecha si el formato no es YYYY-MM-DD o no es string', () => {
+      expect(() => validarFechaCalendario('15-01-2030')).toThrow(
+        ErrorFormatoDeFecha
+      );
+      expect(() => validarFechaCalendario('2030/01/15')).toThrow(
+        ErrorFormatoDeFecha
+      );
+      expect(() => validarFechaCalendario(12345)).toThrow(ErrorFormatoDeFecha);
+      expect(() => validarFechaCalendario(null)).toThrow(ErrorFormatoDeFecha);
+    });
+
+    it('debería lanzar ErrorFormatoDeFecha si el día o mes no existe en el calendario', () => {
+      expect(() => validarFechaCalendario('2030-02-30')).toThrow(
+        ErrorFormatoDeFecha
+      );
+      expect(() => validarFechaCalendario('2030-13-01')).toThrow(
+        ErrorFormatoDeFecha
+      );
     });
   });
 

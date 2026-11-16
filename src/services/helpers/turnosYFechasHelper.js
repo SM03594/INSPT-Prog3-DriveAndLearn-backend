@@ -94,6 +94,31 @@ export function estaDentroDeDisponibilidad(disponibilidad, inicioStr, finStr) {
 }
 
 
+// Valida que la fecha provista sea un string en formato "YYYY-MM-DD" y corresponda
+// a un día real en el calendario (sin restringir si es pasada o futura).
+// Retorna la instancia DateTime de Luxon en hora local de la escuela.
+export function validarFechaCalendario(fechaStr) {
+  if (
+    typeof fechaStr !== 'string' ||
+    !REGEX_FECHA_DIA_YYYY_MM_DD.test(fechaStr)
+  ) {
+    throw new ErrorFormatoDeFecha(
+      'La fecha debe tener el formato YYYY-MM-DD y ser válida'
+    );
+  }
+
+  const fechaDateTime = DateTime.fromISO(fechaStr);
+
+  if (!fechaDateTime.isValid) {
+    throw new ErrorFormatoDeFecha(
+      'La fecha debe tener el formato YYYY-MM-DD y ser válida'
+    );
+  }
+
+  return fechaDateTime;
+}
+
+
 // Valida que la fecha provista sea un string en formato "YYYY-MM-DD", corresponda a un día real
 // en el calendario y no sea una fecha pasada respecto al día actual (o fechaReferencia).
 // Retorna la instancia DateTime de Luxon en hora local de la escuela.
@@ -105,21 +130,7 @@ export function parsearFechaConsulta(
     throw new ErrorPeticionInvalida('El parámetro fecha es obligatorio');
   }
 
-  const fechaLimpia = fechaStr.trim();
-
-  if (!REGEX_FECHA_DIA_YYYY_MM_DD.test(fechaLimpia)) {
-    throw new ErrorFormatoDeFecha(
-      'La fecha debe tener el formato YYYY-MM-DD y ser válida'
-    );
-  }
-
-  const fechaDateTime = DateTime.fromISO(fechaLimpia);
-
-  if (!fechaDateTime.isValid) {
-    throw new ErrorFormatoDeFecha(
-      'La fecha debe tener el formato YYYY-MM-DD y ser válida'
-    );
-  }
+  const fechaDateTime = validarFechaCalendario(fechaStr.trim());
 
   if (fechaDateTime.startOf('day') < fechaReferencia.startOf('day')) {
     throw new ErrorDeNegocio(
