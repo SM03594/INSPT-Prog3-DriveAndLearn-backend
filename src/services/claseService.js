@@ -92,6 +92,8 @@ async function verificarSuperposiciones(
   inicio,
   fin
 ) {
+  // Model.exists() retorna { _id: ... } si halla coincidencia o null si no;
+  // se evalúan directamente como truthy/falsy en las condiciones posteriores.
   const [claseAlumno, claseProfesor, claseAuto] = await Promise.all([
     Clase.exists(crearFiltroSuperposicion(inicio, fin, { alumno: alumnoId })),
     Clase.exists(crearFiltroSuperposicion(inicio, fin, { profesor: profesorId })),
