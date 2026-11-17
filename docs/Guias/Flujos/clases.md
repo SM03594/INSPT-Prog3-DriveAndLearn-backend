@@ -290,11 +290,16 @@ sequenceDiagram
         Note over Svc: Lanza ErrorAutorizacion (403)
     end
 
-    Note over Svc: 3. Reintegro de saldo al alumno
+    Note over Svc: 3. verificarFechaFutura(clase.inicio)
+    alt Si la clase ya comenzó o pertenece al pasado
+        Note over Svc: Lanza ErrorDeNegocio (400)
+    end
+
+    Note over Svc: 4. Reintegro de saldo al alumno
     Svc->>SAlum: sumarSaldoClases(clase.alumno, { cantidad: 1 })
     SAlum-->>Svc: alumno actualizado (saldo + 1)
 
-    Note over Svc: 4. Eliminación física del registro
+    Note over Svc: 5. Eliminación física del registro
     Svc->>MClase: findByIdAndDelete(id)
     MClase-->>Svc: documento eliminado
 
@@ -433,5 +438,6 @@ const [claseAlumno, claseProfesor, claseAuto] = await Promise.all([
 | Superposición de horario en el profesor | `ErrorDeNegocio` | `400` | `"El profesor ya posee una clase asignada en ese horario"` |
 | Superposición de horario en el vehículo | `ErrorDeNegocio` | `400` | `"El auto seleccionado ya se encuentra asignado a otra clase en ese horario"` |
 | Alumno intentando cancelar clase ajena | `ErrorAutorizacion` | `403` | `"No tiene permisos para eliminar esta clase"` |
+| Intentar eliminar una clase en fecha u hora pasada | `ErrorDeNegocio` | `400` | `"No se pueden eliminar clases en fechas u horarios pasados"` |
 | Clase a eliminar no encontrada | `ErrorRegistroInexistente` | `404` | `"La clase solicitada no existe"` |
 | Clase a consultar por ID no encontrada | Retorno `null` | `404` | `"Clase no encontrada"` |
