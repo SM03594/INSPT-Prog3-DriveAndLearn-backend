@@ -10,7 +10,8 @@ import {
   estaDentroDeDisponibilidad,
   verificarFechaFutura,
   validarFechaCalendario,
-  crearFiltroSuperposicion,
+  evaluarSuperposicionConClasesAgendadas,
+  seSuperponenIntervalos,
 } from './helpers/turnosYFechasHelper.js';
 import * as alumnoService from './alumnoService.js';
 import * as profesorService from './profesorService.js';
@@ -93,27 +94,30 @@ async function verificarSuperposiciones(
   inicio,
   fin
 ) {
-  // Model.exists() retorna { _id: ... } si halla coincidencia o null si no;
-  // se evalúan directamente como truthy/falsy en las condiciones posteriores.
-  const [claseAlumno, claseProfesor, claseAuto] = await Promise.all([
-    Clase.exists(crearFiltroSuperposicion(inicio, fin, { alumno: alumnoId })),
-    Clase.exists(crearFiltroSuperposicion(inicio, fin, { profesor: profesorId })),
-    Clase.exists(crearFiltroSuperposicion(inicio, fin, { auto: autoId })),
+  const fecha = inicio.split('T')[0];
+  const filtroFecha = { inicio: { $regex: `^${fecha}T` } };
+
+  // Recupera en paralelo las clases del día para el alumno, profesor y auto
+  const [clasesAlumno, clasesProfesor, clasesAuto] = await Promise.all([
+    Clase.find({ alumno: alumnoId, ...filtroFecha }),
+    Clase.find({ profesor: profesorId, ...filtroFecha }),
+    Clase.find({ auto: autoId, ...filtroFecha }),
   ]);
 
-  if (claseAlumno) {
+  // Evalúa en memoria con Luxon para garantizar el modelo de intervalos semiabiertos
+  if (evaluarSuperposicionConClasesAgendadas(inicio, fin, clasesAlumno)) {
     throw new ErrorDeNegocio(
       'El alumno ya posee una clase agendada en ese horario'
     );
   }
 
-  if (claseProfesor) {
+  if (evaluarSuperposicionConClasesAgendadas(inicio, fin, clasesProfesor)) {
     throw new ErrorDeNegocio(
       'El profesor ya posee una clase asignada en ese horario'
     );
   }
 
-  if (claseAuto) {
+  if (evaluarSuperposicionConClasesAgendadas(inicio, fin, clasesAuto)) {
     throw new ErrorDeNegocio(
       'El auto seleccionado ya se encuentra asignado a otra clase en ese horario'
     );
@@ -310,9 +314,29 @@ export async function listarPorFecha(fecha) {
 }
 
 
-// Obtiene todas las clases que se superponen con el intervalo [inicio, fin).
+// Obtiene todas las clases que se superponen con el intervalo [inicio, fin)
+// evaluadas mediante el motor de intervalos de Luxon (seSuperponenIntervalos).
 // Permite especificar un filtro adicional opcional (ej. { auto: autoId }).
 export async function listarEnIntervalo(inicio, fin, filtroAdicional = {}) {
-  const filtro = crearFiltroSuperposicion(inicio, fin, filtroAdicional);
-  return await Clase.find(filtro);
+  const fechaInicio = inicio.split('T')[0];
+  const fechaFin = fin.split('T')[0];
+
+  const filtroFecha =
+    fechaInicio === fechaFin
+      ? { inicio: { $regex: `^${fechaInicio}T` } }
+      : {
+          $or: [
+            { inicio: { $regex: `^${fechaInicio}T` } },
+            { inicio: { $regex: `^${fechaFin}T` } },
+          ],
+        };
+
+  const clasesCandidatas = await Clase.find({
+    ...filtroAdicional,
+    ...filtroFecha,
+  });
+
+  return clasesCandidatas.filter((clase) =>
+    seSuperponenIntervalos(inicio, fin, clase.inicio, clase.fin)
+  );
 }

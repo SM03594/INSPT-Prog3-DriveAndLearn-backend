@@ -251,6 +251,15 @@ export function seSuperponenIntervalos(inicioA, finA, inicioB, finB) {
 }
 
 
+// Evalúa si un intervalo propuesto colisiona con alguna de las clases de una lista dada,
+// utilizando Interval.overlaps de Luxon a través de seSuperponenIntervalos.
+export function evaluarSuperposicionConClasesAgendadas(inicio, fin, clases = []) {
+  return clases.some((clase) =>
+    seSuperponenIntervalos(inicio, fin, clase.inicio, clase.fin)
+  );
+}
+
+
 // Construye un filtro de consulta para MongoDB/Mongoose que detecta cualquier documento
 // cuyo intervalo [inicio, fin) se solape con el rango provisto.
 export function crearFiltroSuperposicion(inicio, fin, filtroBase = {}) {

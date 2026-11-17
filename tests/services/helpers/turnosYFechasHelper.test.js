@@ -14,6 +14,7 @@ import {
   generarTurnosDeFecha,
   crearIntervaloValido,
   seSuperponenIntervalos,
+  evaluarSuperposicionConClasesAgendadas,
   crearFiltroSuperposicion,
 } from '../../../src/services/helpers/turnosYFechasHelper.js';
 
@@ -564,6 +565,59 @@ describe('turnosYFechasHelper', () => {
       expect(() =>
         crearIntervaloValido('2030-11-12T11:00', '2030-11-12T10:00')
       ).toThrow(ErrorDeNegocio);
+    });
+  });
+
+  describe('evaluarSuperposicionConClasesAgendadas', () => {
+    it('debería retornar true si el intervalo propuesto se superpone con alguna clase de la lista', () => {
+      const clases = [
+        { inicio: '2030-11-12T08:00', fin: '2030-11-12T09:00' },
+        { inicio: '2030-11-12T10:00', fin: '2030-11-12T11:00' },
+      ];
+
+      // Caso: coincide exactamente con 10:00 a 11:00
+      expect(
+        evaluarSuperposicionConClasesAgendadas(
+          '2030-11-12T10:00',
+          '2030-11-12T11:00',
+          clases
+        )
+      ).toBe(true);
+    });
+
+    it('debería retornar false si las clases son contiguas o no comparten tiempo', () => {
+      const clases = [
+        { inicio: '2030-11-12T08:00', fin: '2030-11-12T09:00' },
+        { inicio: '2030-11-12T10:00', fin: '2030-11-12T11:00' },
+      ];
+
+      // Contigua entre las 09:00 y las 10:00
+      expect(
+        evaluarSuperposicionConClasesAgendadas(
+          '2030-11-12T09:00',
+          '2030-11-12T10:00',
+          clases
+        )
+      ).toBe(false);
+
+      // Posterior: 11:00 a 12:00
+      expect(
+        evaluarSuperposicionConClasesAgendadas(
+          '2030-11-12T11:00',
+          '2030-11-12T12:00',
+          clases
+        )
+      ).toBe(false);
+    });
+
+    it('debería retornar false si la lista de clases está vacía', () => {
+      expect(
+        evaluarSuperposicionConClasesAgendadas(
+          '2030-11-12T10:00',
+          '2030-11-12T11:00',
+          []
+        )
+      ).toBe(false);
     });
   });
 

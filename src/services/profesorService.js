@@ -107,6 +107,8 @@ export async function agregarDisponibilidad(id, listaTramos) {
   const profesor = await obtenerProfesorExistente(id);
   const tramosPorDia = agruparTramosPorDia(listaTramos);
 
+  // Itera exclusivamente sobre los días incluidos en la petición (tramosPorDia),
+  // fusionando los nuevos tramos sin modificar los días no especificados.
   for (const [dia, nuevosTramos] of Object.entries(tramosPorDia)) {
     const tramosActuales = profesor.disponibilidad[dia] || [];
     profesor.disponibilidad[dia] = agregarTramosADia(
@@ -127,6 +129,8 @@ export async function quitarDisponibilidad(id, listaTramos) {
   const profesor = await obtenerProfesorExistente(id);
   const tramosPorDia = agruparTramosPorDia(listaTramos);
 
+  // Itera exclusivamente sobre los días incluidos en la petición (tramosPorDia),
+  // recortando o quitando tramos sin modificar los días no especificados.
   for (const [dia, tramosAQuitar] of Object.entries(tramosPorDia)) {
     const tramosActuales = profesor.disponibilidad[dia] || [];
     profesor.disponibilidad[dia] = quitarTramosDeDia(
