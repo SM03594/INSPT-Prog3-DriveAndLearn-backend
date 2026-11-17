@@ -207,7 +207,11 @@ Coordina el agendamiento y cancelación de clases prácticas de manejo con verif
   - Valida `idClase`, busca con `findById` (retorna `null` si no existe) y aplica `verificarActorValido` para impedir accesos cruzados entre alumnos.
 
 - **`listar(filtros, usuarioActual)`**:
-  - Si `usuarioActual.rol === 'alumno'`, restringe forzosamente `filtroFinal.alumno = usuarioActual.id`. Si es administrador, aplica los filtros provistos sobre `Clase.find(filtroFinal)`.
+  - Actúa como orquestador lineal delegando responsabilidades en funciones auxiliares privadas:
+    1. `validarFormatosFiltros(filtros)`: Valida el formato de los ObjectIds (`profesor`, `auto`, `alumno`) con `validarMongooseObjId` y de `fecha` con `validarFechaCalendario`.
+    2. `verificarPermisoConsultaAlumno(filtros, usuarioActual)`: Si `usuarioActual.rol === 'alumno'` y envió un ID de alumno ajeno, corta con `ErrorAutorizacion` (**`403 Forbidden`**): `"No tienes permiso para acceder a clases de otros alumnos"`.
+    3. `construirFiltroConsulta(filtros, usuarioActual)`: Mapea a la consulta de MongoDB (`filtro.alumno = usuarioActual.id` si es alumno; `filtro.alumno = filtros.alumno` si es administrador; `fecha` como regex `{ inicio: { $regex: '^YYYY-MM-DDT' } }`).
+  - Ejecuta `Clase.find(filtroFinal)` y retorna los documentos encontrados.
 
 - **`listarPorFecha(fecha)`**:
   - Retorna todas las clases de un día calendario usando búsqueda regex de prefijo: `{ inicio: { $regex: '^YYYY-MM-DDT' } }`.
@@ -228,6 +232,7 @@ Coordina el agendamiento y cancelación de clases prácticas de manejo con verif
 - **`validarYHashearPassword(password)`**: Orquesta la validación y el hasheo en un solo paso.
 
 ### 3.3. `turnosYFechasHelper.js`
+- **`validarFechaCalendario(fechaStr)`**: Valida que el string cumpla con el formato `"YYYY-MM-DD"` y sea una fecha válida y real en el calendario mediante Luxon `DateTime.fromISO` (admitiendo tanto fechas pasadas como futuras). Retorna la instancia `DateTime`. Utilizada por `listar` en clases y reutilizada por `parsearFechaConsulta`.
 - **`parsearFechaHoraClase(fechaHoraStr)`**: Valida formato `"YYYY-MM-DDTHH:00"` con regex y parsea con Luxon `DateTime.fromISO` en hora local.
 - **`validarIntervaloDeClase(inicioStr, finStr)`**: Verifica que las horas sean en punto y que `Interval.length('hours') === 1`.
 - **`verificarFechaFutura(fechaHoraStr)`**: Lanza `ErrorDeNegocio` si la fecha de inicio es anterior o igual a `DateTime.now()`.

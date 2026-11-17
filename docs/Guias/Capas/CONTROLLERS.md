@@ -217,8 +217,11 @@ Los controladores constituyen la **capa delgada de comunicación HTTP**. Sus reg
 #### Funciones:
 
 ### `listar(req, res)`
-- **Propósito:** Listar clases agendadas. Si el usuario autenticado tiene rol `alumno`, el servicio fuerza el filtro para mostrar solo sus propias clases; si es `administrador`, visualiza todas o filtra por query params.
-- **Flujo:** Invoca `await claseService.listar(req.query, req.usuario)` y responde **`200 OK`**.
+- **Propósito:** Listar clases agendadas. Admite filtros opcionales por query parameters (`profesor`, `auto`, `alumno`, `fecha`). Si el usuario autenticado tiene rol `alumno`, solo puede visualizar sus propias clases (rechaza intentos de consultar a otros alumnos con `403`); si es `administrador`, visualiza todas o filtra por los parámetros provistos.
+- **Flujo:**
+  1. Valida la consulta con `const queryValidada = validarListarClasesQueryDTO(req.query)`.
+  2. Invoca `await claseService.listar(queryValidada, req.usuario)`.
+  3. Responde **`200 OK`** con el listado de clases.
 
 ### `obtener(req, res)`
 - **Propósito:** Obtener el detalle de una clase específica por su ID (`req.params.id`).

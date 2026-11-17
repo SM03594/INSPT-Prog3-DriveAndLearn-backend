@@ -204,6 +204,10 @@ El helper [src/services/helpers/turnosYFechasHelper.js](file:///home/wolf753/Pro
 - `parsearFechaConsulta`: comprueba formato `"YYYY-MM-DD"`, valida fecha real y asegura que no sea una fecha pasada.
 - `generarTurnosDeFecha`: divide los tramos horarios del día en bloques de 1 hora mediante `splitBy({ hours: 1 })`. Si la consulta corresponde al día actual (`DateTime.now()`), descarta automáticamente los turnos cuyas horas ya hayan transcurrido.
 
+### 5.7. `validarFechaCalendario(fechaStr)`
+- Comprueba que el parámetro recibido sea un `string` con formato `"YYYY-MM-DD"` y corresponda a un día real y válido en el calendario gregoriano mediante `DateTime.fromISO` de Luxon.
+- Es agnóstica de tiempo (admite tanto fechas pasadas como futuras), sirviendo como validador para el filtrado de clases históricas en `GET /api/clases?fecha=...` y como base interna reutilizada por `parsearFechaConsulta`. Lanza `ErrorFormatoDeFecha` si no cumple.
+
 ---
 
 ## 6. Integración en `profesorService.js`

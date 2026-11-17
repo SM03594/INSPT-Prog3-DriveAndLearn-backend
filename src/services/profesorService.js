@@ -17,6 +17,8 @@ import * as autoService from './autoService.js';
 import * as claseService from './claseService.js';
 
 
+// Impide que se altere la disponibilidad semanal desde el alta o edición general del perfil,
+// forzando a que cualquier cambio de agenda pase exclusivamente por agregar/quitar tramos.
 function verificarQueNoIncluyaDisponibilidad(datos) {
   if (datos && datos.disponibilidad !== undefined) {
     throw new ErrorDeNegocio(
@@ -26,6 +28,9 @@ function verificarQueNoIncluyaDisponibilidad(datos) {
 }
 
 
+// Recibe una lista plana de elementos con la forma { dia, tramoHorario: { horaInicio, horaFin } }
+// (ej. [{ dia: 'lunes', tramoHorario: { horaInicio: '08:00', horaFin: '12:00' } }]) y los agrupa
+// en un diccionario indexado por día (ej. { lunes: [{ horaInicio, horaFin }] }) para procesar cada día en lote.
 function agruparTramosPorDia(listaTramos) {
   return listaTramos.reduce((acumulador, { dia, tramoHorario }) => {
     if (!acumulador[dia]) {
@@ -37,6 +42,8 @@ function agruparTramosPorDia(listaTramos) {
 }
 
 
+// Recupera el profesor por ID y lanza ErrorRegistroInexistente (404) si no existe;
+// utilizado por operaciones compuestas (disponibilidad y turnos libres).
 async function obtenerProfesorExistente(id) {
   const profesor = await obtenerPorId(id);
 
@@ -48,6 +55,7 @@ async function obtenerProfesorExistente(id) {
 }
 
 
+// Registra un nuevo profesor con disponibilidad semanal vacía por defecto de lunes a domingo.
 export async function crear(datos) {
   verificarQueNoIncluyaDisponibilidad(datos);
 
@@ -55,11 +63,14 @@ export async function crear(datos) {
 }
 
 
+// Retorna la totalidad de profesores registrados junto a su agenda semanal.
 export async function listar() {
   return await Profesor.find({});
 }
 
 
+// Busca un profesor por su identificador único; retorna null si no existe para que
+// el controlador devuelva 404 Not Found en operaciones CRUD directas.
 export async function obtenerPorId(id) {
   validarMongooseObjId(id);
 
@@ -67,6 +78,8 @@ export async function obtenerPorId(id) {
 }
 
 
+// Actualiza los datos personales del profesor (NomApe), aplicando validaciones del modelo
+// y garantizando que no se introduzca el campo disponibilidad por esta vía.
 export async function actualizar(id, datos) {
   validarMongooseObjId(id);
   verificarQueNoIncluyaDisponibilidad(datos);
@@ -78,6 +91,7 @@ export async function actualizar(id, datos) {
 }
 
 
+// Retorna únicamente el subdocumento de disponibilidad semanal del docente especificado.
 export async function verDisponibilidad(id) {
   const profesor = await obtenerProfesorExistente(id);
 
@@ -85,6 +99,8 @@ export async function verDisponibilidad(id) {
 }
 
 
+// Agrega tramos horarios a la disponibilidad del profesor, unificando automáticamente
+// intervalos contiguos o superpuestos mediante Interval.merge() de Luxon.
 export async function agregarDisponibilidad(id, listaTramos) {
   validarEntradaTramosDisponibilidad(listaTramos);
 
@@ -103,6 +119,8 @@ export async function agregarDisponibilidad(id, listaTramos) {
 }
 
 
+// Remueve o recorta tramos de disponibilidad del profesor utilizando Interval.difference(),
+// recalculando los límites de los bloques afectados sin dejar huecos inconsistentes.
 export async function quitarDisponibilidad(id, listaTramos) {
   validarEntradaTramosDisponibilidad(listaTramos);
 
@@ -121,6 +139,8 @@ export async function quitarDisponibilidad(id, listaTramos) {
 }
 
 
+// Excluye de los turnos posibles aquellos que se superponen con clases ya agendadas
+// para el profesor en la fecha indicada.
 function filtrarTurnosOcupadosDelProfesor(turnos, clases, profesorId) {
   const profesorIdStr = profesorId.toString();
   const clasesDelProfesor = clases.filter(
@@ -141,6 +161,8 @@ function filtrarTurnosOcupadosDelProfesor(turnos, clases, profesorId) {
 }
 
 
+// Identifica el día de la semana de la fecha consultada y proyecta sus tramos en bloques
+// continuos de 1 hora exacta, descartando horas pasadas si la consulta es del día actual.
 function obtenerTurnosPosibles(disponibilidad, fechaDateTime) {
   const nombreDia = obtenerDiaDeLaSemana(fechaDateTime);
   const tramosDelDia = disponibilidad?.[nombreDia] || [];
@@ -153,6 +175,8 @@ function obtenerTurnosPosibles(disponibilidad, fechaDateTime) {
 }
 
 
+// Orquesta la consulta de turnos libres de 1 hora del docente en una fecha dada:
+// valida la fecha, proyecta la agenda del día, descarta turnos ocupados y adjunta autos disponibles.
 export async function obtenerTurnosLibres({ profesorId, fecha, cambios } = {}) {
   validarMongooseObjId(profesorId);
 

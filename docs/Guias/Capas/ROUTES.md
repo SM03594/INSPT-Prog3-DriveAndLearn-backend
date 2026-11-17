@@ -117,7 +117,7 @@ Esta guía documenta la capa **Routes** dentro de la arquitectura de **DriveAndL
 
 | Método | Ruta | Middlewares Previos | Controlador Asociado | Descripción | Status Exitoso |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/` | `autenticar` | `claseController.listar` | Si es alumno, devuelve sus clases. Si es admin, lista todas o aplica filtros de query. | `200 OK` |
+| `GET` | `/` | `autenticar` | `claseController.listar` | Lista clases con filtros opcionales (`?profesor=`, `?auto=`, `?alumno=`, `?fecha=`). Si es alumno solo puede ver las suyas (`403` si consulta a otro); si es admin, lista todas o filtra. | `200 OK` |
 | `GET` | `/:id` | `autenticar` | `claseController.obtener` | Obtiene el detalle de una clase (el alumno solo puede ver las suyas). | `200 OK` |
 | `POST` | `/` | `autenticar`, `validarObjetoJson` | `claseController.agendar` | Agenda una clase inyectando el ID del alumno desde el token. Descuenta 1 crédito. | `201 Created` |
 | `DELETE` | `/:id` | `autenticar` | `claseController.eliminar` | Cancela la clase, reintegra 1 crédito al alumno y elimina el registro de la BD. | `200 OK` |

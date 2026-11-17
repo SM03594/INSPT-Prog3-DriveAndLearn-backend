@@ -328,9 +328,27 @@ function verificarActorValido(
 ### 6.1. Listado de Clases (`listar`)
 
 - **Ruta:** `GET /api/clases`
-- **Comportamiento según Rol:**
-  - **Si el actor es `ALUMNO`:** El servicio fuerza internamente el filtro `{ alumno: usuarioActual.id }`. Un alumno **nunca puede ver clases de otros compañeros**.
-  - **Si el actor es `ADMINISTRADOR`:** Puede visualizar la totalidad de las clases agendadas y aplicar filtros opcionales recibidos por query parameters (`req.query`).
+- **Parámetros de Consulta Opcionales (`req.query`):**
+  - `profesor`: `string` (ObjectId del docente).
+  - `auto`: `string` (ObjectId del vehículo).
+  - `alumno`: `string` (ObjectId del alumno; permitido solo para administradores o coincidente con el alumno autenticado).
+  - `fecha`: `string` (fecha calendario en formato `YYYY-MM-DD`).
+- **Validación en Capa DTO (`validarListarClasesQueryDTO`):**
+  - Admite una consulta vacía (`{}`) retornando `{}`.
+  - Si recibe parámetros, valida que sean únicamente los 4 campos opcionales permitidos y que su tipo sea `string`, rechazando parámetros no reconocidos (`ErrorCampoInvalido`), valores de tipos erróneos o arrays por *parameter pollution* (`ErrorDeTipo`).
+- **Orquestación en Capa Service (`claseService.listar`):**
+  1. **Validación de formatos (`validarFormatosFiltros`):** Valida que los identificadores enviados (`profesor`, `auto`, `alumno`) sean `ObjectId` válidos mediante `validarMongooseObjId` y que `fecha` cumpla con el formato `YYYY-MM-DD` mediante `validarFechaCalendario`.
+  2. **Regla de Autorización (`verificarPermisoConsultaAlumno`):**
+     - Si el actor es `ALUMNO` y envía explícitamente el parámetro `alumno` con un ID distinto al suyo propio (`filtros.alumno !== usuarioActual.id`), arroja inmediatamente `ErrorAutorizacion` (**`403 Forbidden`**) con el mensaje:
+       > `"No tienes permiso para acceder a clases de otros alumnos"`
+     - Si el actor es `ALUMNO` y envía su propio ID o no envía el parámetro `alumno`, la consulta continúa normalmente.
+     - Si el actor es `ADMINISTRADOR`, puede filtrar por cualquier alumno sin restricciones.
+  3. **Construcción del Filtro Mongoose (`construirFiltroConsulta`):**
+     - Si el actor es `ALUMNO`, fija `filtro.alumno = usuarioActual.id`, asegurando que jamás visualice clases ajenas.
+     - Si el actor es `ADMINISTRADOR` y envió `alumno`, aplica `filtro.alumno = filtros.alumno`.
+     - Si se envió `fecha`, la traduce al filtro de inicio de día mediante expresión regular de prefijo: `{ inicio: { $regex: '^YYYY-MM-DDT' } }`.
+     - Aplica directamente los filtros opcionales de `profesor` y `auto`.
+  4. Ejecuta `Clase.find(filtroFinal)` y retorna la colección resultante (**`200 OK`**).
 
 ### 6.2. Detalle de Clase (`obtenerPorId`)
 
