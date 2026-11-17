@@ -152,6 +152,14 @@ describe('turnosYFechasHelper', () => {
       ).toThrow('No se pueden agendar clases en fechas u horarios pasados');
     });
 
+    it('debería admitir un mensaje personalizado de ErrorDeNegocio al fallar', () => {
+      const mensajePersonalizado = 'No se pueden eliminar clases en fechas u horarios pasados';
+
+      expect(() =>
+        verificarFechaFutura('2030-11-06T11:00', referenciaFija, mensajePersonalizado)
+      ).toThrow(mensajePersonalizado);
+    });
+
     it('debería lanzar ErrorDeNegocio si la fecha es exactamente igual a la referencia', () => {
       expect(() =>
         verificarFechaFutura('2030-11-06T12:00', referenciaFija)

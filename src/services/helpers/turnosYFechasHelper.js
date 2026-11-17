@@ -61,14 +61,13 @@ export function validarIntervaloDeClase(inicioStr, finStr) {
 // (o a una fechaReferencia provista, útil para tests deterministas).
 export function verificarFechaFutura(
   fechaHoraStr,
-  fechaReferencia = DateTime.now()
+  fechaReferencia = DateTime.now(),
+  mensajeError = 'No se pueden agendar clases en fechas u horarios pasados'
 ) {
   const fechaHora = parsearFechaHoraClase(fechaHoraStr);
 
   if (fechaHora <= fechaReferencia) {
-    throw new ErrorDeNegocio(
-      'No se pueden agendar clases en fechas u horarios pasados'
-    );
+    throw new ErrorDeNegocio(mensajeError);
   }
 
   return fechaHora;

@@ -189,6 +189,13 @@ export async function eliminar(idClase, usuarioActual) {
     'No tiene permisos para eliminar esta clase'
   );
 
+  // Solo se pueden cancelar clases que no hayan comenzado
+  verificarFechaFutura(
+    clase.inicio,
+    undefined,
+    'No se pueden eliminar clases en fechas u horarios pasados'
+  );
+
   // Reintegrar 1 crédito de saldo al alumno vía alumnoService
   await alumnoService.sumarSaldoClases(clase.alumno.toString(), { cantidad: 1 });
 

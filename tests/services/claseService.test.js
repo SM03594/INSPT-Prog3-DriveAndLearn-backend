@@ -669,6 +669,78 @@ describe('claseService', () => {
         claseService.eliminar(idInexistente, usuario)
       ).rejects.toThrow(ErrorRegistroInexistente);
     });
+
+    it('debería rechazar con ErrorDeNegocio si un alumno intenta eliminar una clase pasada y no modificar el saldo ni borrarla', async () => {
+      const alumno = await crearAlumnoFixture({ saldo: 1 });
+      const profesor = await crearProfesorFixture();
+      const auto = await crearAutoFixture();
+
+      // Creamos la clase directamente con fecha en el pasado
+      const clasePasada = await Clase.create({
+        alumno: alumno._id,
+        profesor: profesor._id,
+        auto: auto._id,
+        inicio: '2020-01-01T10:00',
+        fin: '2020-01-01T11:00',
+      });
+
+      const usuarioActual = { id: alumno._id.toString(), rol: ROLES.ALUMNO };
+
+      await expect(
+        claseService.eliminar(clasePasada._id.toString(), usuarioActual)
+      ).rejects.toThrow(ErrorDeNegocio);
+
+      await expect(
+        claseService.eliminar(clasePasada._id.toString(), usuarioActual)
+      ).rejects.toThrow(
+        'No se pueden eliminar clases en fechas u horarios pasados'
+      );
+
+      // Verificar que la clase sigue existiendo en MongoDB
+      const claseEnDb = await Clase.findById(clasePasada._id);
+      expect(claseEnDb).not.toBeNull();
+
+      // Verificar que el saldo del alumno NO aumentó
+      const alumnoSinCambio = await alumnoService.obtenerPorId(
+        alumno._id.toString()
+      );
+      expect(alumnoSinCambio.saldoClases).toBe(1);
+    });
+
+    it('debería rechazar con ErrorDeNegocio si un administrador intenta eliminar una clase pasada', async () => {
+      const alumno = await crearAlumnoFixture({ saldo: 1 });
+      const profesor = await crearProfesorFixture();
+      const auto = await crearAutoFixture();
+
+      const clasePasada = await Clase.create({
+        alumno: alumno._id,
+        profesor: profesor._id,
+        auto: auto._id,
+        inicio: '2020-01-01T10:00',
+        fin: '2020-01-01T11:00',
+      });
+
+      const usuarioAdmin = {
+        id: new mongoose.Types.ObjectId().toString(),
+        rol: ROLES.ADMINISTRADOR,
+      };
+
+      await expect(
+        claseService.eliminar(clasePasada._id.toString(), usuarioAdmin)
+      ).rejects.toThrow(
+        'No se pueden eliminar clases en fechas u horarios pasados'
+      );
+
+      // Verificar que la clase no se eliminó
+      const claseEnDb = await Clase.findById(clasePasada._id);
+      expect(claseEnDb).not.toBeNull();
+
+      // Verificar que el saldo del alumno NO aumentó
+      const alumnoSinCambio = await alumnoService.obtenerPorId(
+        alumno._id.toString()
+      );
+      expect(alumnoSinCambio.saldoClases).toBe(1);
+    });
   });
 
   describe('obtenerPorId', () => {
